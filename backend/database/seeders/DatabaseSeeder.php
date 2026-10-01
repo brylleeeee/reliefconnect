@@ -5,9 +5,11 @@ namespace Database\Seeders;
 use App\Models\Announcement;
 use App\Models\Barangay;
 use App\Models\Distribution;
+use App\Models\DistributionEvent;
 use App\Models\Household;
 use App\Models\ReliefItem;
 use App\Models\User;
+use App\Services\DistributionEventService;
 use App\Services\HouseholdService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -103,6 +105,8 @@ class DatabaseSeeder extends Seeder
                 'distributed_at' => now()->subDays(rand(0, 29))->setTime(rand(8, 16), rand(0, 59)),
             ]));
 
+        $this->seedEvents($barangays, $items, $admin, $distributor);
+
         foreach ([
             ['Nutritional Relief Pack Distribution', 'Priority collection for senior citizens and pregnant women. Please bring your approved digital Relief QR code.', now()->setTime(8, 0)],
             ['Class Suspensions & Flood Advisory', 'Due to southwest monsoon rains, classes in all levels are suspended. Emergency rescue boat standby at Purok 4.', now()->subDay()],
@@ -112,6 +116,105 @@ class DatabaseSeeder extends Seeder
                 'user_id' => $admin->id, 'title' => $title,
                 'description' => $desc, 'published_at' => $date,
             ]);
+        }
+    }
+
+    /**
+     * Sample events so the Distribution Events and barangay Distributions pages have data
+     * before the mobile scanner exists. Each barangay is at a different stage, and claims
+     * go through the same service the scanner will use, so stock updates realistically.
+     */
+    private function seedEvents($barangays, $items, User $admin, User $distributor): void
+    {
+        $service = app(DistributionEventService::class);
+        $approved = fn ($b) => Household::where('barangay_id', $b->id)->where('status', 'approved')->get();
+
+        $food = DistributionEvent::create([
+            'name' => 'Typhoon Relief: Family Food Packs',
+            'relief_item_id' => $items[0]->id,
+            'quantity_per_household' => 1,
+            'distribute_by' => now()->addDays(5)->toDateString(),
+            'notes' => 'Bring your ReliefConnect QR code or reference number. Priority lane for seniors, PWDs and pregnant women.',
+            'created_by' => $admin->id,
+        ]);
+
+        // name => [status, share of households that claimed]
+        $stages = [
+            'Bayaoas' => ['closed', 90],    // finished yesterday
+            'Batancaoa' => ['ongoing', 55], // distributing now
+            'Poblacion' => ['ongoing', 30], // distributing now
+            'Angatel' => ['scheduled', 0],  // tomorrow
+        ];
+
+        foreach ($barangays as $b) {
+            [$stage, $share] = $stages[$b->name];
+            $bd = $food->barangayDistributions()->create([
+                'barangay_id' => $b->id,
+                'quota' => $approved($b)->count(),
+                'scheduled_at' => match ($stage) {
+                    'closed' => now()->subDay()->setTime(8, 0),
+                    'scheduled' => now()->addDay()->setTime(9, 0),
+                    default => now()->setTime(8, 0),
+                },
+                'venue' => "Barangay {$b->name} Hall",
+                'status' => 'scheduled',
+            ]);
+
+            if ($stage === 'scheduled') {
+                continue;
+            }
+
+            $bd->update(['status' => 'ongoing', 'started_at' => $bd->scheduled_at]);
+            $approved($b)->shuffle()->take((int) round($approved($b)->count() * $share / 100))
+                ->each(function ($h) use ($service, $food, $distributor, $bd) {
+                    $claim = $service->claim($food, $h->reference_number, $distributor, [
+                        'verification_method' => rand(1, 100) <= 80 ? 'qr' : 'reference_number',
+                    ]);
+                    $claim->update(['distributed_at' => $bd->scheduled_at->copy()->addMinutes(rand(0, 180))]);
+                });
+
+            if ($stage === 'closed') {
+                $bd->update(['status' => 'closed', 'closed_at' => $bd->scheduled_at->copy()->addHours(4)]);
+            }
+        }
+
+        // The LGU's notice to the barangays, and the barangays that relayed it to residents
+        $notice = Announcement::create([
+            'user_id' => $admin->id,
+            'distribution_event_id' => $food->id,
+            'category' => 'Distribution',
+            'title' => "New relief distribution: {$food->name}",
+            'description' => "1 Pack of {$items[0]->name} per household. Check Distributions for your barangay's quota and set your distribution day on or before ".$food->distribute_by->format('M j, Y').'.',
+            'published_at' => now()->subDays(2),
+        ]);
+        $notice->targetBarangays()->sync($barangays->pluck('id'));
+
+        foreach ($food->barangayDistributions()->with('barangay')->get() as $bd) {
+            if ($bd->barangay->name === 'Angatel') {
+                continue; // not relayed yet, so the LGU can see a barangay that still needs to
+            }
+            Announcement::create([
+                'user_id' => User::where('barangay_id', $bd->barangay_id)->value('id'),
+                'barangay_id' => $bd->barangay_id,
+                'source_announcement_id' => $notice->id,
+                'distribution_event_id' => $food->id,
+                'category' => 'Barangay Advisory',
+                'title' => "Food pack distribution in Barangay {$bd->barangay->name}",
+                'description' => 'Distribution on '.$bd->scheduled_at->format('M j, Y g:i A')." at {$bd->venue}. One food pack per household. Bring your ReliefConnect QR code or reference number.",
+                'published_at' => now()->subDays(2)->addHours(3),
+            ]);
+        }
+
+        // Just created by the LGU: no barangay has scheduled yet
+        $kits = DistributionEvent::create([
+            'name' => 'Sanitary Kit Distribution',
+            'relief_item_id' => $items[1]->id,
+            'quantity_per_household' => 1,
+            'distribute_by' => now()->addDays(14)->toDateString(),
+            'created_by' => $admin->id,
+        ]);
+        foreach ($barangays as $b) {
+            $kits->barangayDistributions()->create(['barangay_id' => $b->id, 'quota' => $approved($b)->count()]);
         }
     }
 

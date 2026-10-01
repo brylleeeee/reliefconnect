@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Distribution extends Model
 {
     protected $fillable = [
-        'household_id', 'relief_item_id', 'distributed_by', 'quantity',
+        'distribution_event_id', 'household_id', 'relief_item_id', 'distributed_by', 'quantity',
         'verification_method', 'synced_from_offline', 'distributed_at',
     ];
 
@@ -17,6 +17,11 @@ class Distribution extends Model
             'distributed_at' => 'datetime',
             'synced_from_offline' => 'boolean',
         ];
+    }
+
+    public function event()
+    {
+        return $this->belongsTo(DistributionEvent::class, 'distribution_event_id');
     }
 
     public function household()
