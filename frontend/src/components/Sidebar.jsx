@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutGrid, QrCode, Archive, BarChart3, Users, UserPlus, MapPin, ShieldPlus, LogOut, Scale,
+  CalendarCheck, ClipboardCheck, Megaphone,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -8,6 +9,7 @@ const LINKS = {
   municipal_admin: [
     { to: '/', label: 'Dashboard', icon: LayoutGrid, end: true },
     { to: '/inventory', label: 'Inventory', icon: Archive },
+    { to: '/events', label: 'Distribution Events', icon: CalendarCheck },
     { to: '/prioritization', label: 'Aid Prioritization', icon: Scale },
     { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   ],
@@ -15,6 +17,8 @@ const LINKS = {
     { to: '/qr-review', label: 'QR Issuance Review', icon: QrCode },
     { to: '/households', label: 'Household Records', icon: Users },
     { to: '/walk-in', label: 'Walk-in Registration', icon: UserPlus },
+    { to: '/distributions', label: 'Distributions', icon: ClipboardCheck },
+    { to: '/announcements', label: 'Announcements', icon: Megaphone },
   ],
 }
 

@@ -7,6 +7,8 @@ export function PriorityBadge({ level, score }) {
   )
 }
 
+const STATUS_LABELS = { unscheduled: 'not scheduled' }
+
 export function StatusBadge({ status }) {
-  return <span className={`rc-status ${status}`}>{status}</span>
+  return <span className={`rc-status ${status}`}>{STATUS_LABELS[status] ?? status}</span>
 }

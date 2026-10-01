@@ -6,6 +6,7 @@ import {
 import api from '../api/client'
 import PageHeader from '../components/PageHeader'
 import { C } from '../chartColors'
+import EventAnalytics from '../components/EventAnalytics'
 
 function ChartCard({ title, note, height = 260, children }) {
   return (
@@ -62,6 +63,14 @@ export default function Analytics() {
           </div>
         </div></div>
       </div>
+
+      <section className="rc-card mb-3">
+        <h2 className="rc-card-title mb-1">Distribution by barangay</h2>
+        <p className="small text-secondary">
+          Claimed, pending and unclaimed households for a distribution event. Choose a barangay to see it by purok.
+        </p>
+        <EventAnalytics />
+      </section>
 
       <div className="mb-3">
         <ChartCard title="Units distributed per day">
