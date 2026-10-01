@@ -221,3 +221,36 @@ body {
   .rc-main { padding: 0; }
   .rc-card { border: 0; }
 }
+
+/* ---------- Analytics: tabs, attention list, coverage rows ---------- */
+.rc-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--rc-border); }
+.rc-tabs button {
+  background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  padding: 8px 14px; font-size: 13px; font-weight: 600; color: #52606d;
+}
+.rc-tabs button:hover { color: var(--rc-text); }
+.rc-tabs button.active { color: var(--rc-green); border-bottom-color: var(--rc-green); }
+.rc-tabs button:focus-visible { outline: 2px solid var(--rc-green); outline-offset: 2px; border-radius: 4px; }
+
+.rc-attention { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.rc-attention li {
+  display: flex; align-items: center; gap: 10px; font-size: 13px;
+  padding: 9px 12px; border-radius: 8px; background: #f5f7fa; border-left: 3px solid var(--rc-low, #8fa3b8);
+}
+.rc-attention li.danger { border-left-color: #d64545; }
+.rc-attention li.danger svg { color: #d64545; }
+.rc-attention li.warning { border-left-color: #e0a526; }
+.rc-attention li.warning svg { color: #b7791f; }
+.rc-attention li.info { border-left-color: var(--rc-blue); }
+.rc-attention li.info svg { color: var(--rc-blue); }
+.rc-attention svg { flex-shrink: 0; }
+.rc-attention a { color: var(--rc-green); font-weight: 600; text-decoration: none; }
+
+.rc-cov-list { display: flex; flex-direction: column; gap: 10px; }
+.rc-cov-row { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.rc-cov-row + .rc-cov-row { margin-top: 0; }
+.rc-chart-box .rc-cov-row + .rc-cov-row { margin-top: 8px; }
+.rc-cov-name { width: 110px; flex-shrink: 0; font-weight: 600; }
+.rc-cov-num { width: 92px; flex-shrink: 0; text-align: right; color: #52606d; font-size: 12px; }
+.rc-link { color: var(--rc-green); font-weight: 600; text-decoration: none; }
+.rc-link:hover { text-decoration: underline; }
