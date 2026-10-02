@@ -1,0 +1,14 @@
+# Frontend (React)
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# Mobile (Expo)
+mobile/node_modules/
+mobile/.expo/
+mobile/.env
+
+# OS / editor
+Thumbs.db
+.DS_Store
+.vscode/
