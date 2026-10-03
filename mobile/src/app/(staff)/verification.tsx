@@ -8,6 +8,7 @@ import ScreenHeader from '../../components/ScreenHeader';
 import PrimaryButton from '../../components/PrimaryButton';
 import { useStaff } from '../../context/StaffContext';
 import { api, errorText, qtyUnit } from '../../lib/api';
+import { addScan, ScanResult } from '../../lib/scanLog';
 import { colors, fonts } from '../../constants/theme';
 
 type CheckResult = {
@@ -35,11 +36,30 @@ const PRIORITY = {
 
 export default function Verification() {
   const { reference, method } = useLocalSearchParams<{ reference: string; method: 'qr' | 'reference_number' }>();
-  const { selected } = useStaff();
+  const { selected, user } = useStaff();
   const [result, setResult] = useState<CheckResult | null>(null);
   const [error, setError] = useState('');
   const [releasing, setReleasing] = useState(false);
   const [released, setReleased] = useState(false);
+
+  // adviser: keep a log of every scan by this staff member
+  const log = (outcome: ScanResult, data: CheckResult | null, reason?: string | null) => {
+    if (!selected) return;
+    addScan({
+      staffId: user?.id ?? 0,
+      eventId: selected.event_id,
+      eventName: selected.name,
+      barangay: selected.barangay,
+      item: selected.item,
+      unit: data?.unit ?? selected.unit,
+      quantity: data?.quantity ?? selected.quantity_per_household,
+      reference: data?.household.reference_number ?? reference,
+      head: data?.household.household_head ?? null,
+      result: outcome,
+      reason: reason ?? null,
+      method: method ?? 'qr',
+    }).catch(() => {});
+  };
 
   useEffect(() => {
     if (!selected) {
@@ -47,8 +67,14 @@ export default function Verification() {
       return;
     }
     api<CheckResult>(`/distribution/events/${selected.event_id}/check`, { query: { reference_number: reference } })
-      .then(setResult)
-      .catch((e) => setError(errorText(e)));
+      .then((data) => {
+        setResult(data);
+        if (!data.can_claim) log('blocked', data, data.reason);
+      })
+      .catch((e) => {
+        setError(errorText(e));
+        log('error', null, errorText(e));
+      });
   }, [reference, selected]);
 
   const release = async () => {
@@ -59,9 +85,11 @@ export default function Verification() {
         body: { reference_number: result.household.reference_number, verification_method: method ?? 'qr' },
       });
       setReleased(true);
+      log('released', result);
     } catch (e) {
       // e.g. another staff phone recorded this household a moment earlier
       setError(errorText(e));
+      log('blocked', result, errorText(e));
     } finally {
       setReleasing(false);
     }

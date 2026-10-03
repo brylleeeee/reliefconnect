@@ -4,7 +4,7 @@ import { View, Text, Pressable, ScrollView, Alert, RefreshControl, StyleSheet } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-import { Bell, QrCode, Keyboard, ChevronRight } from 'lucide-react-native';
+import { Bell, QrCode, Keyboard, ChevronRight, ClipboardList } from 'lucide-react-native';
 import { useStaff } from '../../context/StaffContext';
 import { logout } from '../../lib/auth';
 import { errorText, qtyUnit } from '../../lib/api';
@@ -127,15 +127,29 @@ export default function Dashboard() {
 
         {/* stats */}
         <View style={styles.stats}>
-          <View style={styles.statCard}>
+          <Pressable
+            style={({ pressed }) => [styles.statCard, pressed && { opacity: 0.8 }]}
+            onPress={() => router.push({ pathname: '/scan-logs', params: { filter: 'released' } })}
+          >
             <Text style={styles.statLabel}>CLAIMED SO FAR</Text>
             <Text style={[styles.statValue, { color: colors.primary }]}>{selected ? `${selected.claimed} homes` : '—'}</Text>
-          </View>
+            <Text style={styles.statLink}>View households ›</Text>
+          </Pressable>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>REMAINING QUOTA</Text>
             <Text style={[styles.statValue, { color: colors.blue }]}>{remaining !== null ? `${remaining} homes` : '—'}</Text>
           </View>
         </View>
+
+        {/* scan logs card */}
+        <Pressable
+          style={({ pressed }) => [styles.logsCard, pressed && { opacity: 0.8 }]}
+          onPress={() => router.push('/scan-logs')}
+        >
+          <ClipboardList size={20} color={colors.blue} strokeWidth={2} />
+          <Text style={styles.logsText}>My Scan Logs & Item Breakdown</Text>
+          <ChevronRight size={18} color={colors.textSecondary} strokeWidth={2} />
+        </Pressable>
 
         {/* scan QR card */}
         <Pressable
@@ -250,6 +264,20 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontFamily: fonts.semibold, fontSize: 11, color: colors.textSecondary },
   statValue: { fontFamily: fonts.extrabold, fontSize: 22 },
+  statLink: { fontFamily: fonts.semibold, fontSize: 11, color: colors.primary },
+
+  logsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  logsText: { flex: 1, fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
 
   actionCard: {
     height: 88,
