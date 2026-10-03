@@ -6,12 +6,14 @@ import type { Tabs } from 'expo-router';
 
 // Expo Router bundles React Navigation, so take the tab bar's props type from <Tabs>
 type BottomTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
-import { House, QrCode, TriangleAlert, User } from 'lucide-react-native';
+import { House, History, Megaphone, TriangleAlert, User } from 'lucide-react-native';
 import { colors, fonts } from '../constants/theme';
 
+// Adviser's 4 tabs: Home (QR on launch), History, Announcements, Account
 const TABS = {
   home: { label: 'Home', Icon: House },
-  qr: { label: 'Our QR', Icon: QrCode },
+  history: { label: 'History', Icon: History },
+  announcements: { label: 'Announcements', Icon: Megaphone },
   account: { label: 'Account', Icon: User },
 };
 
@@ -47,7 +49,10 @@ export default function ResidentTabBar({ state, navigation }: BottomTabBarProps)
         return (
           <Pressable key={route.key} onPress={onPress} style={styles.tab}>
             <tab.Icon size={24} color={color} strokeWidth={2} />
-            <Text style={[styles.label, { color, fontFamily: focused ? fonts.bold : fonts.medium }]}>
+            <Text
+              style={[styles.label, { color, fontFamily: focused ? fonts.bold : fonts.medium }]}
+              numberOfLines={1}
+            >
               {tab.label}
             </Text>
           </Pressable>

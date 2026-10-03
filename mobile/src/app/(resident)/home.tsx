@@ -1,114 +1,80 @@
-// src/app/(resident)/home.tsx  —  Figma frame: resident-home-tab
+// src/app/(resident)/qr.tsx
 import { useCallback, useState } from 'react';
-import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { View, Text, ScrollView, RefreshControl, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Building } from 'lucide-react-native';
+import { Redirect, router, useFocusEffect } from 'expo-router';
 import AppHeader from '../../components/AppHeader';
-import { fetchAnnouncements, Announcement } from '../../data/announcements';
+import QrPending from '../../components/QrPending';
+import QrApproved from '../../components/QrApproved';
+import PrimaryButton from '../../components/PrimaryButton';
 import { useResident } from '../../context/ResidentContext';
-import { errorText } from '../../lib/api';
 import { colors, fonts } from '../../constants/theme';
 
-function AnnouncementCard({ item }: { item: Announcement }) {
-  return (
-    <View style={styles.card}>
-      <View style={styles.meta}>
-        <View style={styles.author}>
-          <Building size={14} color={colors.primary} strokeWidth={2} />
-          <Text style={styles.authorText}>{item.author}</Text>
-        </View>
-        <Text style={styles.time}>{item.time}</Text>
-      </View>
-
-      <View style={styles.cardBody}>
-        <Text style={styles.cardTitle}>{item.title}</Text>
-        <Text style={styles.cardText}>{item.body}</Text>
-      </View>
-
-      <Text style={styles.postedBy}>{item.postedBy}</Text>
-    </View>
-  );
-}
-
 export default function Home() {
-  const { household } = useResident();
-  const [items, setItems] = useState<Announcement[] | null>(null);
-  const [error, setError] = useState('');
+  const { household, refresh } = useResident();
   const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      setItems(await fetchAnnouncements());
-      setError('');
-    } catch (e) {
-      setError(errorText(e));
-    }
-  }, []);
-
-  // Reload whenever the tab is opened, so new advisories show up
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  // Check for a new status (approval or rejection) every time the tab is opened
+  useFocusEffect(useCallback(() => { refresh().catch(() => {}); }, [refresh]));
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await load();
+    await refresh().catch(() => {});
     setRefreshing(false);
   };
 
+  // not logged in → back to start
+  if (!household) return <Redirect href="/" />;
+
+  // The QR only shows once the barangay has approved AND issued it
+  const issued = household.status === 'approved' && !!household.qrToken && !!household.referenceNumber;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <AppHeader barangay={household?.barangay} />
-
-      <FlatList
-        data={items ?? []}
+      <AppHeader barangay={household.barangay} />
+      <ScrollView
+        contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        ListEmptyComponent={
-          <Text style={styles.empty}>
-            {error || (items === null ? 'Loading announcements…' : 'No announcements from your barangay yet.')}
-          </Text>
-        }
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <AnnouncementCard item={item} />}
-        contentContainerStyle={styles.feed}
-        ListHeaderComponent={
-          <View style={styles.titleRow}>
-            <Text style={styles.sectionTitle}>Recent Announcements</Text>
-            <Text style={styles.viewAll}>Pull down to refresh</Text>
+      >
+        {household.status === 'rejected' ? (
+          <View style={styles.rejected}>
+            <Text style={styles.rejectedTitle}>Application not approved</Text>
+            <Text style={styles.rejectedText}>
+              Barangay {household.barangay} reviewed your application and asked for changes:
+            </Text>
+            <Text style={styles.reason}>{household.rejectionReason ?? 'No reason given.'}</Text>
+            <PrimaryButton title="Update and Resubmit" onPress={() => router.push('/household-step1')} />
           </View>
-        }
-      />
+        ) : issued ? (
+          <QrApproved household={household} />
+        ) : (
+          <QrPending household={household} />
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  feed: { padding: 16, gap: 16 },
-
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sectionTitle: { fontFamily: fonts.bold, fontSize: 14, letterSpacing: 0.5, color: colors.text },
-  viewAll: { fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary },
-  empty: { fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: 'center', paddingVertical: 32 },
-
-  card: {
+  content: { padding: 20 },
+  rejected: {
     backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: 16,
-    gap: 10,
-    shadowColor: colors.text,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: colors.danger,
+    borderRadius: 16,
+    padding: 20,
+    gap: 12,
   },
-  meta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  author: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  authorText: { fontFamily: fonts.semibold, fontSize: 11, color: colors.primary },
-  time: { fontFamily: fonts.regular, fontSize: 11, color: colors.muted },
-  cardBody: { gap: 4 },
-  cardTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.text },
-  cardText: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.textSecondary },
-  postedBy: { fontFamily: fonts.regular, fontSize: 10, color: colors.muted },
+  rejectedTitle: { fontFamily: fonts.bold, fontSize: 18, color: colors.danger },
+  rejectedText: { fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, lineHeight: 20 },
+  reason: {
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+    backgroundColor: colors.dangerTint,
+    borderRadius: 10,
+    padding: 12,
+  },
 });

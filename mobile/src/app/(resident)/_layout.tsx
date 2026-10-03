@@ -6,7 +6,8 @@ export default function ResidentLayout() {
   return (
     <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <ResidentTabBar {...props} />}>
       <Tabs.Screen name="home" />
-      <Tabs.Screen name="qr" />
+      <Tabs.Screen name="history" />
+      <Tabs.Screen name="announcements" />
       <Tabs.Screen name="account" />
       {/* <Tabs.Screen name="sos" />  — SOS disabled for now */}
     </Tabs>
