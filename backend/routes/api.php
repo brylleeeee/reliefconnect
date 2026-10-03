@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\Barangay\HouseholdController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\Distribution\ClaimController;
 use App\Http\Controllers\Api\Resident\AnnouncementController as ResidentAnnouncementController;
+use App\Http\Controllers\Api\Resident\HouseholdController as ResidentHouseholdController;
+use App\Models\Barangay;
 use App\Http\Controllers\Api\DistributionEventController;
 use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\PrioritizationController;
@@ -16,7 +18,9 @@ use App\Http\Controllers\Api\ReportController;
 use Illuminate\Support\Facades\Route;
 
 // Public
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
+Route::get('/barangays', fn () => Barangay::orderBy('name')->get(['id', 'name'])); // registration picker
 
 // Any logged-in user
 Route::middleware('auth:sanctum')->group(function () {
@@ -69,6 +73,7 @@ Route::middleware(['auth:sanctum', 'role:barangay_admin'])
         Route::put('/households/{household}', [HouseholdController::class, 'update']);
         Route::post('/households/{household}/approve', [HouseholdController::class, 'approve']);
         Route::post('/households/{household}/reject', [HouseholdController::class, 'reject']);
+        Route::get('/households/{household}/documents/{document}', [HouseholdController::class, 'document']);
 
         // Barangay distribution day: schedule, start, close, and who has/hasn't claimed
         Route::get('/distributions', [BarangayDistributionController::class, 'index']);
@@ -98,4 +103,6 @@ Route::middleware(['auth:sanctum', 'role:resident'])
     ->prefix('resident')
     ->group(function () {
         Route::get('/announcements', [ResidentAnnouncementController::class, 'index']);
+        Route::get('/household', [ResidentHouseholdController::class, 'show']);
+        Route::post('/household', [ResidentHouseholdController::class, 'store']); // multipart, with documents
     });

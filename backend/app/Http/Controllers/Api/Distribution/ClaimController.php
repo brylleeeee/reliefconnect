@@ -26,7 +26,10 @@ class ClaimController extends Controller
             ->map(fn ($bd) => [
                 'event_id' => $bd->distribution_event_id,
                 'name' => $bd->event->name,
+                'barangay_id' => $bd->barangay_id,
                 'barangay' => $bd->barangay->name,
+                'quota' => $bd->quota,
+                'claimed' => $bd->claimedCount(),
                 'venue' => $bd->venue,
                 'item' => $bd->event->item->name,
                 'unit' => $bd->event->item->unit,

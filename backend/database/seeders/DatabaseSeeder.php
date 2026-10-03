@@ -49,8 +49,9 @@ class DatabaseSeeder extends Seeder
         }
 
         $distributor = User::create([
-            'name' => 'Distribution Staff 1',
+            'name' => 'Maria Santos',
             'email' => 'staff@urbiztondo.test',
+            'username' => 'staff', // the mobile staff app logs in by username
             'password' => 'password',
             'role' => User::ROLE_DISTRIBUTION,
         ]);
@@ -92,6 +93,18 @@ class DatabaseSeeder extends Seeder
                 }
             }
         }
+
+        // Demo resident for the mobile app: log in with 09171234567 / password
+        $demoHousehold = Household::where('status', 'approved')
+            ->where('barangay_id', $barangays->firstWhere('name', 'Batancaoa')->id)
+            ->first();
+        $resident = User::create([
+            'name' => $demoHousehold->household_head,
+            'phone' => '09171234567',
+            'password' => 'password',
+            'role' => User::ROLE_RESIDENT,
+        ]);
+        $demoHousehold->forceFill(['user_id' => $resident->id, 'contact_number' => '09171234567'])->save();
 
         // Distributions spread across the last 30 days
         Household::where('status', 'approved')->inRandomOrder()->take(55)->get()

@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api\Barangay;
 
 use App\Http\Controllers\Controller;
 use App\Models\Household;
+use App\Models\HouseholdDocument;
 use App\Services\HouseholdService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -64,7 +66,17 @@ class HouseholdController extends Controller
     {
         $this->authorizeHousehold($request, $household);
 
-        return $household->load(['members', 'reviewer:id,name']);
+        return $household->load(['members', 'reviewer:id,name', 'documents']);
+    }
+
+    /** Streams an uploaded document (valid ID, birth certificate) from private storage. */
+    public function document(Request $request, Household $household, HouseholdDocument $document)
+    {
+        $this->authorizeHousehold($request, $household);
+        abort_unless((int) $document->household_id === (int) $household->id, 404);
+        abort_unless(Storage::disk('local')->exists($document->path), 404, 'The file is missing from storage.');
+
+        return Storage::disk('local')->response($document->path, $document->original_name);
     }
 
     /** Walk-in registration: verified in person, so it is approved immediately. */
