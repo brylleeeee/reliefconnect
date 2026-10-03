@@ -127,14 +127,10 @@ export default function Dashboard() {
 
         {/* stats */}
         <View style={styles.stats}>
-          <Pressable
-            style={({ pressed }) => [styles.statCard, pressed && { opacity: 0.8 }]}
-            onPress={() => router.push({ pathname: '/scan-logs', params: { filter: 'released' } })}
-          >
+          <View style={styles.statCard}>
             <Text style={styles.statLabel}>CLAIMED SO FAR</Text>
             <Text style={[styles.statValue, { color: colors.primary }]}>{selected ? `${selected.claimed} homes` : '—'}</Text>
-            <Text style={styles.statLink}>View households ›</Text>
-          </Pressable>
+          </View>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>REMAINING QUOTA</Text>
             <Text style={[styles.statValue, { color: colors.blue }]}>{remaining !== null ? `${remaining} homes` : '—'}</Text>
@@ -264,7 +260,7 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontFamily: fonts.semibold, fontSize: 11, color: colors.textSecondary },
   statValue: { fontFamily: fonts.extrabold, fontSize: 22 },
-  statLink: { fontFamily: fonts.semibold, fontSize: 11, color: colors.primary },
+  statLink: { fontFamily: fonts.semibold, fontSize: 11, color: colors.primary, marginTop: 2 },
 
   logsCard: {
     flexDirection: 'row',
