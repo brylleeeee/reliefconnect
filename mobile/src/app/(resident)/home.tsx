@@ -1,9 +1,13 @@
 // src/app/(resident)/home.tsx  —  Figma frame: resident-home-tab
-import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
+import { useCallback, useState } from 'react';
+import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Building } from 'lucide-react-native';
 import AppHeader from '../../components/AppHeader';
-import { announcements, Announcement } from '../../data/announcements';
+import { fetchAnnouncements, Announcement } from '../../data/announcements';
+import { useResident } from '../../context/ResidentContext';
+import { errorText } from '../../lib/api';
 import { colors, fonts } from '../../constants/theme';
 
 function AnnouncementCard({ item }: { item: Announcement }) {
@@ -28,21 +32,48 @@ function AnnouncementCard({ item }: { item: Announcement }) {
 }
 
 export default function Home() {
+  const { household } = useResident();
+  const [items, setItems] = useState<Announcement[] | null>(null);
+  const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setItems(await fetchAnnouncements());
+      setError('');
+    } catch (e) {
+      setError(errorText(e));
+    }
+  }, []);
+
+  // Reload whenever the tab is opened, so new advisories show up
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <AppHeader />
+      <AppHeader barangay={household?.barangay} />
 
       <FlatList
-        data={announcements}
+        data={items ?? []}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        ListEmptyComponent={
+          <Text style={styles.empty}>
+            {error || (items === null ? 'Loading announcements…' : 'No announcements from your barangay yet.')}
+          </Text>
+        }
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <AnnouncementCard item={item} />}
         contentContainerStyle={styles.feed}
         ListHeaderComponent={
           <View style={styles.titleRow}>
             <Text style={styles.sectionTitle}>Recent Announcements</Text>
-            <Pressable hitSlop={8} onPress={() => { /* TODO: full announcements list */ }}>
-              <Text style={styles.viewAll}>View All</Text>
-            </Pressable>
+            <Text style={styles.viewAll}>Pull down to refresh</Text>
           </View>
         }
       />
@@ -56,7 +87,8 @@ const styles = StyleSheet.create({
 
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sectionTitle: { fontFamily: fonts.bold, fontSize: 14, letterSpacing: 0.5, color: colors.text },
-  viewAll: { fontFamily: fonts.semibold, fontSize: 12, color: colors.primary },
+  viewAll: { fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary },
+  empty: { fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: 'center', paddingVertical: 32 },
 
   card: {
     backgroundColor: colors.white,

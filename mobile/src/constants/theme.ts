@@ -24,6 +24,3 @@ export const fonts = {
   bold: 'Inter_700Bold',
   extrabold: 'Inter_800ExtraBold',
 };
-
-import { useResident } from '../context/ResidentContext';
-import { sampleHousehold } from '../data/household';

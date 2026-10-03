@@ -27,7 +27,8 @@ export default function Scanner() {
     if (scannedRef.current) return;
     scannedRef.current = true;
     setTorchOn(false);
-    router.push({ pathname: '/verification', params: { reference: data } });
+    // Until the dynamic QR (Sprint 2), a ReliefConnect QR carries the household's reference number
+    router.push({ pathname: '/verification', params: { reference: data.trim(), method: 'qr' } });
   };
 
   // still checking permission
@@ -108,7 +109,7 @@ export default function Scanner() {
 
 const styles = StyleSheet.create({
   black: { flex: 1, backgroundColor: '#000' },
-  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
+  scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.35)' },
   overlay: { flex: 1, justifyContent: 'space-between' },
 
   header: { height: 56, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', gap: 16 },

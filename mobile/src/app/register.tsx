@@ -7,6 +7,9 @@ import { Info } from 'lucide-react-native';
 import ScreenHeader from '../components/ScreenHeader';
 import FormInput from '../components/FormInput';
 import PrimaryButton from '../components/PrimaryButton';
+import { useResident } from '../context/ResidentContext';
+import { register } from '../lib/auth';
+import { errorText } from '../lib/api';
 import { colors, fonts } from '../constants/theme';
 
 export default function Register() {
@@ -14,8 +17,10 @@ export default function Register() {
   const [contact, setContact] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const { setUser } = useResident();
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!fullName.trim() || !contact.trim() || !password || !confirm) {
       return Alert.alert('Missing information', 'Please fill in all fields.');
     }
@@ -29,8 +34,16 @@ export default function Register() {
       return Alert.alert('Passwords do not match', 'Please re-enter your password.');
     }
 
-    // TODO: send to the Laravel API once the backend endpoint is ready
-    router.push({ pathname: '/household-step1', params: { fullName, contact } });
+    setBusy(true);
+    try {
+      const user = await register(fullName, contact, password);
+      setUser(user);
+      router.replace({ pathname: '/household-step1', params: { fullName: user.name, contact } });
+    } catch (e) {
+      Alert.alert('Could not create account', errorText(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -78,7 +91,7 @@ export default function Register() {
         </ScrollView>
 
         <View style={styles.footer}>
-          <PrimaryButton title="Create Account" onPress={handleSubmit} />
+          <PrimaryButton title={busy ? 'Creating account…' : 'Create Account'} onPress={handleSubmit} disabled={busy} />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
