@@ -34,6 +34,11 @@ class Household extends Model
         return $this->hasMany(HouseholdMember::class)->orderBy('id');
     }
 
+    public function documents()
+    {
+        return $this->hasMany(HouseholdDocument::class);
+    }
+
     public function distributions()
     {
         return $this->hasMany(Distribution::class);

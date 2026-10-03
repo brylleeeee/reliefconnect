@@ -10,26 +10,61 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    /**
+     * One login for every app: admins send an email (web), residents their mobile number,
+     * distribution staff their username (mobile). The web portal still sends "email".
+     */
     public function login(Request $request)
     {
         $data = $request->validate([
-            'email' => ['required', 'email'],
+            'login' => ['required_without:email', 'nullable', 'string', 'max:255'],
+            'email' => ['required_without:login', 'nullable', 'string', 'max:255'],
             'password' => ['required', 'string'],
             'device_name' => ['nullable', 'string', 'max:100'],
         ]);
 
-        $user = User::with('barangay')->where('email', $data['email'])->first();
+        $field = isset($data['login']) ? 'login' : 'email';
+        $id = trim($data[$field]);
+
+        $user = User::with('barangay')
+            ->where(fn ($q) => $q->where('email', $id)->orWhere('phone', $id)->orWhere('username', $id))
+            ->first();
 
         if (! $user || ! Hash::check($data['password'], $user->password)) {
             throw ValidationException::withMessages([
-                'email' => 'The email or password is incorrect.',
+                $field => 'The login details or password are incorrect.',
             ]);
         }
 
-        // Token abilities mirror the role, useful later for the mobile apps
+        // Token abilities mirror the role
         $token = $user->createToken($data['device_name'] ?? 'admin-web', [$user->role])->plainTextToken;
 
         return response()->json(['token' => $token, 'user' => $user]);
+    }
+
+    /** Resident sign-up from the mobile app. The household is submitted separately. */
+    public function register(Request $request)
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'phone' => ['required', 'regex:/^09\d{9}$/', 'unique:users,phone'],
+            'password' => ['required', 'string', 'min:8', 'max:100'],
+            'device_name' => ['nullable', 'string', 'max:100'],
+        ], [
+            'phone.regex' => 'Enter an 11-digit mobile number starting with 09.',
+            'phone.unique' => 'This mobile number is already registered. Log in instead.',
+        ]);
+
+        $user = User::create([
+            'name' => trim($data['name']),
+            'phone' => $data['phone'],
+            'password' => $data['password'],
+            'role' => User::ROLE_RESIDENT,
+        ]);
+
+        $token = $user->createToken($data['device_name'] ?? 'resident-app', [$user->role])->plainTextToken;
+
+        return response()->json(['token' => $token, 'user' => $user], 201);
     }
 
     public function me(Request $request)
