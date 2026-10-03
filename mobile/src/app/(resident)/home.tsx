@@ -1,4 +1,4 @@
-// src/app/(resident)/qr.tsx
+// src/app/(resident)/home.tsx  —  adviser: QR shown immediately on launch
 import { useCallback, useState } from 'react';
 import { View, Text, ScrollView, RefreshControl, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import AppHeader from '../../components/AppHeader';
 import QrPending from '../../components/QrPending';
 import QrApproved from '../../components/QrApproved';
 import PrimaryButton from '../../components/PrimaryButton';
+import UnreadAnnouncementsModal from '../../components/UnreadAnnouncementsModal';
 import { useResident } from '../../context/ResidentContext';
 import { colors, fonts } from '../../constants/theme';
 
@@ -51,6 +52,8 @@ export default function Home() {
           <QrPending household={household} />
         )}
       </ScrollView>
+
+      <UnreadAnnouncementsModal />
     </SafeAreaView>
   );
 }
