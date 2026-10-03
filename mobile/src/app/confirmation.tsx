@@ -5,17 +5,18 @@ import { router } from 'expo-router';
 import { Check } from 'lucide-react-native';
 import ScreenHeader from '../components/ScreenHeader';
 import PrimaryButton from '../components/PrimaryButton';
+import { useResident } from '../context/ResidentContext';
 import { colors, fonts } from '../constants/theme';
 
-const BARANGAY = 'Batancaoa'; // TODO: replace with the resident's barangay from the API
-
 export default function Confirmation() {
+  const { household } = useResident();
+  const BARANGAY = household?.barangay ?? 'your barangay';
   return (
     <SafeAreaView style={styles.container}>
       <ScreenHeader
         title="Submission Successful"
         subtitle="Application Status"
-        onBack={() => router.replace('/')}
+        onBack={() => router.replace('/home')}
       />
 
       <View style={styles.content}>
@@ -32,8 +33,8 @@ export default function Confirmation() {
         </View>
 
         <Text style={styles.body}>
-          Your household documentation is being reviewed by Barangay {BARANGAY} Admin. You will receive an SMS
-          once your digital Relief QR is approved.
+          Your household documentation is being reviewed by the Barangay {BARANGAY} admin. Check the Our QR tab
+          for updates; your QR code appears there once approved.
         </Text>
       </View>
 

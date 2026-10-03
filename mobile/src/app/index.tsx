@@ -1,11 +1,40 @@
 // src/app/index.tsx  —  Figma frame: resident-start
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Handshake, House } from 'lucide-react-native';
+import { useResident } from '../context/ResidentContext';
+import { currentUser } from '../lib/auth';
 import { colors, fonts } from '../constants/theme';
 
 export default function ResidentStart() {
+  const { setUser, refresh } = useResident();
+  const [checking, setChecking] = useState(true);
+
+  // Already logged in on this phone? Skip the login screen.
+  useEffect(() => {
+    (async () => {
+      const user = await currentUser();
+      if (user?.role === 'distribution_personnel') return router.replace('/dashboard');
+      if (user?.role === 'resident') {
+        setUser(user);
+        const household = await refresh().catch(() => null);
+        if (household) return router.replace('/home');
+        return router.replace({ pathname: '/household-step1', params: { fullName: user.name, contact: user.phone ?? '' } });
+      }
+      setChecking(false);
+    })();
+  }, [refresh, setUser]);
+
+  if (checking) {
+    return (
+      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Logo + branding */}

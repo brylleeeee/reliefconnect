@@ -8,20 +8,18 @@ import ScreenHeader from '../components/ScreenHeader';
 import ProgressBar from '../components/ProgressBar';
 import UploadCard from '../components/UploadCard';
 import PrimaryButton from '../components/PrimaryButton';
-import { Member } from '../components/MemberCard';
 import { useResident } from '../context/ResidentContext';
+import { HouseholdDraft, submitHousehold } from '../data/household';
+import { errorText } from '../lib/api';
 import { colors, fonts } from '../constants/theme';
 
 type DocKey = 'validId' | 'birthCert';
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 
 export default function HouseholdStep2() {
-  const { fullName, contact, members } = useLocalSearchParams<{
-    fullName: string;
-    contact: string;
-    members: string;
-  }>();
+  const { draft } = useLocalSearchParams<{ draft: string }>();
   const { setHousehold } = useResident();
+  const [sending, setSending] = useState(false);
 
   const [docs, setDocs] = useState<Record<DocKey, ImagePicker.ImagePickerAsset | null>>({
     validId: null,
@@ -41,7 +39,8 @@ export default function HouseholdStep2() {
       );
     }
 
-    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.7 };
+    // quality 0.5 keeps documents readable while making uploads much smaller
+    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.5, base64: true };
     const result =
       source === 'camera'
         ? await ImagePicker.launchCameraAsync(options)
@@ -64,29 +63,27 @@ export default function HouseholdStep2() {
       { text: 'Cancel', style: 'cancel' },
     ]);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!docs.validId || !docs.birthCert) {
       return Alert.alert('Missing documents', 'Please upload both your Valid ID and Birth Certificate.');
     }
+    if (!draft) return Alert.alert('Something went wrong', 'Please go back to step 1 and try again.');
 
-    // TODO: send fullName, contact, members, and both images to the Laravel API here
-
-    const parsedMembers: Member[] = members ? JSON.parse(members) : [];
-
-    // Saved as PENDING — no QR or reference number until the admin approves
-    setHousehold({
-      status: 'pending',
-      householdName: `${fullName} Household`,
-      headName: fullName,
-      contact,
-      barangay: 'Batancaoa', // TODO: from the API
-      members: parsedMembers,
-      referenceNumber: null,
-      qrToken: null,
-    });
-
-    router.dismissAll();
-    router.replace({ pathname: '/confirmation', params: { fullName, contact } });
+    setSending(true);
+    try {
+      // Sent as PENDING: the barangay reviews it in QR Issuance Review, then issues the QR
+      const household = await submitHousehold(JSON.parse(draft) as HouseholdDraft, {
+        validId: docs.validId,
+        birthCert: docs.birthCert,
+      });
+      setHousehold(household);
+      router.dismissAll();
+      router.replace('/confirmation');
+    } catch (e) {
+      Alert.alert('Could not submit', errorText(e));
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -119,7 +116,7 @@ export default function HouseholdStep2() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <PrimaryButton title="Next" onPress={handleNext} />
+        <PrimaryButton title={sending ? 'Submitting…' : 'Submit Application'} onPress={handleNext} disabled={sending} />
       </View>
     </SafeAreaView>
   );

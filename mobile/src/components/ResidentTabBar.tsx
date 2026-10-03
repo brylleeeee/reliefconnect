@@ -1,7 +1,11 @@
 // src/components/ResidentTabBar.tsx
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import type { ComponentProps } from 'react';
+import type { Tabs } from 'expo-router';
+
+// Expo Router bundles React Navigation, so take the tab bar's props type from <Tabs>
+type BottomTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 import { House, QrCode, TriangleAlert, User } from 'lucide-react-native';
 import { colors, fonts } from '../constants/theme';
 

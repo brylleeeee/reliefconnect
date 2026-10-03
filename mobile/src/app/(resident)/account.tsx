@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Redirect } from 'expo-router';
 import AppHeader from '../../components/AppHeader';
 import { useResident } from '../../context/ResidentContext';
+import { logout } from '../../lib/auth';
 import { colors, fonts } from '../../constants/theme';
 
 // "Juan Dela Cruz" → "JD"
@@ -39,7 +40,7 @@ function ActionRow({ label, onPress }: { label: string; onPress: () => void }) {
 }
 
 export default function Account() {
-  const { household, setHousehold } = useResident();
+  const { household, setHousehold, setUser } = useResident();
 
   if (!household) return <Redirect href="/" />;
 
@@ -54,10 +55,11 @@ export default function Account() {
       {
         text: 'Log Out',
         style: 'destructive',
-        onPress: () => {
-          // TODO: also clear the saved login token once the API is connected
+        onPress: async () => {
+          await logout(); // revokes the token on the server and removes it from the phone
           router.replace('/');
           setHousehold(null);
+          setUser(null);
         },
       },
     ]);

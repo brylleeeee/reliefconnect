@@ -8,20 +8,31 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Handshake, Eye, EyeOff } from 'lucide-react-native';
 import PrimaryButton from '../components/PrimaryButton';
+import { login } from '../lib/auth';
+import { errorText } from '../lib/api';
 import { colors, fonts } from '../constants/theme';
 
 export default function StaffLogin() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!username.trim() || !password) {
       return Alert.alert('Missing information', 'Please enter your username and password.');
     }
 
-    // TODO: send username + password to the Laravel API and check the role is 'staff'
-    router.replace('/dashboard');
+    setBusy(true);
+    try {
+      await login(username, password, 'distribution_personnel');
+      router.dismissAll();
+      router.replace('/dashboard');
+    } catch (e) {
+      Alert.alert('Login failed', errorText(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -82,7 +93,7 @@ export default function StaffLogin() {
               </View>
             </View>
 
-            <PrimaryButton title="Login to Portal" onPress={handleLogin} />
+            <PrimaryButton title={busy ? 'Logging in…' : 'Login to Portal'} onPress={handleLogin} disabled={busy} />
 
             <Text style={styles.note}>First time? Change your password after logging in.</Text>
           </View>
