@@ -19,6 +19,11 @@ export type ScanEntry = {
   result: ScanResult;
   reason: string | null;
   method: 'qr' | 'reference_number';
+  photoUri?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracy?: number | null; // meters
+  ip?: string | null;
 };
 
 const KEY = 'staff_scan_log';
