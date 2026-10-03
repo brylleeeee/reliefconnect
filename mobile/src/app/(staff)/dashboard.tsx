@@ -1,11 +1,13 @@
 // src/app/(staff)/dashboard.tsx  —  Figma frame: staff-dashboard
-import { useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, Alert, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { View, Text, Pressable, ScrollView, Alert, RefreshControl, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { Bell, QrCode, Keyboard, ChevronRight } from 'lucide-react-native';
-import { staff } from '../../data/staff';
+import { useStaff } from '../../context/StaffContext';
+import { logout } from '../../lib/auth';
+import { errorText, qtyUnit } from '../../lib/api';
 import { colors, fonts } from '../../constants/theme';
 
 function getInitials(name: string) {
@@ -16,7 +18,37 @@ function getInitials(name: string) {
 }
 
 export default function Dashboard() {
+  const { user, events, selected, select, reload } = useStaff();
   const [online, setOnline] = useState(true);
+  const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      await reload();
+      setError('');
+    } catch (e) {
+      setError(errorText(e));
+    }
+  }, [reload]);
+
+  // Refresh counts whenever staff come back from a claim
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  };
+
+  const go = (path: '/scanner' | '/manual-entry') => {
+    if (!online) return Alert.alert('No connection', 'Claims need an internet connection to be checked and recorded.');
+    if (!selected) return Alert.alert('Choose a distribution', 'Select which barangay distribution you are serving first.');
+    router.push(path);
+  };
+
+  const name = user?.name ?? 'Staff';
+  const remaining = selected ? Math.max(selected.quota - selected.claimed, 0) : null;
 
   // watch the phone's internet connection
   useEffect(() => {
@@ -29,7 +61,14 @@ export default function Dashboard() {
   const handleLogout = () =>
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Log Out', style: 'destructive', onPress: () => router.replace('/') },
+      {
+        text: 'Log Out',
+        style: 'destructive',
+        onPress: async () => {
+          await logout();
+          router.replace('/');
+        },
+      },
     ]);
 
   return (
@@ -38,11 +77,13 @@ export default function Dashboard() {
       <View style={styles.header}>
         <Pressable style={styles.profile} onPress={handleLogout}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{getInitials(staff.name)}</Text>
+            <Text style={styles.avatarText}>{getInitials(name)}</Text>
           </View>
           <View style={styles.welcome}>
-            <Text style={styles.welcomeTitle}>Kumusta, Staff {staff.firstName}!</Text>
-            <Text style={styles.welcomeSub}>Brgy. {staff.barangay} • Staff</Text>
+            <Text style={styles.welcomeTitle}>Kumusta, {name.split(' ')[0]}!</Text>
+            <Text style={styles.welcomeSub}>
+              {selected ? `Brgy. ${selected.barangay} • Distribution Staff` : 'Distribution Staff'}
+            </Text>
           </View>
         </Pressable>
 
@@ -51,23 +92,55 @@ export default function Dashboard() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
+        {/* which distribution is being served */}
+        <View style={styles.eventBox}>
+          <Text style={styles.statLabel}>DISTRIBUTION YOU ARE SERVING</Text>
+          {error ? <Text style={styles.eventError}>{error}</Text> : null}
+          {events === null && !error && <Text style={styles.eventHint}>Loading…</Text>}
+          {events?.length === 0 && (
+            <Text style={styles.eventHint}>
+              No distribution is running right now. A barangay admin has to start its distribution day first. Pull down to refresh.
+            </Text>
+          )}
+          {events?.map((e) => {
+            const active = selected?.event_id === e.event_id && selected?.barangay_id === e.barangay_id;
+            return (
+              <Pressable
+                key={`${e.event_id}-${e.barangay_id}`}
+                onPress={() => select(e)}
+                style={[styles.eventOption, active && styles.eventOptionActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.eventName, active && { color: colors.white }]}>{e.name}</Text>
+                <Text style={[styles.eventMeta, active && { color: colors.white }]}>
+                  Brgy. {e.barangay}{e.venue ? ` · ${e.venue}` : ''} · {qtyUnit(e.quantity_per_household, e.unit)} of {e.item}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
         {/* stats */}
         <View style={styles.stats}>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>TODAY'S DISTRIBUTED</Text>
-            <Text style={[styles.statValue, { color: colors.primary }]}>{staff.distributedToday} packs</Text>
+            <Text style={styles.statLabel}>CLAIMED SO FAR</Text>
+            <Text style={[styles.statValue, { color: colors.primary }]}>{selected ? `${selected.claimed} homes` : '—'}</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>REMAINING TODAY</Text>
-            <Text style={[styles.statValue, { color: colors.blue }]}>{staff.remainingToday} homes</Text>
+            <Text style={styles.statLabel}>REMAINING QUOTA</Text>
+            <Text style={[styles.statValue, { color: colors.blue }]}>{remaining !== null ? `${remaining} homes` : '—'}</Text>
           </View>
         </View>
 
         {/* scan QR card */}
         <Pressable
           style={({ pressed }) => [styles.actionCard, styles.scanCard, pressed && { opacity: 0.9 }]}
-          onPress={() => router.push('/scanner')}
+          onPress={() => go('/scanner')}
         >
           <View style={[styles.iconBg, { backgroundColor: 'rgba(255,255,255,0.13)' }]}>
             <QrCode size={24} color={colors.white} strokeWidth={2} />
@@ -82,7 +155,7 @@ export default function Dashboard() {
         {/* manual reference card */}
         <Pressable
           style={({ pressed }) => [styles.actionCard, styles.manualCard, pressed && { opacity: 0.8 }]}
-          onPress={() => router.push('/manual-entry')}
+          onPress={() => go('/manual-entry')}
         >
           <View style={[styles.iconBg, { backgroundColor: colors.blueTint }]}>
             <Keyboard size={24} color={colors.blue} strokeWidth={2} />
@@ -106,7 +179,7 @@ export default function Dashboard() {
       >
         <View style={[styles.statusDot, { backgroundColor: online ? colors.success : colors.danger }]} />
         <Text style={[styles.statusText, { color: online ? colors.success : colors.danger }]}>
-          {online ? 'Online — Live Sync Enabled' : 'Offline — Saving Locally'}
+          {online ? 'Online — Claims recorded live' : 'Offline — Connect to record claims'}
         </Text>
       </View>
     </SafeAreaView>
@@ -115,6 +188,21 @@ export default function Dashboard() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+
+  eventBox: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: 16,
+    gap: 10,
+  },
+  eventHint: { fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
+  eventError: { fontFamily: fonts.regular, fontSize: 13, color: colors.danger, lineHeight: 18 },
+  eventOption: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, gap: 2 },
+  eventOptionActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  eventName: { fontFamily: fonts.bold, fontSize: 14, color: colors.text },
+  eventMeta: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary },
 
   header: {
     height: 68,

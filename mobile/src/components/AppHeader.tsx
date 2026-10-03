@@ -5,7 +5,7 @@ import { colors, fonts } from '../constants/theme';
 
 type Props = { barangay?: string };
 
-export default function AppHeader({ barangay = 'Batancaoa' }: Props) {
+export default function AppHeader({ barangay }: Props) {
   return (
     <View style={styles.header}>
       <View style={styles.brand}>
@@ -15,9 +15,11 @@ export default function AppHeader({ barangay = 'Batancaoa' }: Props) {
         <Text style={styles.brandText}>ReliefConnect</Text>
       </View>
 
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>Brgy. {barangay}</Text>
-      </View>
+      {barangay ? (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>Brgy. {barangay}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }

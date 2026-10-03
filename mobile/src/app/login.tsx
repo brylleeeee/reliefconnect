@@ -9,16 +9,18 @@ import { router } from 'expo-router';
 import { Handshake, House, Eye, EyeOff } from 'lucide-react-native';
 import PrimaryButton from '../components/PrimaryButton';
 import { useResident } from '../context/ResidentContext';
-import { sampleHousehold } from '../data/household';
+import { login } from '../lib/auth';
+import { errorText } from '../lib/api';
 import { colors, fonts } from '../constants/theme';
 
 export default function Login() {
-  const { setHousehold } = useResident();
+  const { setUser, refresh } = useResident();
+  const [busy, setBusy] = useState(false);
   const [contact, setContact] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!contact.trim() || !password) {
       return Alert.alert('Missing information', 'Please enter your contact number and password.');
     }
@@ -26,10 +28,20 @@ export default function Login() {
       return Alert.alert('Invalid number', 'Enter an 11-digit mobile number starting with 09.');
     }
 
-    // TODO: send contact + password to the Laravel API and check the role is 'resident'
-    setHousehold({ ...sampleHousehold, contact });
-    router.dismissAll();
-    router.replace('/home');
+    setBusy(true);
+    try {
+      const user = await login(contact, password, 'resident');
+      setUser(user);
+      const household = await refresh();
+      router.dismissAll();
+      // No household yet (e.g. closed the app after signing up): continue the registration
+      if (household) router.replace('/home');
+      else router.replace({ pathname: '/household-step1', params: { fullName: user.name, contact } });
+    } catch (e) {
+      Alert.alert('Login failed', errorText(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -91,7 +103,7 @@ export default function Login() {
               </View>
             </View>
 
-            <PrimaryButton title="Login" onPress={handleLogin} />
+            <PrimaryButton title={busy ? 'Logging in…' : 'Login'} onPress={handleLogin} disabled={busy} />
 
             <Pressable hitSlop={8} onPress={() => router.replace('/register')}>
               <Text style={styles.note}>

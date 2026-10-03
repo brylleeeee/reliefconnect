@@ -1,4 +1,6 @@
-// src/data/announcements.ts  —  sample data until the API is connected
+// src/data/announcements.ts  —  the resident's barangay announcements
+import { api } from '../lib/api';
+
 export type Announcement = {
   id: string;
   author: string;
@@ -8,29 +10,37 @@ export type Announcement = {
   postedBy: string;
 };
 
-export const announcements: Announcement[] = [
-  {
-    id: '1',
-    author: 'Barangay Admin',
-    time: 'Today · 8:00 AM',
-    title: 'Nutritional Relief Pack Distribution',
-    body: 'Priority collection for senior citizens and pregnant women. Please bring your approved digital Relief QR code.',
-    postedBy: 'Posted by Barangay Batancaoa Admin',
-  },
-  {
-    id: '2',
-    author: 'Barangay Admin',
-    time: 'Yesterday',
-    title: 'Class Suspensions & Flood Advisory',
-    body: 'Due to southwest monsoon rains, classes in all levels are suspended. Emergency rescue boat standby at Purok 4.',
-    postedBy: 'Posted by Barangay Batancaoa Admin',
-  },
-  {
-    id: '3',
-    author: 'Barangay Admin',
-    time: 'Jan 24, 2026',
-    title: 'First Quarter Community Assembly',
-    body: 'Discussion of localized barangay health programs, livelihood support initiatives, and distribution feedback.',
-    postedBy: 'Posted by Barangay Batancaoa Admin',
-  },
-];
+type ApiAnnouncement = {
+  id: number;
+  category: string | null;
+  title: string;
+  description: string;
+  published_at: string | null;
+  source_announcement_id: number | null; // set when the barangay relays an LGU announcement
+  barangay: { id: number; name: string } | null;
+};
+
+function formatTime(iso: string | null) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date(); yesterday.setDate(today.getDate() - 1);
+  const time = d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
+  if (d.toDateString() === today.toDateString()) return `Today · ${time}`;
+  if (d.toDateString() === yesterday.toDateString()) return `Yesterday · ${time}`;
+  return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+export async function fetchAnnouncements(): Promise<Announcement[]> {
+  const res = await api<{ data: ApiAnnouncement[] }>('/resident/announcements');
+  return res.data.map((a) => ({
+    id: String(a.id),
+    author: a.source_announcement_id ? 'LGU Urbiztondo' : `Barangay ${a.barangay?.name ?? ''}`.trim(),
+    time: formatTime(a.published_at),
+    title: a.title,
+    body: a.description,
+    postedBy: a.source_announcement_id
+      ? `Relayed by Barangay ${a.barangay?.name ?? ''}`.trim()
+      : a.category ?? 'Official Bulletin',
+  }));
+}

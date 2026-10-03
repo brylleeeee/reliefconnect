@@ -1,4 +1,41 @@
+import { useState } from 'react'
+import { FileText } from 'lucide-react'
+import api, { errorMessage } from '../api/client'
 import { PriorityBadge, StatusBadge } from './Badges'
+
+/** Uploaded documents are private; fetch with the admin's token, then open in a new tab. */
+function Documents({ h }) {
+  const [error, setError] = useState('')
+  if (!h.documents?.length) {
+    return h.registration_type === 'online'
+      ? <p className="small text-secondary mb-3">No documents uploaded.</p>
+      : null
+  }
+  const open = async (doc) => {
+    setError('')
+    const win = window.open('', '_blank') // open first so pop-up blockers allow it
+    try {
+      const r = await api.get(`/barangay/households/${h.id}/documents/${doc.id}`, { responseType: 'blob' })
+      win.location.href = URL.createObjectURL(r.data)
+    } catch (err) {
+      win?.close()
+      setError(errorMessage(err))
+    }
+  }
+  return (
+    <div className="mb-3">
+      <div className="rc-label">Supporting documents</div>
+      <div className="d-flex flex-wrap gap-2">
+        {h.documents.map((d) => (
+          <button key={d.id} type="button" className="btn btn-sm btn-rc-outline d-flex align-items-center gap-1" onClick={() => open(d)}>
+            <FileText size={14} /> {d.label}
+          </button>
+        ))}
+      </div>
+      {error && <div className="small text-danger mt-1">{error}</div>}
+    </div>
+  )
+}
 
 export default function HouseholdDetail({ h }) {
   const fmt = (d) => (d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—')
@@ -18,6 +55,8 @@ export default function HouseholdDetail({ h }) {
       {h.status === 'rejected' && h.rejection_reason && (
         <div className="alert alert-warning py-2 small">Rejected: {h.rejection_reason}</div>
       )}
+
+      <Documents h={h} />
 
       <div className="table-responsive">
         <table className="rc-table">
