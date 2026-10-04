@@ -7,6 +7,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Inventory from './pages/Inventory'
 import Prioritization from './pages/Prioritization'
+import SosPrioritization from './pages/SosPrioritization'
 import Reports from './pages/Reports'
 import Events from './pages/Events'
 // Barangay Admin
@@ -41,6 +42,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route element={<RequireAuth><AdminLayout /></RequireAuth>}>
         <Route path="/" element={lgu(<Dashboard />)} />
+        <Route path="/sos" element={lgu(<SosPrioritization />)} />
         <Route path="/inventory" element={lgu(<Inventory />)} />
         <Route path="/events" element={lgu(<Events />)} />
         <Route path="/prioritization" element={lgu(<Prioritization />)} />

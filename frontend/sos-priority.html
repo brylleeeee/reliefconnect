@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOS Prioritization - ReliefConnect</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#111418; --card:#1b1f26; --text:#e5e7eb; --muted:#9ca3af; --border:#2b313b; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--text); }
+  main { max-width:1100px; margin:0 auto; padding:20px 16px 40px; }
+  header { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; align-items:baseline; }
+  h1 { font-size:22px; margin:0; }
+  .muted { color:var(--muted); font-size:13px; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin:16px 0; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+  .stat b { display:block; font-size:26px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:14px; }
+  @media (max-width:520px) { .grid { grid-template-columns:1fr; } }
+  .card h2 { font-size:15px; margin:0 0 4px; }
+  .card p { margin:0 0 10px; }
+  .chart { position:relative; height:260px; }
+  .top { display:grid; gap:10px; margin:16px 0; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:99px; font-size:12px; color:#fff; margin-left:6px; }
+  .critical { background:#dc2626; } .high { background:#f59e0b; } .moderate { background:#16a34a; }
+  #status { margin-top:16px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>SOS Prioritization</h1>
+    <span class="muted" id="engine"></span>
+  </header>
+  <p class="muted">Which barangay should receive relief goods first, based on pending SOS messages.</p>
+
+  <section class="stats">
+    <div class="card stat"><span class="muted">Barangays with pending SOS</span><b id="s-brgy">-</b></div>
+    <div class="card stat"><span class="muted">Pending SOS</span><b id="s-sos">-</b></div>
+    <div class="card stat"><span class="muted">People affected</span><b id="s-people">-</b></div>
+    <div class="card stat"><span class="muted">AI points added</span><b id="s-points">-</b></div>
+  </section>
+
+  <section class="top" id="top"></section>
+
+  <section class="grid">
+    <div class="card"><h2>Priority score per barangay</h2><p class="muted">Higher bar = serve first</p><div class="chart"><canvas id="c-score"></canvas></div></div>
+    <div class="card"><h2>Score breakdown</h2><p class="muted">Base score (people and waiting time) plus AI points from messages</p><div class="chart"><canvas id="c-breakdown"></canvas></div></div>
+    <div class="card"><h2>Pending SOS</h2><p class="muted">Households asking for help</p><div class="chart"><canvas id="c-sos"></canvas></div></div>
+    <div class="card"><h2>People affected</h2><p class="muted">Total people in pending SOS</p><div class="chart"><canvas id="c-people"></canvas></div></div>
+    <div class="card"><h2>Longest wait (hours)</h2><p class="muted">Oldest unanswered SOS</p><div class="chart"><canvas id="c-wait"></canvas></div></div>
+    <div class="card"><h2>Emergency types</h2><p class="muted">What residents reported, as read by the AI</p><div class="chart"><canvas id="c-types"></canvas></div></div>
+  </section>
+
+  <p class="muted" id="status"></p>
+</main>
+
+<script>
+  // ---- Settings: change these to match your app ----
+  const API_BASE = 'http://localhost:8000/api';
+  const TOKEN = localStorage.getItem('token') || ''; // your login token, if the route needs auth
+  const REFRESH_MS = 30000;
+  // --------------------------------------------------
+
+  const LEVEL_COLORS = { critical: '#dc2626', high: '#f59e0b', moderate: '#16a34a' };
+  const charts = {};
+
+  function bar(id, labels, datasets, extra = {}) {
+    if (charts[id]) {
+      charts[id].data.labels = labels;
+      charts[id].data.datasets = datasets;
+      charts[id].update();
+      return;
+    }
+    charts[id] = new Chart(document.getElementById(id), {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: datasets.length > 1 } },
+        scales: { y: { beginAtZero: true, ...(extra.stacked ? { stacked: true } : {}) }, x: extra.stacked ? { stacked: true } : {} },
+      },
+    });
+  }
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text; // textContent keeps resident/AI text from running as HTML
+    return e;
+  }
+
+  const sum = (rows, key) => rows.reduce((t, r) => t + Number(r[key] || 0), 0);
+
+  function render(d) {
+    const rows = d.rows || [];
+    const c = d.charts;
+
+    document.getElementById('engine').textContent =
+      { ai: 'Scored by AI', mixed: 'Partly AI (some keyword fallback)', formula: 'Formula only (AI not used)' }[d.engine] || '';
+    document.getElementById('s-brgy').textContent = rows.length;
+    document.getElementById('s-sos').textContent = sum(rows, 'sos_count');
+    document.getElementById('s-people').textContent = sum(rows, 'people');
+    document.getElementById('s-points').textContent = sum(rows, 'ai_points');
+
+    const top = document.getElementById('top');
+    top.replaceChildren();
+    if (!rows.length) top.append(el('div', 'card muted', 'No pending SOS right now.'));
+    rows.slice(0, 3).forEach((r) => {
+      const card = el('div', 'card');
+      const title = el('b', '', `#${r.rank} ${r.name}`);
+      title.append(el('span', `pill ${r.level}`, r.level));
+      card.append(title);
+      card.append(el('div', 'muted', `Score ${r.score} - ${r.sos_count} SOS - ${r.people} people` + (r.top_category ? ` - ${r.top_category}` : '')));
+      if (r.reason) card.append(el('div', '', r.reason));
+      top.append(card);
+    });
+
+    const colors = rows.map((r) => LEVEL_COLORS[r.level] || '#6b7280');
+    bar('c-score', c.priority_score.labels, [{ label: 'Score', data: c.priority_score.data, backgroundColor: colors }]);
+    bar('c-breakdown', c.score_breakdown.labels, [
+      { label: 'Base score', data: c.score_breakdown.base, backgroundColor: '#3b82f6' },
+      { label: 'AI points', data: c.score_breakdown.ai_points, backgroundColor: '#a855f7' },
+    ], { stacked: true });
+    bar('c-sos', c.sos_count.labels, [{ label: 'SOS', data: c.sos_count.data, backgroundColor: '#3b82f6' }]);
+    bar('c-people', c.people_affected.labels, [{ label: 'People', data: c.people_affected.data, backgroundColor: '#0ea5e9' }]);
+    bar('c-wait', c.longest_wait_hours.labels, [{ label: 'Hours', data: c.longest_wait_hours.data, backgroundColor: '#f59e0b' }]);
+    bar('c-types', c.emergency_types.labels, [{ label: 'SOS', data: c.emergency_types.data, backgroundColor: '#a855f7' }]);
+  }
+
+  async function load() {
+    const status = document.getElementById('status');
+    try {
+      const res = await fetch(`${API_BASE}/sos/analytics`, {
+        headers: { Accept: 'application/json', ...(TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {}) },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      render(await res.json());
+      status.textContent = `Updated ${new Date().toLocaleTimeString()}. Refreshes every ${REFRESH_MS / 1000} seconds.`;
+    } catch (e) {
+      status.textContent = `Could not load analytics (${e.message}). Check API_BASE and that you are logged in.`;
+    }
+  }
+
+  load();
+  setInterval(load, REFRESH_MS);
+</script>
+</body>
+</html>
