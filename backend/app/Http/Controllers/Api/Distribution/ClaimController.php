@@ -41,26 +41,50 @@ class ClaimController extends Controller
             ]);
     }
 
-    /** Step 1 after scanning: show the household and whether it can claim. */
-    public function check(Request $request, DistributionEvent $event)
+    /** Offline mode: the household list a staff phone downloads while online. */
+    public function offlinePack(Request $request, DistributionEvent $event)
     {
-        $data = $request->validate(['reference_number' => ['required', 'string', 'max:30']]);
+        $data = $request->validate(['barangay_id' => ['required', 'integer']]);
 
-        return $this->service->check($event, $data['reference_number']);
+        return $this->service->offlinePack($event, (int) $data['barangay_id']);
     }
 
-    /** Step 2: staff confirms the release. */
+    /**
+     * Step 1 after scanning: show the household and whether it can claim.
+     * Send "qr" (the scanned text, token checked) or "reference_number" (manual entry).
+     */
+    public function check(Request $request, DistributionEvent $event)
+    {
+        $data = $request->validate([
+            'qr' => ['required_without:reference_number', 'nullable', 'string', 'max:120'],
+            'reference_number' => ['required_without:qr', 'nullable', 'string', 'max:30'],
+        ]);
+
+        return $this->service->check($event, $this->reference($data));
+    }
+
+    /** Step 2: staff confirms the release. A QR claim re-checks the token. */
     public function store(Request $request, DistributionEvent $event)
     {
         $data = $request->validate([
-            'reference_number' => ['required', 'string', 'max:30'],
-            'verification_method' => ['required', 'in:qr,reference_number'],
+            'qr' => ['required_without:reference_number', 'nullable', 'string', 'max:120'],
+            'reference_number' => ['required_without:qr', 'nullable', 'string', 'max:30'],
             'synced_from_offline' => ['boolean'],
             'distributed_at' => ['nullable', 'date', 'before_or_equal:now'],
         ]);
 
-        $claim = $this->service->claim($event, $data['reference_number'], $request->user(), $data);
+        // The method follows what was sent, so a claim is only marked "QR" if a valid QR was scanned
+        $data['verification_method'] = isset($data['qr']) ? 'qr' : 'reference_number';
+
+        $claim = $this->service->claim($event, $this->reference($data), $request->user(), $data);
 
         return response()->json(['message' => 'Claim recorded.', 'claim' => $claim], 201);
+    }
+
+    private function reference(array $data): string
+    {
+        return isset($data['qr'])
+            ? $this->service->referenceFromQr($data['qr'])
+            : $data['reference_number'];
     }
 }

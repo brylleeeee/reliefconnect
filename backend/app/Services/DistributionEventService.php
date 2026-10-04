@@ -142,6 +142,76 @@ class DistributionEventService
         }
     }
 
+    /**
+     * Offline mode: everything a staff phone needs to check reference numbers without internet,
+     * for one barangay's running distribution. Only households that can receive in this event
+     * are included, with whether they already claimed. QR secrets are never included, so QR
+     * scanning stays online-only. The phone deletes this list when the distribution closes.
+     */
+    public function offlinePack(DistributionEvent $event, int $barangayId): array
+    {
+        $bd = $event->forBarangay($barangayId);
+
+        if ($event->status !== 'open' || ! $bd || $bd->status !== 'ongoing') {
+            $this->fail('not_started', 'This barangay distribution is not running, so there is nothing to download.');
+        }
+
+        $claimed = $event->distributions()
+            ->whereHas('household', fn ($q) => $q->where('barangay_id', $barangayId))
+            ->pluck('distributed_at', 'household_id');
+
+        $households = DistributionEvent::applyEligibility(Household::query(), $event->eligibility ?? 'all')
+            ->where('barangay_id', $barangayId)
+            ->where('status', 'approved')
+            ->whereNotNull('reference_number')
+            ->orderBy('reference_number')
+            ->get(['id', 'reference_number', 'household_head', 'purok', 'members_count', 'priority_level',
+                'seniors_count', 'pwd_count', 'infants_count', 'pregnant_count', 'is_solo_parent'])
+            ->map(fn (Household $h) => [
+                'reference_number' => $h->reference_number,
+                'household_head' => $h->household_head,
+                'purok' => $h->purok,
+                'members_count' => $h->members_count,
+                'priority_level' => $h->priority_level,
+                'quantity' => $event->quantityFor($h),
+                'claimed_at' => $claimed[$h->id] ?? null,
+            ])
+            ->filter(fn ($h) => $h['quantity'] > 0)
+            ->values();
+
+        return [
+            'event_id' => $event->id,
+            'barangay_id' => $barangayId,
+            'unit' => $event->item->unit,
+            'quota' => $bd->quota,
+            'claimed' => $claimed->count(),
+            'downloaded_at' => now()->toIso8601String(),
+            'households' => $households,
+        ];
+    }
+
+    /**
+     * Dynamic QR: reads a scanned "RC:<reference number>:<token>" and returns the reference
+     * number, but only if the token is the one issued at the resident's latest login.
+     * QR scans are always checked online; offline, staff use manual reference number entry.
+     */
+    public function referenceFromQr(string $qr): string
+    {
+        $parts = explode(':', trim($qr), 3);
+
+        if (count($parts) !== 3 || $parts[0] !== Household::QR_PREFIX || $parts[2] === '') {
+            $this->fail('invalid_qr', 'This is not a ReliefConnect QR code.', 422);
+        }
+
+        $household = $this->findHousehold($parts[1]);
+
+        if (! $household->qr_secret || ! hash_equals($household->qr_secret, $parts[2])) {
+            $this->fail('qr_expired', 'This QR is no longer valid. Ask the resident to log in to the app again and show the new QR, or use manual entry.', 422);
+        }
+
+        return $household->reference_number;
+    }
+
     private function findHousehold(string $referenceNumber): Household
     {
         $household = Household::with('barangay')

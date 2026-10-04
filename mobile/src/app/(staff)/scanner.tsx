@@ -1,9 +1,10 @@
 // src/app/(staff)/scanner.tsx  —  Figma frame: staff-qr-scanner
 import { useCallback, useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router, useFocusEffect } from 'expo-router';
+import * as Network from 'expo-network';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import { ArrowLeft, Scan, Flashlight, FlashlightOff, TriangleAlert } from 'lucide-react-native';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -23,11 +24,27 @@ export default function Scanner() {
     }, [])
   );
 
-  const handleScan = ({ data }: BarcodeScanningResult) => {
+  const handleScan = async ({ data }: BarcodeScanningResult) => {
     if (scannedRef.current) return;
     scannedRef.current = true;
     setTorchOn(false);
-    // Until the dynamic QR (Sprint 2), a ReliefConnect QR carries the household's reference number
+
+    // Dynamic QR: the server must confirm it is the resident's latest QR, so scanning needs
+    // internet. Offline, staff use manual reference number entry instead (team decision).
+    const net = await Network.getNetworkStateAsync().catch(() => null);
+    if (net && (net.isConnected === false || net.isInternetReachable === false)) {
+      Alert.alert(
+        'No internet connection',
+        "QR codes can only be checked online. Use Manual Entry with the resident's reference number and check their valid ID.",
+        [
+          { text: 'Try Again', style: 'cancel', onPress: () => { scannedRef.current = false; } },
+          { text: 'Manual Entry', onPress: () => router.replace('/manual-entry') },
+        ],
+      );
+      return;
+    }
+
+    // The QR carries "RC:<reference number>:<token>"; verification sends it to the server as is
     router.push({ pathname: '/verification', params: { reference: data.trim(), method: 'qr' } });
   };
 

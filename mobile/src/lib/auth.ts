@@ -2,6 +2,7 @@
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import { api, tokenStore, ApiError } from './api';
+import { clearOfflineData } from './offline';
 
 export type Role = 'resident' | 'distribution_personnel' | 'barangay_admin' | 'municipal_admin';
 
@@ -56,4 +57,5 @@ export async function currentUser(): Promise<User | null> {
 export async function logout() {
   await api('/logout', { method: 'POST' }).catch(() => {}); // still log out locally if offline
   await tokenStore.clear();
+  await clearOfflineData(); // offline mode: household lists don't stay on the phone after logout
 }

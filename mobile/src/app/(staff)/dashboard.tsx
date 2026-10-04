@@ -4,10 +4,11 @@ import { View, Text, Pressable, ScrollView, Alert, RefreshControl, StyleSheet } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-import { Bell, QrCode, Keyboard, ChevronRight, ClipboardList, Headset  } from 'lucide-react-native';
+import { Bell, QrCode, Keyboard, ChevronRight, ClipboardList, Headset, CloudUpload, TriangleAlert } from 'lucide-react-native';
 import { useStaff } from '../../context/StaffContext';
 import { logout } from '../../lib/auth';
 import { errorText, qtyUnit } from '../../lib/api';
+import { downloadPack, getPack, getQueue, getProblems, clearProblems, syncQueue, SyncProblem } from '../../lib/offline';
 import { colors, fonts } from '../../constants/theme';
 
 function getInitials(name: string) {
@@ -20,8 +21,19 @@ function getInitials(name: string) {
 export default function Dashboard() {
   const { user, events, selected, select, reload } = useStaff();
   const [online, setOnline] = useState(true);
+  // offline mode: queued releases, sync problems, and when the household list was downloaded
+  const [pending, setPending] = useState(0);
+  const [problems, setProblems] = useState<SyncProblem[]>([]);
+  const [listAt, setListAt] = useState<string | null>(null);
+  const [syncingNow, setSyncingNow] = useState(false);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+
+  const refreshOffline = useCallback(async () => {
+    setPending((await getQueue()).length);
+    setProblems(await getProblems());
+    setListAt(selected ? (await getPack(selected.event_id, selected.barangay_id))?.downloaded_at ?? null : null);
+  }, [selected]);
 
   const load = useCallback(async () => {
     try {
@@ -30,7 +42,29 @@ export default function Dashboard() {
     } catch (e) {
       setError(errorText(e));
     }
-  }, [reload]);
+    await refreshOffline();
+  }, [reload, refreshOffline]);
+
+  // Online: send queued offline releases, then download a fresh household list for offline use
+  const sync = useCallback(async () => {
+    setSyncingNow(true);
+    try {
+      const { sent, failed } = await syncQueue();
+      if (selected) await downloadPack(selected.event_id, selected.barangay_id).catch(() => {});
+      if (sent || failed) await reload().catch(() => {});
+      if (failed) {
+        Alert.alert('Some offline releases were not accepted',
+          `${failed} release${failed === 1 ? '' : 's'} could not be recorded. See "Sync problems" on the dashboard and report them to your barangay admin.`);
+      }
+    } finally {
+      setSyncingNow(false);
+      await refreshOffline();
+    }
+  }, [selected, reload, refreshOffline]);
+
+  useEffect(() => {
+    if (online) sync();
+  }, [online, selected?.event_id, selected?.barangay_id]);
 
   // Refresh counts whenever staff come back from a claim
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -41,9 +75,15 @@ export default function Dashboard() {
     setRefreshing(false);
   };
 
-  const go = (path: '/scanner' | '/manual-entry') => {
-    if (!online) return Alert.alert('No connection', 'Claims need an internet connection to be checked and recorded.');
+  const go = async (path: '/scanner' | '/manual-entry') => {
     if (!selected) return Alert.alert('Choose a distribution', 'Select which barangay distribution you are serving first.');
+    if (!online && path === '/scanner') {
+      return Alert.alert('QR scanning needs internet', 'While offline, use Reference Number entry instead.');
+    }
+    if (!online && !(await getPack(selected.event_id, selected.barangay_id))) {
+      return Alert.alert('No offline list on this phone',
+        'Connect to the internet once with this distribution selected, so the household list is downloaded for offline use.');
+    }
     router.push(path);
   };
 
@@ -58,7 +98,13 @@ export default function Dashboard() {
     return unsubscribe;
   }, []);
 
-  const handleLogout = () =>
+  const handleLogout = async () => {
+    // Logging out deletes offline data, so unsent releases must be synced first
+    const unsent = (await getQueue()).length;
+    if (unsent) {
+      return Alert.alert('Sync first',
+        `${unsent} offline release${unsent === 1 ? ' is' : 's are'} not sent yet. Connect to the internet and wait for them to sync before logging out.`);
+    }
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -70,6 +116,7 @@ export default function Dashboard() {
         },
       },
     ]);
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -142,6 +189,44 @@ export default function Dashboard() {
           </View>
         </View>
 
+        {/* offline mode: what is waiting to sync, and what the server refused */}
+        {(pending > 0 || problems.length > 0 || !online) && (
+          <View style={styles.syncCard}>
+            <View style={styles.syncRow}>
+              <CloudUpload size={18} color={colors.blue} strokeWidth={2} />
+              <Text style={styles.syncTitle}>
+                {pending > 0 ? `${pending} offline release${pending === 1 ? '' : 's'} waiting to sync` : 'All releases synced'}
+              </Text>
+            </View>
+            <Text style={styles.syncHint}>
+              {listAt
+                ? `Offline household list downloaded ${new Date(listAt).toLocaleString()}.`
+                : 'No offline household list yet. It downloads automatically while online.'}
+            </Text>
+            {pending > 0 && online && (
+              <Pressable onPress={sync} disabled={syncingNow} style={styles.syncButton}>
+                <Text style={styles.syncButtonText}>{syncingNow ? 'Syncing…' : 'Sync Now'}</Text>
+              </Pressable>
+            )}
+            {problems.length > 0 && (
+              <View style={styles.problemBox}>
+                <View style={styles.syncRow}>
+                  <TriangleAlert size={16} color={colors.danger} strokeWidth={2} />
+                  <Text style={styles.problemTitle}>Sync problems ({problems.length}) — report to your barangay admin</Text>
+                </View>
+                {problems.map((p, i) => (
+                  <Text key={`${p.reference}-${i}`} style={styles.problemText}>
+                    {p.reference} · {p.head} · {new Date(p.distributedAt).toLocaleString()}: {p.reason}
+                  </Text>
+                ))}
+                <Pressable onPress={async () => { await clearProblems(); await refreshOffline(); }}>
+                  <Text style={styles.problemClear}>Clear after reporting</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* scan logs card */}
         <Pressable
           style={({ pressed }) => [styles.logsCard, pressed && { opacity: 0.8 }]}
@@ -194,7 +279,7 @@ export default function Dashboard() {
       >
         <View style={[styles.statusDot, { backgroundColor: online ? colors.success : colors.danger }]} />
         <Text style={[styles.statusText, { color: online ? colors.success : colors.danger }]}>
-          {online ? 'Online — Claims recorded live' : 'Offline — Connect to record claims'}
+          {online ? 'Online — Claims recorded live' : 'Offline — Reference numbers only, releases sync later'}
         </Text>
       </View>
     </SafeAreaView>
@@ -203,6 +288,24 @@ export default function Dashboard() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+
+  syncCard: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+  },
+  syncRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  syncTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.text, flexShrink: 1 },
+  syncHint: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, lineHeight: 17 },
+  syncButton: { alignSelf: 'flex-start', backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
+  syncButtonText: { fontFamily: fonts.bold, fontSize: 13, color: colors.white },
+  problemBox: { backgroundColor: colors.dangerTint, borderRadius: 8, padding: 10, gap: 6 },
+  problemTitle: { fontFamily: fonts.bold, fontSize: 12, color: colors.danger, flexShrink: 1 },
+  problemText: { fontFamily: fonts.regular, fontSize: 12, color: colors.text, lineHeight: 17 },
+  problemClear: { fontFamily: fonts.semibold, fontSize: 12, color: colors.danger, textDecorationLine: 'underline' },
 
   eventBox: {
     backgroundColor: colors.white,

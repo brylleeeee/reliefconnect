@@ -1,8 +1,10 @@
 // src/context/StaffContext.tsx
 // The logged-in distribution staff member, the distributions running now, and the one being served.
+// Offline mode: the account and running distributions are cached, so the app still opens without internet.
 import { createContext, useCallback, useContext, useState, ReactNode } from 'react';
 import { api } from '../lib/api';
-import { currentUser, User } from '../lib/auth';
+import type { User } from '../lib/auth';
+import { cacheStaff, getCachedStaff, isOfflineError, prunePacks } from '../lib/offline';
 
 export type StaffEvent = {
   event_id: number;
@@ -23,6 +25,8 @@ type StaffContextValue = {
   events: StaffEvent[] | null;
   selected: StaffEvent | null;
   select: (e: StaffEvent) => void;
+  /** True when the last reload could not reach the server and cached data is shown. */
+  offline: boolean;
   /** Reloads the staff member and ongoing distributions (claimed counts included). */
   reload: () => Promise<void>;
 };
@@ -36,9 +40,22 @@ export function StaffProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [events, setEvents] = useState<StaffEvent[] | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [offline, setOffline] = useState(false);
 
   const reload = useCallback(async () => {
-    const [me, list] = await Promise.all([currentUser(), api<StaffEvent[]>('/distribution/events')]);
+    let me: User;
+    let list: StaffEvent[];
+    try {
+      [me, list] = await Promise.all([api<User>('/me'), api<StaffEvent[]>('/distribution/events')]);
+      setOffline(false);
+      await cacheStaff(me, list);
+      await prunePacks(list); // a list whose distribution stopped running is deleted from the phone
+    } catch (e) {
+      const cached = isOfflineError(e) ? await getCachedStaff<StaffEvent>() : null;
+      if (!cached) throw e;
+      setOffline(true);
+      ({ user: me, events: list } = cached);
+    }
     setUser(me);
     setEvents(list);
     // Keep the current choice if it's still running; auto-pick when there is only one
@@ -49,7 +66,7 @@ export function StaffProvider({ children }: { children: ReactNode }) {
   const selected = events?.find((e) => keyOf(e) === selectedKey) ?? null;
 
   return (
-    <StaffContext.Provider value={{ user, events, selected, select: (e) => setSelectedKey(keyOf(e)), reload }}>
+    <StaffContext.Provider value={{ user, events, selected, select: (e) => setSelectedKey(keyOf(e)), offline, reload }}>
       {children}
     </StaffContext.Provider>
   );

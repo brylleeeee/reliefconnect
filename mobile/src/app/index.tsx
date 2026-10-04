@@ -6,6 +6,8 @@ import { router } from 'expo-router';
 import { Handshake, House } from 'lucide-react-native';
 import { useResident } from '../context/ResidentContext';
 import { currentUser } from '../lib/auth';
+import { tokenStore } from '../lib/api';
+import { getCachedStaff } from '../lib/offline';
 import { colors, fonts } from '../constants/theme';
 
 export default function ResidentStart() {
@@ -17,6 +19,8 @@ export default function ResidentStart() {
     (async () => {
       const user = await currentUser();
       if (user?.role === 'distribution_personnel') return router.replace('/dashboard');
+      // Offline mode: a staff phone opened without internet still goes to the dashboard
+      if (!user && (await tokenStore.get()) && (await getCachedStaff())) return router.replace('/dashboard');
       if (user?.role === 'resident') {
         setUser(user);
         const household = await refresh().catch(() => null);

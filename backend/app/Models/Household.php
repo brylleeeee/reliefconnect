@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Household extends Model
 {
@@ -22,6 +23,28 @@ class Household extends Model
             'is_solo_parent' => 'boolean',
             'qr_secret' => 'encrypted',
         ];
+    }
+
+    /**
+     * Dynamic QR: the QR carries the reference number plus a secret token.
+     * A new token is made on every resident login (and by "Reset QR"), so older
+     * QRs and screenshots stop working. The reference number never changes.
+     */
+    public const QR_PREFIX = 'RC';
+
+    public function rotateQr(): void
+    {
+        $this->forceFill(['qr_secret' => Str::random(40)])->save();
+    }
+
+    /** What the resident's QR encodes, e.g. "RC:URB-2026-000094:k9Fq2x...". Null until approved. */
+    public function qrValue(): ?string
+    {
+        if ($this->status !== 'approved' || ! $this->reference_number || ! $this->qr_secret) {
+            return null;
+        }
+
+        return self::QR_PREFIX.':'.$this->reference_number.':'.$this->qr_secret;
     }
 
     public function barangay()

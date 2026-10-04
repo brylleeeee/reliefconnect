@@ -51,7 +51,7 @@ export type Household = {
   head: Member;
   members: Member[];              // everyone except the head
   referenceNumber: string | null; // issued by the barangay on approval
-  qrToken: string | null;         // what the QR encodes (the reference number until the dynamic QR)
+  qrToken: string | null;         // what the QR encodes: "RC:<reference no.>:<token>", new on every login
 };
 
 /** Everything collected in steps 1 and 2 before sending. */

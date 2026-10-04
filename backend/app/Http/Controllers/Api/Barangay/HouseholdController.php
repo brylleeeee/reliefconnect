@@ -74,6 +74,17 @@ class HouseholdController extends Controller
         return $household->load(['members', 'reviewer:id,name', 'documents']);
     }
 
+    /** Reset QR: e.g. the resident lost their phone. Their current QR stops working right away. */
+    public function resetQr(Request $request, Household $household)
+    {
+        $this->authorizeHousehold($request, $household);
+        abort_unless($household->status === 'approved', 422, 'Only approved households have a QR.');
+
+        $household->rotateQr();
+
+        return response()->json(['message' => 'QR reset. The resident gets a new QR the next time they log in to the app.']);
+    }
+
     /** Streams an uploaded document (valid ID, birth certificate) from private storage. */
     public function document(Request $request, Household $household, HouseholdDocument $document)
     {

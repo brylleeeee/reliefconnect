@@ -12,6 +12,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import { useStaff } from '../../context/StaffContext';
 import { api, errorText, qtyUnit } from '../../lib/api';
 import { addScan, ScanEntry, ScanResult } from '../../lib/scanLog';
+import { checkOffline, getPack, getQueue, isOfflineError, queueClaim } from '../../lib/offline';
 import { colors, fonts } from '../../constants/theme';
 
 type CheckResult = {
@@ -53,6 +54,18 @@ export default function Verification() {
   const [geo, setGeo] = useState<{ latitude: number; longitude: number; accuracy: number | null } | null>(null);
   const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle');
   const [ip, setIp] = useState<string | null>(null);
+  // offline mode: checked against the downloaded list, release saved on the phone until it syncs
+  const [offline, setOffline] = useState(false);
+
+  // Dynamic QR: a scan sends the whole QR ("RC:<reference no.>:<token>") so the server can check
+  // it is the resident's latest QR. Manual entry sends the reference number.
+  const isQr = method !== 'reference_number';
+  // A valid dynamic QR already proves the resident is who they say, so only manual
+  // (typed) reference numbers need the photo of the beneficiary receiving the aid.
+  const needsPhoto = !isQr;
+  const sent = isQr ? { qr: reference } : { reference_number: reference };
+  // What to show and log before the server answers: never the QR's secret token
+  const shownRef = isQr ? (reference?.startsWith('RC:') ? reference.split(':')[1] : 'the scanned QR') : reference;
 
   // adviser: keep a log of every scan by this staff member
   const log = (outcome: ScanResult, data: CheckResult | null, reason?: string | null, proof?: Proof) => {
@@ -65,11 +78,11 @@ export default function Verification() {
       item: selected.item,
       unit: data?.unit ?? selected.unit,
       quantity: data?.quantity ?? selected.quantity_per_household,
-      reference: data?.household.reference_number ?? reference,
+      reference: data?.household.reference_number ?? shownRef,
       head: data?.household.household_head ?? null,
       result: outcome,
       reason: reason ?? null,
-      method: method ?? 'qr',
+      method: isQr ? 'qr' : 'reference_number',
       ...proof,
     }).catch(() => {});
   };
@@ -79,16 +92,64 @@ export default function Verification() {
       setError('No distribution selected. Go back to the dashboard and choose one.');
       return;
     }
-    api<CheckResult>(`/distribution/events/${selected.event_id}/check`, { query: { reference_number: reference } })
-      .then((data) => {
+    api<CheckResult>(`/distribution/events/${selected.event_id}/check`, { query: sent })
+      .then(async (data) => {
+        // Released offline on this phone but not synced yet: the server doesn't know about it
+        const queued = (await getQueue()).some(
+          (q) => q.eventId === selected.event_id && q.reference === data.household.reference_number);
+        if (queued && data.can_claim) {
+          data = { ...data, can_claim: false, reason: 'Already released on this phone while offline (waiting to sync).' };
+        }
         setResult(data);
         if (!data.can_claim) log('blocked', data, data.reason);
       })
-      .catch((e) => {
+      .catch(async (e) => {
+        // Offline mode: reference numbers are checked against the downloaded household list
+        if (!isQr && isOfflineError(e)) return checkWithoutInternet();
         setError(errorText(e));
         log('error', null, errorText(e));
       });
   }, [reference, selected]);
+
+  const checkWithoutInternet = async () => {
+    if (!selected) return;
+    const pack = await getPack(selected.event_id, selected.barangay_id);
+    if (!pack) {
+      const msg = 'No internet, and no offline household list on this phone. Connect once with this distribution selected to download it.';
+      setError(msg);
+      return log('error', null, msg);
+    }
+    const r = checkOffline(pack, reference);
+    if (!r.household) {
+      setError(r.reason);
+      return log('error', null, r.reason);
+    }
+    const data: CheckResult = {
+      household: { ...r.household, id: 0, barangay: selected.barangay },
+      can_claim: !r.reason,
+      reason: r.reason,
+      claimed_at: r.household.claimed_at,
+      quantity: r.household.quantity,
+      unit: pack.unit,
+    };
+    setOffline(true);
+    setResult(data);
+    if (!data.can_claim) log('blocked', data, data.reason);
+  };
+
+  /** Saves the release on the phone; it is sent to the server when back online. */
+  const releaseOffline = async () => {
+    if (!selected || !result) return;
+    await queueClaim({
+      eventId: selected.event_id,
+      barangayId: selected.barangay_id,
+      reference: result.household.reference_number,
+      head: result.household.household_head,
+      distributedAt: new Date().toISOString(),
+    });
+    setOffline(true);
+    setReleased(true);
+  };
 
   // Once the household is eligible, start capturing location and IP in the background
   useEffect(() => {
@@ -131,10 +192,24 @@ export default function Verification() {
     if (!selected || !result) return;
     setReleasing(true);
     try {
-      await api(`/distribution/events/${selected.event_id}/claims`, {
-        body: { reference_number: result.household.reference_number, verification_method: method ?? 'qr' },
-      });
-      setReleased(true);
+      if (offline) {
+        await releaseOffline();
+      } else {
+        try {
+          await api(`/distribution/events/${selected.event_id}/claims`, {
+            // a QR claim is re-checked by the server, so it is only recorded as "QR scan" if still valid
+            body: isQr ? { qr: reference } : { reference_number: result.household.reference_number },
+          });
+          setReleased(true);
+        } catch (e) {
+          // Internet dropped after the check: a reference number release can still be saved offline
+          if (!isQr && isOfflineError(e) && (await getPack(selected.event_id, selected.barangay_id))) {
+            await releaseOffline();
+          } else {
+            throw e;
+          }
+        }
+      }
       log('released', result, null, {
         photoUri: photo,
         latitude: geo?.latitude ?? null,
@@ -154,7 +229,7 @@ export default function Verification() {
   // adviser: explicit confirmation before finalizing a release
   const confirmRelease = () => {
     if (!result) return;
-    if (!photo) {
+    if (needsPhoto && !photo) {
       Alert.alert('Photo required', 'Take a photo of the beneficiary receiving the aid before releasing.');
       return;
     }
@@ -189,7 +264,7 @@ export default function Verification() {
         {!result && !error && (
           <View style={styles.center}>
             <ActivityIndicator color={colors.primary} size="large" />
-            <Text style={styles.muted}>Checking {reference}…</Text>
+            <Text style={styles.muted}>Checking {shownRef}…</Text>
           </View>
         )}
 
@@ -202,7 +277,9 @@ export default function Verification() {
               </Text>
               <Text style={styles.bannerText}>
                 {released
-                  ? `${qtyUnit(result?.quantity ?? 1, result?.unit ?? '')} recorded for this household.`
+                  ? offline
+                    ? `${qtyUnit(result?.quantity ?? 1, result?.unit ?? '')} released. Saved on this phone; it syncs automatically when back online.`
+                    : `${qtyUnit(result?.quantity ?? 1, result?.unit ?? '')} recorded for this household.`
                   : ok
                     ? `Release ${qtyUnit(result?.quantity ?? 1, result?.unit ?? '')} to this household.`
                     : error || result?.reason}
@@ -214,6 +291,12 @@ export default function Verification() {
               )}
             </View>
           </View>
+        )}
+
+        {offline && !released && result && (
+          <Text style={styles.offlineNote}>
+            Offline: checked against the household list downloaded on this phone.
+          </Text>
         )}
 
         {h && p && (
@@ -236,20 +319,22 @@ export default function Verification() {
         )}
 
         {/* proof of distribution */}
-        {(canRelease || (released && photo)) && (
+        {(canRelease || released) && (
           <View style={styles.card}>
             <Text style={styles.label}>PROOF OF DISTRIBUTION</Text>
 
-            {photo ? (
+            {!needsPhoto && <Text style={styles.qrVerified}>Verified by the resident's QR code. No photo needed.</Text>}
+
+            {needsPhoto && (photo ? (
               <Image source={{ uri: photo }} style={styles.photo} />
             ) : (
               <View style={styles.photoEmpty}>
                 <Camera size={28} color={colors.muted} strokeWidth={2} />
-                <Text style={styles.muted}>Photo of the beneficiary receiving the aid (required)</Text>
+                <Text style={styles.muted}>Photo of the beneficiary receiving the aid (required for typed reference numbers)</Text>
               </View>
-            )}
+            ))}
 
-            {!released && (
+            {needsPhoto && !released && (
               <PrimaryButton
                 title={photo ? 'Retake Photo' : 'Take Photo'}
                 variant={photo ? 'outline' : 'solid'}
@@ -276,9 +361,9 @@ export default function Verification() {
       <View style={styles.footer}>
         {canRelease ? (
           <PrimaryButton
-            title={releasing ? 'Recording…' : photo ? `Release ${qtyUnit(result!.quantity, result!.unit)}` : 'Take a photo to release'}
+            title={releasing ? 'Recording…' : photo || !needsPhoto ? `Release ${qtyUnit(result!.quantity, result!.unit)}` : 'Take a photo to release'}
             onPress={confirmRelease}
-            disabled={releasing || !photo}
+            disabled={releasing || (needsPhoto && !photo)}
           />
         ) : (
           (result || error) && (
@@ -301,6 +386,8 @@ function Info({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  qrVerified: { fontFamily: fonts.semibold, fontSize: 13, color: colors.success },
+  offlineNote: { fontFamily: fonts.semibold, fontSize: 12, color: colors.blue, backgroundColor: colors.blueTint, borderRadius: 8, padding: 10 },
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 20, gap: 16 },
   center: { alignItems: 'center', gap: 12, paddingVertical: 48 },
