@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router, useFocusEffect } from 'expo-router';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
-import { ArrowLeft, Scan, Flashlight, FlashlightOff } from 'lucide-react-native';
+import { ArrowLeft, Scan, Flashlight, FlashlightOff, TriangleAlert } from 'lucide-react-native';
 import PrimaryButton from '../../components/PrimaryButton';
 import { colors, fonts } from '../../constants/theme';
 
@@ -89,6 +89,14 @@ export default function Scanner() {
 
         {/* bottom */}
         <View style={styles.bottom}>
+          {/* adviser requirement: remind staff to check the physical items */}
+          <View style={styles.reminder}>
+            <TriangleAlert size={16} color={colors.yellow} strokeWidth={2} />
+            <Text style={styles.reminderText}>
+              Double-check the physical relief items before confirming the release.
+            </Text>
+          </View>
+
           <Text style={styles.hint}>Place the resident's digital or printed QR code inside the frame.</Text>
           <Pressable
             style={({ pressed }) => [styles.torchBtn, pressed && { opacity: 0.8 }]}
@@ -137,6 +145,18 @@ const styles = StyleSheet.create({
   },
 
   bottom: { alignItems: 'center', paddingHorizontal: 40, paddingBottom: 24, gap: 16 },
+  reminder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderWidth: 1,
+    borderColor: colors.yellow,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  reminderText: { flex: 1, fontFamily: fonts.semibold, fontSize: 12, lineHeight: 16, color: colors.white },
   hint: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 17, color: colors.white, opacity: 0.8, textAlign: 'center' },
   torchBtn: {
     height: 36,

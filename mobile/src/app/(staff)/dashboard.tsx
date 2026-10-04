@@ -4,7 +4,7 @@ import { View, Text, Pressable, ScrollView, Alert, RefreshControl, StyleSheet } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-import { Bell, QrCode, Keyboard, ChevronRight } from 'lucide-react-native';
+import { Bell, QrCode, Keyboard, ChevronRight, ClipboardList, Headset  } from 'lucide-react-native';
 import { useStaff } from '../../context/StaffContext';
 import { logout } from '../../lib/auth';
 import { errorText, qtyUnit } from '../../lib/api';
@@ -87,9 +87,14 @@ export default function Dashboard() {
           </View>
         </Pressable>
 
-        <Pressable style={styles.bell} hitSlop={6} onPress={() => { /* TODO: notifications */ }}>
-          <Bell size={18} color={colors.text} strokeWidth={2} />
-        </Pressable>
+        <View style={styles.headerIcons}>
+          <Pressable style={styles.bell} hitSlop={6} onPress={() => router.push('/assistant')}>
+            <Headset size={18} color={colors.primary} strokeWidth={2} />
+          </Pressable>
+          <Pressable style={styles.bell} hitSlop={6} onPress={() => { /* TODO: notifications */ }}>
+            <Bell size={18} color={colors.text} strokeWidth={2} />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -136,6 +141,16 @@ export default function Dashboard() {
             <Text style={[styles.statValue, { color: colors.blue }]}>{remaining !== null ? `${remaining} homes` : '—'}</Text>
           </View>
         </View>
+
+        {/* scan logs card */}
+        <Pressable
+          style={({ pressed }) => [styles.logsCard, pressed && { opacity: 0.8 }]}
+          onPress={() => router.push('/scan-logs')}
+        >
+          <ClipboardList size={20} color={colors.blue} strokeWidth={2} />
+          <Text style={styles.logsText}>My Scan Logs & Item Breakdown</Text>
+          <ChevronRight size={18} color={colors.textSecondary} strokeWidth={2} />
+        </Pressable>
 
         {/* scan QR card */}
         <Pressable
@@ -235,6 +250,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerIcons: { flexDirection: 'row', gap: 8 },
 
   content: { padding: 20, paddingTop: 16, gap: 16 },
 
@@ -250,6 +266,20 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontFamily: fonts.semibold, fontSize: 11, color: colors.textSecondary },
   statValue: { fontFamily: fonts.extrabold, fontSize: 22 },
+  statLink: { fontFamily: fonts.semibold, fontSize: 11, color: colors.primary, marginTop: 2 },
+
+  logsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  logsText: { flex: 1, fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
 
   actionCard: {
     height: 88,
