@@ -27,18 +27,44 @@ class SosAnalyticsController extends Controller
             ];
         })->values();
 
+        // Bar-graph data (new): every chart is a bar chart with the same barangay labels
+        $labels = $ranking->pluck('name')->all();
+        $types = (clone $pending)
+            ->selectRaw("COALESCE(ai_category, 'unclassified') as type, COUNT(*) as total")
+            ->groupBy('type')
+            ->orderByDesc('total')
+            ->pluck('total', 'type');
+
         return response()->json([
-            'engine' => $engine, // 'ai' = calculated by Gemini, 'formula' = no API key or the call failed
+            'engine' => $engine, // 'ai' = every SOS message read by Gemini, 'mixed' = some used the keyword fallback, 'formula' = no AI used
             'summary' => [
                 'active' => (clone $pending)->count(),
                 'people' => (int) (clone $pending)->sum('people_count'),
                 'barangays_asking' => $ranking->count(),
                 'barangays_total' => Barangay::count(),
                 'served' => SosAlert::where('status', 'served')->count(),
+                'ai_points' => (int) $ranking->sum('ai_points'),
+                'vulnerability_points' => (int) $ranking->sum('vulnerability_points'),
             ],
             'top' => $ranking->first(),
             'ranking' => $ranking,
             'timeline' => $timeline,
+            'charts' => [
+                'priority_score' => ['labels' => $labels, 'data' => $ranking->pluck('score')->all()],
+                'score_breakdown' => [
+                    'labels' => $labels,
+                    'base' => $ranking->pluck('base_score')->all(),
+                    'ai_points' => $ranking->pluck('ai_points')->all(),
+                    'vulnerability' => $ranking->pluck('vulnerability_points')->all(),
+                ],
+                'sos_count' => ['labels' => $labels, 'data' => $ranking->pluck('sos_count')->all()],
+                'people_affected' => ['labels' => $labels, 'data' => $ranking->pluck('people')->all()],
+                'longest_wait_hours' => [
+                    'labels' => $labels,
+                    'data' => $ranking->map(fn ($r) => round($r['waiting_minutes'] / 60, 1))->all(),
+                ],
+                'emergency_types' => ['labels' => $types->keys()->all(), 'data' => $types->values()->all()],
+            ],
         ]);
     }
 
