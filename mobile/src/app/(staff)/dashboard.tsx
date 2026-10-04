@@ -4,7 +4,7 @@ import { View, Text, Pressable, ScrollView, Alert, RefreshControl, StyleSheet } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-import { Bell, QrCode, Keyboard, ChevronRight, ClipboardList } from 'lucide-react-native';
+import { Bell, QrCode, Keyboard, ChevronRight, ClipboardList, Headset  } from 'lucide-react-native';
 import { useStaff } from '../../context/StaffContext';
 import { logout } from '../../lib/auth';
 import { errorText, qtyUnit } from '../../lib/api';
@@ -87,9 +87,14 @@ export default function Dashboard() {
           </View>
         </Pressable>
 
-        <Pressable style={styles.bell} hitSlop={6} onPress={() => { /* TODO: notifications */ }}>
-          <Bell size={18} color={colors.text} strokeWidth={2} />
-        </Pressable>
+        <View style={styles.headerIcons}>
+          <Pressable style={styles.bell} hitSlop={6} onPress={() => router.push('/assistant')}>
+            <Headset size={18} color={colors.primary} strokeWidth={2} />
+          </Pressable>
+          <Pressable style={styles.bell} hitSlop={6} onPress={() => { /* TODO: notifications */ }}>
+            <Bell size={18} color={colors.text} strokeWidth={2} />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -245,6 +250,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerIcons: { flexDirection: 'row', gap: 8 },
 
   content: { padding: 20, paddingTop: 16, gap: 16 },
 
