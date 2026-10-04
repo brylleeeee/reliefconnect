@@ -3,6 +3,7 @@ import { Users, Box, ClipboardList, Wallet, HandHeart, FileDown, FileSpreadsheet
 import api, { downloadFile, errorMessage } from '../api/client'
 import PageHeader from '../components/PageHeader'
 import { exportExcel } from '../lib/exportExcel'
+import useLiveTick from '../components/useLiveTick'
 
 const REPORTS = [
   { type: 'distribution', title: 'Distribution', icon: ClipboardList, byEvent: true,
@@ -46,6 +47,16 @@ export default function Reports() {
   }
   // Refresh the preview whenever the report or its filters change
   useEffect(() => { preview() }, [type, range.from, range.to, eventId])
+
+  // Live: refresh the preview in place, keeping the current page
+  const tick = useLiveTick()
+  useEffect(() => {
+    if (!tick || busy) return
+    api.get(`/admin/reports/${type}`, { params: { ...params, format: 'json' } }).then((r) => {
+      setReport(r.data)
+      setPage((pg) => Math.min(pg, Math.max(1, Math.ceil(r.data.rows.length / PAGE))))
+    }).catch(() => {})
+  }, [tick])
 
   const download = async (format) => {
     setBusy(format); setError('')

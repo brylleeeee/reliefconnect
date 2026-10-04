@@ -8,6 +8,7 @@ import EventAnalytics from '../components/EventAnalytics'
 import LguAnnouncementModal from '../components/LguAnnouncementModal'
 import Pagination from '../components/Pagination'
 import useConfirm from '../components/useConfirm'
+import useLiveTick from '../components/useLiveTick'
 import { peso } from '../components/format'
 import { C } from '../chartColors'
 
@@ -70,12 +71,15 @@ export default function Dashboard() {
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    api.get('/admin/analytics').then((r) => setD(r.data)).catch((err) => setError(errorMessage(err)))
-  }, [])
+  const tick = useLiveTick()
+  const loadAnalytics = () => api.get('/admin/analytics').then((r) => { setD(r.data); setError('') })
+    .catch((err) => { if (!d) setError(errorMessage(err)) })
   const loadAnnouncements = () => api.get('/admin/announcements', { params: { page: annPage } })
     .then((r) => setAnnouncements(r.data))
+  useEffect(() => { loadAnalytics() }, [])
   useEffect(() => { loadAnnouncements() }, [annPage])
+  // Live: refresh the numbers, charts and announcements in place
+  useEffect(() => { if (tick) { loadAnalytics(); loadAnnouncements() } }, [tick])
 
   const [confirm, confirmDialog] = useConfirm()
 
@@ -189,7 +193,7 @@ export default function Dashboard() {
       <section className="rc-card mb-3">
         <h2 className="rc-card-title mb-1">Distribution events</h2>
         <p className="small text-secondary">Claimed, pending and unclaimed households. Choose a barangay to see it by purok.</p>
-        <EventAnalytics />
+        <EventAnalytics refreshKey={tick} />
       </section>
 
       <section className="rc-card">

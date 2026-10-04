@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import api from '../api/client'
 import PageHeader from '../components/PageHeader'
+import useLiveTick from '../components/useLiveTick'
 import { C } from '../chartColors'
 
 const WEIGHT_LABELS = {
@@ -29,14 +30,24 @@ export default function Prioritization() {
   const [itemId, setItemId] = useState('')
   const [packs, setPacks] = useState('')
 
-  const load = (params = {}) =>
-    api.get('/admin/prioritization', { params }).then((r) => {
+  const applied = useRef({}) // the item and quantity last calculated
+
+  const load = (params = {}) => {
+    applied.current = params
+    return api.get('/admin/prioritization', { params }).then((r) => {
       setData(r.data)
       setItemId(r.data.selected_item?.id ?? '')
       setPacks(r.data.packs)
     })
+  }
 
   useEffect(() => { load() }, [])
+
+  // Live: recalculate with the same item and quantity, without touching what's being typed
+  const tick = useLiveTick()
+  useEffect(() => {
+    if (tick) api.get('/admin/prioritization', { params: applied.current }).then((r) => setData(r.data))
+  }, [tick])
 
   const changeItem = (id) => load({ relief_item_id: id }) // packs reset to that item's stock
   const recalc = (e) => { e.preventDefault(); load({ relief_item_id: itemId, packs }) }
@@ -97,12 +108,13 @@ export default function Prioritization() {
         <div className="col-lg-8">
           <section className="rc-card h-100">
             <h2 className="rc-card-title">Households by priority level</h2>
-            <div style={{ height: 280 }}>
+            {/* About 28px per barangay, so all 21 barangays and their labels fit */}
+            <div style={{ height: Math.max(280, rows.length * 28 + 70) }}>
               <ResponsiveContainer>
-                <BarChart data={rows} layout="vertical" margin={{ left: 10, right: 20 }}>
+                <BarChart data={rows} layout="vertical" margin={{ left: 10, right: 20 }} barCategoryGap="25%">
                   <CartesianGrid horizontal={false} stroke={C.grid} />
                   <XAxis type="number" tick={{ fontSize: 12 }} allowDecimals={false} />
-                  <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 12 }} />
+                  <YAxis type="category" dataKey="name" width={96} tick={{ fontSize: 12 }} interval={0} />
                   <Tooltip />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Bar dataKey="high" name="High" stackId="p" fill={C.high} />

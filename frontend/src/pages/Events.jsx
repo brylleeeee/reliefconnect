@@ -10,6 +10,7 @@ import { StatusBadge } from '../components/Badges'
 import { fmtDate, fmtDateTime, fmtTime, peso, qtyUnit, recipients as countOf } from '../components/format'
 import ClaimDetailModal from '../components/ClaimDetailModal'
 import useConfirm from '../components/useConfirm'
+import useLiveTick from '../components/useLiveTick'
 
 const STAGE_LABELS = { ongoing: 'distributing', scheduled: 'scheduled', unscheduled: 'not scheduled', closed: 'done' }
 
@@ -43,6 +44,9 @@ export default function Events() {
     .then((r) => { setData(r.data); setLoadError('') })
     .catch((err) => setLoadError(errorMessage(err)))
   useEffect(() => { load() }, [status, page])
+  // Live: refresh the event list and counts in place (filter and page are kept)
+  const tick = useLiveTick()
+  useEffect(() => { if (tick) load() }, [tick])
 
   const openCreate = async () => {
     setError('')
@@ -175,7 +179,7 @@ export default function Events() {
       )}
 
       {viewingId && (
-        <EventDetailModal id={viewingId} onClose={() => { setViewingId(null); load() }} onAct={act} />
+        <EventDetailModal id={viewingId} tick={tick} onClose={() => { setViewingId(null); load() }} onAct={act} />
       )}
       {/* Last, so it appears above the event window when closing from there */}
       {confirmDialog}
@@ -350,7 +354,7 @@ function CreateEventModal({ state, setState, busy, error, onClose, onSubmit }) {
   )
 }
 
-function EventDetailModal({ id, onClose, onAct }) {
+function EventDetailModal({ id, tick, onClose, onAct }) {
   const [d, setD] = useState(null)
   const [error, setError] = useState('')
 
@@ -361,6 +365,7 @@ function EventDetailModal({ id, onClose, onAct }) {
   // Live count: refresh every 10 seconds while any barangay is distributing
   const live = d?.event.status === 'open' && d.barangays.some((b) => b.status === 'ongoing')
   useEffect(() => { load() }, [id])
+  useEffect(() => { if (tick) load() }, [tick]) // live, even before any barangay starts
   useEffect(() => {
     if (!live) return
     const t = setInterval(load, 10000)

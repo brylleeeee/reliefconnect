@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2 } from 'lucide-react'
 import api, { errorMessage } from '../../api/client'
+import useLiveTick from '../../components/useLiveTick'
 import PageHeader from '../../components/PageHeader'
 import Modal from '../../components/Modal'
 import Pagination from '../../components/Pagination'
@@ -21,6 +22,9 @@ export default function QrReview() {
   const load = () => api.get('/barangay/households', { params: { status: 'pending', sort: 'priority', page } })
     .then((r) => setList(r.data))
   useEffect(() => { load() }, [page])
+  // Live: new registrations from the resident app appear without refreshing
+  const tick = useLiveTick()
+  useEffect(() => { if (tick) load() }, [tick])
 
   const open = async (id) => {
     setError(''); setRejectReason(null)

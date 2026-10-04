@@ -18,7 +18,11 @@ function fromHousehold(h) {
 }
 
 /** Shared by Walk-in Registration and Edit Household. */
-export default function HouseholdForm({ household, puroks = [], submitLabel, onSubmit, onCancel }) {
+/**
+ * Household details and members. `extra` (optional) is rendered before the buttons and its
+ * values are sent with the form, e.g. the resident login section of Walk-in Registration.
+ */
+export default function HouseholdForm({ household, puroks = [], submitLabel, onSubmit, onCancel, extra, extraValues }) {
   const [form, setForm] = useState(() => fromHousehold(household))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -40,7 +44,7 @@ export default function HouseholdForm({ household, puroks = [], submitLabel, onS
     e.preventDefault()
     setBusy(true); setError('')
     try {
-      await onSubmit({ ...form, contact_number: form.contact_number || null })
+      await onSubmit({ ...form, ...extraValues, contact_number: form.contact_number || null })
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -142,6 +146,8 @@ export default function HouseholdForm({ household, puroks = [], submitLabel, onS
           Seniors, infants, PWDs and pregnant members raise the household's priority score automatically.
         </p>
       </section>
+
+      {extra}
 
       {error && <div className="alert alert-danger py-2 small">{error}</div>}
       <div className="d-flex justify-content-end gap-2">

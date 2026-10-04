@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Search, CalendarDays, MapPin, CheckCircle2, Clock, Play, Square, XCircle, Megaphone } from 'lucide-react'
 import api, { errorMessage } from '../../api/client'
+import useLiveTick from '../../components/useLiveTick'
 import PageHeader from '../../components/PageHeader'
 import Modal from '../../components/Modal'
 import Pagination from '../../components/Pagination'
@@ -46,12 +47,9 @@ export default function Distributions() {
   const row = rows?.find((r) => String(r.event_id) === eventId)
   const ongoing = row?.status === 'ongoing' && row?.event_status === 'open'
 
-  // While distributing, refresh claims every 15 seconds
-  useEffect(() => {
-    if (!ongoing) return
-    const t = setInterval(() => { loadHouseholds(); loadRows() }, 15000)
-    return () => clearInterval(t)
-  }, [ongoing, eventId, filters, page])
+  // Live: refresh the schedule, counts and claims in place (selected event, filters and page are kept)
+  const tick = useLiveTick()
+  useEffect(() => { if (tick) { loadRows(); loadHouseholds() } }, [tick])
 
   useEffect(() => {
     const t = setTimeout(() => { setPage(1); setFilters((f) => ({ ...f, search })) }, 350)

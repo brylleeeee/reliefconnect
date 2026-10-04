@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, CalendarDays, MapPin, Package, Wallet, Users } from 'lucide-react'
 import api, { errorMessage } from '../../api/client'
+import useLiveTick from '../../components/useLiveTick'
 import PageHeader from '../../components/PageHeader'
 import ClaimDetailModal from '../../components/ClaimDetailModal'
 import { PriorityBadge, StatusBadge } from '../../components/Badges'
@@ -34,6 +35,17 @@ export default function History() {
     api.get(`/barangay/history/${selected.event.event_id}/claims`, { params: { date: selected.day?.date } })
       .then((r) => setClaims(r.data)).catch((err) => setError(errorMessage(err)))
   }, [selected])
+
+  // Live: new claims and days appear without collapsing the tree or clearing the open day
+  const tick = useLiveTick()
+  useEffect(() => {
+    if (!tick) return
+    api.get('/barangay/history').then((r) => setEvents(r.data)).catch(() => {})
+    if (selected) {
+      api.get(`/barangay/history/${selected.event.event_id}/claims`, { params: { date: selected.day?.date } })
+        .then((r) => setClaims(r.data)).catch(() => {})
+    }
+  }, [tick])
 
   const toggle = (id) => setExpanded((x) => ({ ...x, [id]: !x[id] }))
   const isSelected = (e, day) => selected?.event.event_id === e.event_id && (selected.day?.date ?? null) === (day?.date ?? null)

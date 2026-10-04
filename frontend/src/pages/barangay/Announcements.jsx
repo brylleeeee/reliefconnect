@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, Megaphone, SquarePen, Trash2 } from 'lucide-react'
 import api, { errorMessage } from '../../api/client'
+import useLiveTick from '../../components/useLiveTick'
 import PageHeader from '../../components/PageHeader'
 import AnnounceModal from '../../components/AnnounceModal'
 import useConfirm from '../../components/useConfirm'
@@ -18,6 +19,8 @@ export default function Announcements() {
     .then((r) => { setData(r.data); setError('') })
     .catch((err) => setError(errorMessage(err)))
   useEffect(() => { load() }, [])
+  const tick = useLiveTick() // live: new LGU announcements appear without refreshing
+  useEffect(() => { if (tick) load() }, [tick])
 
   const relay = (a) => setComposing({
     initial: { title: a.title, description: a.description, source_announcement_id: a.id, distribution_event_id: a.distribution_event_id },

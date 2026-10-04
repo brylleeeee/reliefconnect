@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Api\Barangay;
 use App\Http\Controllers\Controller;
 use App\Models\Distribution;
 use App\Models\Household;
+use App\Models\User;
 use App\Models\HouseholdDocument;
 use App\Services\HouseholdService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -81,22 +84,59 @@ class HouseholdController extends Controller
         return Storage::disk('local')->response($document->path, $document->original_name);
     }
 
-    /** Walk-in registration: verified in person, so it is approved immediately. */
+    /**
+     * Walk-in registration: verified in person, so it is approved immediately, and a resident
+     * login account is created with it. The household, its approval and the account are saved
+     * in one transaction: if any step fails, none of them is saved.
+     *
+     * The resident logs in with their mobile number, or with their reference number if they
+     * have no mobile, and the password set by the barangay staff.
+     */
     public function store(Request $request)
     {
         $data = $this->validateHousehold($request);
-
-        $household = new Household([
-            'barangay_id' => $request->user()->barangay_id,
-            'registration_type' => 'walk_in',
-            'status' => 'pending',
+        $login = $request->validate([
+            'password' => ['required', 'string', 'min:8', 'max:100'],
+            // A mobile number can only belong to one resident account
+            'contact_number' => ['nullable', Rule::unique('users', 'phone')],
+        ], [
+            'password.required' => 'Set a password so the resident can log in to the ReliefConnect app.',
+            'password.min' => 'The password must be at least 8 characters.',
+            'contact_number.unique' => 'This mobile number already has a resident account. Use a different number or leave it blank.',
         ]);
 
-        $this->service->save($household, $data);
-        $this->service->approve($household, $request->user());
+        $household = DB::transaction(function () use ($request, $data, $login) {
+            $household = new Household([
+                'barangay_id' => $request->user()->barangay_id,
+                'registration_type' => 'walk_in',
+                'status' => 'pending',
+            ]);
 
-        return response()->json($household->load('members'), 201);
+            $this->service->save($household, $data);
+            $this->service->approve($household, $request->user()); // issues the reference number
+
+            $user = User::create([
+                'name' => $household->household_head,
+                'phone' => $data['contact_number'] ?? null,
+                'username' => $household->reference_number, // login for residents without a mobile number
+                'password' => $login['password'],          // hashed by the User model
+                'role' => User::ROLE_RESIDENT,
+                'barangay_id' => $household->barangay_id,
+            ]);
+
+            $household->forceFill(['user_id' => $user->id])->save();
+
+            return $household;
+        });
+
+        return response()->json($household->load('members')->toArray() + [
+            // Shown to the staff after saving, so they can tell the resident how to log in
+            'account' => [
+                'login_ids' => array_values(array_filter([$household->contact_number, $household->reference_number])),
+            ],
+        ], 201);
     }
+
 
     public function update(Request $request, Household $household)
     {

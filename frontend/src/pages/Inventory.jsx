@@ -5,6 +5,7 @@ import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
 import Pagination from '../components/Pagination'
 import SourceSelect from '../components/SourceSelect'
+import useLiveTick from '../components/useLiveTick'
 import { fmtDate, fmtDateTime, peso, qtyUnit } from '../components/format'
 
 const TABS = [
@@ -33,6 +34,9 @@ export default function Inventory() {
     api.get('/admin/sources').then((r) => setSources(r.data))
   }
   useEffect(() => { setData(null); load() }, [tab])
+  // Live: refresh stock, funds and sources in place (no reset of the tab or open windows)
+  const tick = useLiveTick()
+  useEffect(() => { if (tick) load() }, [tick])
 
   const close = () => { setIncoming(null); setAdjusting(null); setError('') }
   const run = async (fn, message) => {
@@ -248,15 +252,15 @@ export default function Inventory() {
         </Modal>
       )}
 
-      {history && <HistoryModal item={history} onClose={() => setHistory(null)} />}
+      {history && <HistoryModal item={history} tick={tick} onClose={() => setHistory(null)} />}
     </>
   )
 }
 
-function HistoryModal({ item, onClose }) {
+function HistoryModal({ item, tick, onClose }) {
   const [page, setPage] = useState(1)
   const [data, setData] = useState(null)
-  useEffect(() => { api.get(`/admin/inventory/${item.id}/movements`, { params: { page } }).then((r) => setData(r.data)) }, [item.id, page])
+  useEffect(() => { api.get(`/admin/inventory/${item.id}/movements`, { params: { page } }).then((r) => setData(r.data)) }, [item.id, page, tick])
   const fmt = (n) => qtyUnit(Math.abs(n), item.unit) // "1 Pack", "50 Packs", "₱1,000"
 
   return (

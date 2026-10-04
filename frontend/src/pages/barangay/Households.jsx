@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Trash2 } from 'lucide-react'
 import api, { errorMessage } from '../../api/client'
+import useLiveTick from '../../components/useLiveTick'
 import PageHeader from '../../components/PageHeader'
 import Modal from '../../components/Modal'
 import Pagination from '../../components/Pagination'
@@ -27,6 +28,8 @@ export default function Households() {
     api.get('/barangay/households', { params }).then((r) => setList(r.data))
   }
   useEffect(() => { load() }, [filters, page])
+  const tick = useLiveTick() // live: refresh the masterlist in place
+  useEffect(() => { if (tick) load() }, [tick])
 
   /** Only for households that never claimed (e.g. a duplicate or mistaken entry). */
   const remove = async (h) => {

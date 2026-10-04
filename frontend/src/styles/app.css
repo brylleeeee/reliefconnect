@@ -288,3 +288,5 @@ button.rc-user:focus-visible { outline: 2px solid var(--rc-green); outline-offse
 .rc-day-num { font-weight: 700; color: var(--rc-green); min-width: 52px; }
 /* Clickable reference numbers in tables: same size as the table text, not Bootstrap's 16px button size */
 .rc-table .btn.rc-link { font-size: inherit; line-height: inherit; vertical-align: baseline; border: 0; }
+.rc-login-slip { max-width: 360px; border: 1px dashed var(--rc-green); border-radius: 10px; padding: 10px 14px; background: var(--rc-green-pale); text-align: left; }
+
