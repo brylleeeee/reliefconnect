@@ -29,6 +29,7 @@ Route::get('/barangays', fn () => Barangay::orderBy('name')->get(['id', 'name'])
 // Any logged-in user
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
+    Route::post('/me/password', [AuthController::class, 'changePassword'])->middleware('throttle:10,1');
     Route::post('/logout', [AuthController::class, 'logout']);
 });
 
