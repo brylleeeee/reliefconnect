@@ -1,63 +1,50 @@
-// src/data/history.ts — the resident's past claims.
-// TODO: replace the sample with the real endpoint once the backend has it,
-// e.g. `const { data } = await api.get('/resident/claims'); return data;`
+// src/data/history.ts — the resident's past claims, from the server (GET /resident/claims).
+// These are the same release records staff and admins see, so History updates right after
+// staff release aid (or when an offline release syncs).
+import { api, qtyUnit } from '../lib/api';
 
 export type ClaimItem = { name: string; quantity: number; unit: string };
 
 export type ClaimRecord = {
   id: string;
   eventName: string;
-  category: 'Food' | 'Hygiene' | 'Water' | 'Cash';
+  category: 'Cash' | 'Relief goods';
   claimedAt: string; // ISO date-time
-  venue: string;
+  venue: string | null;
   items: ClaimItem[];
   cashAmount?: number; // pesos, for cash assistance
-  receivedBy: string;
   method: 'qr' | 'reference_number';
 };
 
-const SAMPLE: ClaimRecord[] = [
-  {
-    id: '3',
-    eventName: 'Typhoon Relief: Family Food Packs',
-    category: 'Food',
-    claimedAt: '2026-09-22T09:42:00',
-    venue: 'Barangay Batancaoa Hall',
-    items: [
-      { name: 'Rice', quantity: 5, unit: 'kilo' },
-      { name: 'Canned goods', quantity: 6, unit: 'pieces' },
-      { name: 'Instant coffee', quantity: 1, unit: 'pack' },
-    ],
-    receivedBy: 'Juan Dela Cruz',
-    method: 'qr',
-  },
-  {
-    id: '2',
-    eventName: 'Emergency Cash Assistance',
-    category: 'Cash',
-    claimedAt: '2026-08-15T10:05:00',
-    venue: 'Municipal Hall, Urbiztondo',
-    items: [],
-    cashAmount: 3000,
-    receivedBy: 'Maria Dela Cruz',
-    method: 'reference_number',
-  },
-  {
-    id: '1',
-    eventName: 'Barangay Sanitary Care Kit',
-    category: 'Hygiene',
-    claimedAt: '2026-06-03T14:10:00',
-    venue: 'Batancaoa Covered Court',
-    items: [
-      { name: 'Bath soap', quantity: 2, unit: 'pieces' },
-      { name: 'Toothbrush', quantity: 4, unit: 'pieces' },
-      { name: 'Alcohol / sanitizer', quantity: 1, unit: 'bottle' },
-    ],
-    receivedBy: 'Juan Dela Cruz',
-    method: 'qr',
-  },
-];
+type ApiClaim = {
+  id: number;
+  event: string;
+  is_cash: boolean;
+  item: string;
+  contents: string | null; // e.g. "Rice, Canned Goods, Coffee"
+  quantity: number;
+  unit: string;
+  venue: string | null;
+  claimed_at: string;
+  method: 'qr' | 'reference_number';
+};
 
 export async function fetchHistory(): Promise<ClaimRecord[]> {
-  return SAMPLE;
+  const list = await api<ApiClaim[]>('/resident/claims');
+
+  return list.map((c) => ({
+    id: String(c.id),
+    eventName: c.event,
+    category: c.is_cash ? 'Cash' : 'Relief goods',
+    claimedAt: c.claimed_at,
+    venue: c.venue,
+    items: c.is_cash
+      ? []
+      : [{ name: c.contents ? `${c.item} (${c.contents})` : c.item, quantity: c.quantity, unit: c.unit }],
+    cashAmount: c.is_cash ? c.quantity : undefined,
+    method: c.method,
+  }));
 }
+
+/** "1 Pack", "2 Packs" (units are stored in plural form). */
+export const itemQty = (it: ClaimItem) => qtyUnit(it.quantity, it.unit);

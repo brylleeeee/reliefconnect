@@ -128,6 +128,7 @@ Route::middleware(['auth:sanctum', 'role:resident'])
     ->group(function () {
         Route::get('/announcements', [ResidentAnnouncementController::class, 'index']);
         Route::get('/household', [ResidentHouseholdController::class, 'show']);
+        Route::get('/claims', [ResidentHouseholdController::class, 'claims']); // History tab
         Route::post('/household', [ResidentHouseholdController::class, 'store']); // multipart, with documents
 
         // SOS: one active alert per resident

@@ -4,11 +4,12 @@ import { View, Text, FlatList, Pressable, RefreshControl, StyleSheet } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import {
-  ChevronDown, ChevronUp, Package, Banknote, MapPin, QrCode, Keyboard, User,
+  ChevronDown, ChevronUp, Package, Banknote, MapPin, QrCode, Keyboard,
 } from 'lucide-react-native';
 import AppHeader from '../../components/AppHeader';
 import { useResident } from '../../context/ResidentContext';
-import { fetchHistory, ClaimRecord } from '../../data/history';
+import { fetchHistory, itemQty, ClaimRecord } from '../../data/history';
+import { errorText } from '../../lib/api';
 import { colors, fonts } from '../../constants/theme';
 
 const peso = (n: number) => `₱${n.toLocaleString('en-PH')}`;
@@ -50,7 +51,7 @@ function ClaimCard({ claim, open, onToggle }: { claim: ClaimRecord; open: boolea
             claim.items.map((it) => (
               <View key={it.name} style={styles.itemRow}>
                 <Text style={styles.itemName}>{it.name}</Text>
-                <Text style={styles.itemQty}>{it.quantity} {it.unit}</Text>
+                <Text style={styles.itemQty}>{itemQty(it)}</Text>
               </View>
             ))
           )}
@@ -58,11 +59,7 @@ function ClaimCard({ claim, open, onToggle }: { claim: ClaimRecord; open: boolea
           <View style={styles.divider} />
           <View style={styles.infoRow}>
             <MapPin size={14} color={colors.textSecondary} strokeWidth={2} />
-            <Text style={styles.infoText}>{claim.venue} · {timeLabel(claim.claimedAt)}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <User size={14} color={colors.textSecondary} strokeWidth={2} />
-            <Text style={styles.infoText}>Received by {claim.receivedBy}</Text>
+            <Text style={styles.infoText}>{claim.venue ? `${claim.venue} · ` : ''}{timeLabel(claim.claimedAt)}</Text>
           </View>
           <View style={styles.infoRow}>
             {claim.method === 'qr' ? (
@@ -85,9 +82,15 @@ export default function History() {
   const [claims, setClaims] = useState<ClaimRecord[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
-    setClaims(await fetchHistory());
+    try {
+      setClaims(await fetchHistory());
+      setError('');
+    } catch (e) {
+      setError(errorText(e));
+    }
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -127,7 +130,7 @@ export default function History() {
         }
         ListEmptyComponent={
           <Text style={styles.empty}>
-            {claims === null ? 'Loading…' : 'No aid received yet. Distribution schedules appear in Announcements.'}
+            {error || (claims === null ? 'Loading…' : 'No aid received yet. Distribution schedules appear in Announcements.')}
           </Text>
         }
         renderItem={({ item }) => (
