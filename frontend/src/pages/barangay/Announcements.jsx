@@ -3,6 +3,7 @@ import { CheckCircle2, Megaphone, SquarePen, Trash2 } from 'lucide-react'
 import api, { errorMessage } from '../../api/client'
 import PageHeader from '../../components/PageHeader'
 import AnnounceModal from '../../components/AnnounceModal'
+import useConfirm from '../../components/useConfirm'
 import { fmtDateTime } from '../../components/format'
 import useSummary from './useSummary'
 
@@ -23,8 +24,11 @@ export default function Announcements() {
     note: 'Edit this into a message for your residents, for example with your purok details, before publishing.',
   })
 
+  const [confirm, confirmDialog] = useConfirm()
+
   const remove = async (a) => {
-    if (!window.confirm(`Delete "${a.title}"? Residents will no longer see it.`)) return
+    if (!(await confirm({ title: 'Delete announcement?', confirmLabel: 'Delete', danger: true,
+      message: `"${a.title}" will be removed and your residents will no longer see it.` }))) return
     try { await api.delete(`/barangay/announcements/${a.id}`); setNotice('Announcement deleted.'); load() }
     catch (err) { setError(errorMessage(err)) }
   }
@@ -95,6 +99,8 @@ export default function Announcements() {
           </section>
         </div>
       </div>
+
+      {confirmDialog}
 
       {composing && (
         <AnnounceModal {...composing} onClose={() => setComposing(null)}

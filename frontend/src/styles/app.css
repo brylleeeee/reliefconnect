@@ -254,3 +254,37 @@ body {
 .rc-cov-num { width: 92px; flex-shrink: 0; text-align: right; color: #52606d; font-size: 12px; }
 .rc-link { color: var(--rc-green); font-weight: 600; text-decoration: none; }
 .rc-link:hover { text-decoration: underline; }
+
+/* ---------- Adviser revisions ---------- */
+.rc-page-actions { display: flex; gap: 8px; align-items: center; }
+button.rc-user {
+  width: 100%; border: 0; background: transparent; text-align: left; cursor: pointer;
+  border-radius: 10px; transition: background .15s ease;
+}
+button.rc-user:hover { background: rgba(46, 125, 103, .08); }
+button.rc-user:focus-visible { outline: 2px solid var(--rc-green); outline-offset: 2px; }
+.rc-row-click { cursor: pointer; }
+.rc-row-click:hover td { background: #f5f8f7; }
+.rc-row-click:focus-visible { outline: 2px solid var(--rc-green); outline-offset: -2px; }
+.rc-move { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; white-space: nowrap; }
+.rc-move.incoming { background: var(--rc-green-pale); color: var(--rc-green); }
+.rc-move.adjustment { background: #fdf3dc; color: #946200; }
+.rc-move.distribution { background: var(--rc-blue-pale); color: var(--rc-blue); }
+.rc-member-flags { display: inline-flex; gap: 4px; }
+.rc-member-flags span { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: #eef1f5; color: #52606d; }
+.rc-report-type { text-align: left; border: 1px solid var(--rc-border); background: #fff; border-radius: 10px; padding: 10px 12px; width: 100%; }
+.rc-report-type.active { border-color: var(--rc-green); background: var(--rc-green-pale); }
+.rc-report-type:focus-visible { outline: 2px solid var(--rc-green); outline-offset: 2px; }
+.rc-table-compact th, .rc-table-compact td { font-size: 12px; white-space: nowrap; padding-top: 7px; padding-bottom: 7px; }
+.btn-icon:disabled { opacity: .35; cursor: not-allowed; }
+.rc-tree-event { border: 1px solid var(--rc-border); border-radius: 12px; background: #fff; margin-bottom: 10px; }
+.rc-tree-head { width: 100%; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 0; background: transparent; text-align: left; border-radius: 12px; }
+.rc-tree-head:hover { background: #f5f8f7; }
+.rc-tree-head:focus-visible, .rc-tree-day:focus-visible { outline: 2px solid var(--rc-green); outline-offset: -2px; }
+.rc-tree-days { padding: 0 14px 12px 38px; }
+.rc-tree-day { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--rc-border); border-radius: 8px; background: #fafbfc; text-align: left; margin-top: 6px; }
+.rc-tree-day:hover { border-color: var(--rc-green); }
+.rc-tree-day.active { border-color: var(--rc-green); background: var(--rc-green-pale); }
+.rc-day-num { font-weight: 700; color: var(--rc-green); min-width: 52px; }
+/* Clickable reference numbers in tables: same size as the table text, not Bootstrap's 16px button size */
+.rc-table .btn.rc-link { font-size: inherit; line-height: inherit; vertical-align: baseline; border: 0; }

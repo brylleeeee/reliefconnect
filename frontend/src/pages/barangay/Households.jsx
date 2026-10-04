@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search } from 'lucide-react'
-import api from '../../api/client'
+import { Search, Trash2 } from 'lucide-react'
+import api, { errorMessage } from '../../api/client'
 import PageHeader from '../../components/PageHeader'
 import Modal from '../../components/Modal'
 import Pagination from '../../components/Pagination'
 import HouseholdDetail from '../../components/HouseholdDetail'
+import useConfirm from '../../components/useConfirm'
 import { PriorityBadge, StatusBadge } from '../../components/Badges'
 import useSummary from './useSummary'
 
@@ -17,11 +18,28 @@ export default function Households() {
   const [page, setPage] = useState(1)
   const [list, setList] = useState(null)
   const [viewing, setViewing] = useState(null)
+  const [notice, setNotice] = useState('')
+  const [error, setError] = useState('')
+  const [confirm, confirmDialog] = useConfirm()
 
-  useEffect(() => {
+  const load = () => {
     const params = Object.fromEntries(Object.entries({ ...filters, page }).filter(([, v]) => v))
     api.get('/barangay/households', { params }).then((r) => setList(r.data))
-  }, [filters, page])
+  }
+  useEffect(() => { load() }, [filters, page])
+
+  /** Only for households that never claimed (e.g. a duplicate or mistaken entry). */
+  const remove = async (h) => {
+    const ok = await confirm({
+      title: 'Delete household?', confirmLabel: 'Delete household', danger: true,
+      message: `${h.household_head}${h.reference_number ? ` (${h.reference_number})` : ''} and all its members will be removed from the masterlist. This cannot be undone.`,
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/barangay/households/${h.id}`)
+      setError(''); setNotice(`Deleted ${h.household_head}'s household.`); setViewing(null); load()
+    } catch (err) { setNotice(''); setError(errorMessage(err)) }
+  }
 
   // Wait for the user to stop typing before searching
   useEffect(() => {
@@ -35,6 +53,9 @@ export default function Households() {
   return (
     <>
       <PageHeader title="Household Records" subtitle={`Masterlist of Barangay ${summary?.barangay ?? ''}`} />
+
+      {notice && <div className="alert alert-success py-2 small">{notice}</div>}
+      {error && <div className="alert alert-danger py-2 small">{error}</div>}
 
       <section className="rc-card">
         <div className="row g-2 mb-3">
@@ -73,7 +94,9 @@ export default function Households() {
             <tbody>
               {list?.data.map((h) => (
                 <tr key={h.id}>
-                  <td className="text-nowrap">{h.reference_number ?? <span className="muted">—</span>}</td>
+                  <td className="text-nowrap">
+                    {h.reference_number ?? <span className="muted">—</span>}
+                  </td>
                   <td className="fw-semibold">{h.household_head}</td>
                   <td>{h.purok}</td>
                   <td>{h.members_count}</td>
@@ -81,7 +104,13 @@ export default function Households() {
                   <td><StatusBadge status={h.status} /></td>
                   <td className="text-end text-nowrap">
                     <button className="btn btn-sm btn-rc-outline me-1" onClick={() => open(h.id)}>View</button>
-                    <button className="btn btn-sm btn-rc-outline" onClick={() => navigate(`/households/${h.id}/edit`)}>Edit</button>
+                    <button className="btn btn-sm btn-rc-outline me-1" onClick={() => navigate(`/households/${h.id}/edit`)}>Edit</button>
+                    <button className="btn-icon danger d-inline-grid align-middle" onClick={() => remove(h)}
+                            disabled={h.claims_count > 0}
+                            title={h.claims_count > 0 ? "Can't delete: this household already received aid" : 'Delete household'}
+                            aria-label={`Delete ${h.household_head}'s household`}>
+                      <Trash2 size={14} />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -102,6 +131,8 @@ export default function Households() {
           </div>
         </Modal>
       )}
+
+      {confirmDialog}
     </>
   )
 }

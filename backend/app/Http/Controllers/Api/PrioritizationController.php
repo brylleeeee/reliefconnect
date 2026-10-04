@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Barangay;
+use App\Models\DistributionEvent;
 use App\Models\Household;
 use App\Models\ReliefItem;
 use Illuminate\Http\Request;
@@ -19,13 +20,15 @@ class PrioritizationController extends Controller
         $data = $request->validate([
             'relief_item_id' => ['nullable', 'exists:relief_items,id'],
             'packs' => ['nullable', 'integer', 'min:0'],
+            // From "Suggest by priority" in Create Event: only count eligible households
+            'eligibility' => ['nullable', 'in:'.implode(',', array_keys(DistributionEvent::ELIGIBILITY))],
         ]);
 
         $items = ReliefItem::orderBy('name')->get(['id', 'name', 'unit', 'quantity_in_stock']);
         $item = isset($data['relief_item_id']) ? $items->firstWhere('id', $data['relief_item_id']) : $items->first();
         $packs = (int) ($data['packs'] ?? $item?->quantity_in_stock ?? 0);
 
-        $stats = Household::where('status', 'approved')
+        $stats = DistributionEvent::applyEligibility(Household::where('status', 'approved'), $data['eligibility'] ?? 'all')
             ->selectRaw("barangay_id,
                 COUNT(*) as households,
                 SUM(priority_level = 'high') as high,

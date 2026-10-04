@@ -19,8 +19,12 @@ class AnalyticsController extends Controller
             ->whereHas('distributions', fn ($q) => $q->where('distributed_at', '>=', $since))
             ->count();
 
-        // Units distributed per day (last 30 days, zero-filled)
-        $perDay = Distribution::where('distributed_at', '>=', $since)
+        // Goods and cash are counted separately: pesos must never be added to pack counts
+        $goods = fn ($q) => $q->where('type', 'goods');
+        $cash = fn ($q) => $q->where('type', 'cash');
+
+        // Units of relief goods distributed per day (last 30 days, zero-filled)
+        $perDay = Distribution::where('distributed_at', '>=', $since)->whereHas('item', $goods)
             ->selectRaw('DATE(distributed_at) as day, SUM(quantity) as units')
             ->groupBy('day')
             ->pluck('units', 'day');
@@ -49,13 +53,17 @@ class AnalyticsController extends Controller
             ->groupBy('priority_level')
             ->pluck('total', 'priority_level');
 
-        $stock = ReliefItem::orderBy('name')->get();
+        $stock = ReliefItem::goods()->orderBy('name')->get();
 
         return response()->json([
             'kpis' => [
                 'registered_households' => $approved,
                 'pending_registrations' => Household::where('status', 'pending')->count(),
-                'units_distributed_30d' => (int) Distribution::where('distributed_at', '>=', $since)->sum('quantity'),
+                'units_distributed_30d' => (int) Distribution::where('distributed_at', '>=', $since)
+                    ->whereHas('item', $goods)->sum('quantity'),
+                'cash_released_30d' => (int) Distribution::where('distributed_at', '>=', $since)
+                    ->whereHas('item', $cash)->sum('quantity'),
+                'cash_available' => (int) ReliefItem::cash()->sum('quantity_in_stock'),
                 'coverage_pct' => $approved ? round($reached / $approved * 100) : 0,
                 'households_reached_30d' => $reached,
                 'offline_synced_30d' => Distribution::where('distributed_at', '>=', $since)

@@ -7,7 +7,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Inventory from './pages/Inventory'
 import Prioritization from './pages/Prioritization'
-import Analytics from './pages/Analytics'
+import Reports from './pages/Reports'
 import Events from './pages/Events'
 // Barangay Admin
 import QrReview from './pages/barangay/QrReview'
@@ -16,6 +16,7 @@ import HouseholdEdit from './pages/barangay/HouseholdEdit'
 import WalkIn from './pages/barangay/WalkIn'
 import Distributions from './pages/barangay/Distributions'
 import BarangayAnnouncements from './pages/barangay/Announcements'
+import History from './pages/barangay/History'
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth()
@@ -43,7 +44,8 @@ export default function App() {
         <Route path="/inventory" element={lgu(<Inventory />)} />
         <Route path="/events" element={lgu(<Events />)} />
         <Route path="/prioritization" element={lgu(<Prioritization />)} />
-        <Route path="/analytics" element={lgu(<Analytics />)} />
+        <Route path="/reports" element={lgu(<Reports />)} />
+        <Route path="/analytics" element={<Navigate to="/" replace />} />
 
         <Route path="/qr-review" element={brgy(<QrReview />)} />
         <Route path="/households" element={brgy(<Households />)} />
@@ -51,6 +53,7 @@ export default function App() {
         <Route path="/walk-in" element={brgy(<WalkIn />)} />
         <Route path="/distributions" element={brgy(<Distributions />)} />
         <Route path="/announcements" element={brgy(<BarangayAnnouncements />)} />
+        <Route path="/history" element={brgy(<History />)} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

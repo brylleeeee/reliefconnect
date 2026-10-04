@@ -34,4 +34,14 @@ return [
         'medium' => 2,
         'low' => 1,
     ],
+
+    // Units offered in "Log Incoming Stock" (plural form is stored; singular is shown for 1).
+    'units' => [
+        'Packs' => 'Pack', 'Kits' => 'Kit', 'Pieces' => 'Piece', 'Kilos' => 'Kilo',
+        'Sacks' => 'Sack', 'Bags' => 'Bag', 'Boxes' => 'Box', 'Sets' => 'Set',
+        'Bottles' => 'Bottle', 'Cans' => 'Can', 'Liters' => 'Liter', 'Carboys' => 'Carboy',
+    ],
+
+    // Cash aid is tracked like stock, in whole pesos, but kept separate from relief goods.
+    'cash_unit' => 'PHP',
 ];

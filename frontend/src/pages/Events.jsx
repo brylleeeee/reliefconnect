@@ -7,7 +7,9 @@ import Pagination from '../components/Pagination'
 import Progress from '../components/Progress'
 import EventAnalytics from '../components/EventAnalytics'
 import { StatusBadge } from '../components/Badges'
-import { fmtDate, fmtDateTime, fmtTime, qtyUnit } from '../components/format'
+import { fmtDate, fmtDateTime, fmtTime, peso, qtyUnit, recipients as countOf } from '../components/format'
+import ClaimDetailModal from '../components/ClaimDetailModal'
+import useConfirm from '../components/useConfirm'
 
 const STAGE_LABELS = { ongoing: 'distributing', scheduled: 'scheduled', unscheduled: 'not scheduled', closed: 'done' }
 
@@ -21,7 +23,10 @@ function Stages({ stages }) {
   )
 }
 
-const emptyForm = { name: '', relief_item_id: '', quantity_per_household: 1, distribute_by: '', notes: '' }
+const emptyForm = { name: '', relief_item_id: '', quantity_per_household: 1, eligibility: 'all', distribute_by: '', notes: '' }
+
+/** "per household" or "per senior citizen", for labels. */
+const perWhom = (e) => (e.per_member ? `per ${e.recipient_label}` : 'per household')
 
 export default function Events() {
   const [data, setData] = useState(null)
@@ -49,20 +54,25 @@ export default function Events() {
     }
   }
 
+  const [confirm, confirmDialog] = useConfirm()
+
   const act = async (event, action) => {
-    const prompts = {
-      close: `Close "${event.name}" for all barangays? Barangays still distributing will be stopped, and unclaimed quota becomes available for other events.`,
-      delete: `Delete "${event.name}"? This cannot be undone.`,
-    }
-    if (!window.confirm(prompts[action])) return false
+    const ok = await confirm(action === 'delete'
+      ? { title: 'Delete event?', message: `"${event.name}" will be removed. This cannot be undone.`, confirmLabel: 'Delete event', danger: true }
+      : { title: 'Close event for all barangays?',
+          message: `Barangays still distributing "${event.name}" will be stopped, and unclaimed quota becomes available for other events.`,
+          confirmLabel: 'Close event', danger: true })
+    if (!ok) return false
     try {
       if (action === 'delete') await api.delete(`/admin/events/${event.id}`)
       else await api.post(`/admin/events/${event.id}/close`)
+      setLoadError('')
       setNotice(action === 'delete' ? `Deleted ${event.name}.` : `Closed ${event.name}.`)
       load()
       return true
     } catch (err) {
-      window.alert(errorMessage(err))
+      setNotice('')
+      setLoadError(errorMessage(err))
       return false
     }
   }
@@ -117,7 +127,8 @@ export default function Events() {
                 <tr key={e.id}>
                   <td>
                     <div className="fw-semibold">{e.name}</div>
-                    <div className="small text-secondary">{e.item.name} · {qtyUnit(e.quantity_per_household, e.item.unit)} per household</div>
+                    <div className="small text-secondary">{e.item.name} · {qtyUnit(e.quantity_per_household, e.item.unit)} {perWhom(e)}</div>
+                    {e.eligibility !== 'all' && <span className="rc-tag mt-1 d-inline-block">For: {e.eligibility_label}</span>}
                   </td>
                   <td className="small">{e.distribute_by ? fmtDate(e.distribute_by) : <span className="text-secondary">No deadline</span>}</td>
                   <td><StatusBadge status={e.status} /></td>
@@ -166,6 +177,8 @@ export default function Events() {
       {viewingId && (
         <EventDetailModal id={viewingId} onClose={() => { setViewingId(null); load() }} onAct={act} />
       )}
+      {/* Last, so it appears above the event window when closing from there */}
+      {confirmDialog}
     </>
   )
 }
@@ -179,17 +192,34 @@ function CreateEventModal({ state, setState, busy, error, onClose, onSubmit }) {
   const setForm = (k, v) => setState({ ...state, form: { ...form, [k]: v } })
   const setQuota = (id, v) => setState({ ...state, quotas: { ...quotas, [id]: v } })
 
+  const rule = options.eligibility.find((r) => r.key === form.eligibility) ?? options.eligibility[0]
+  const eligibleIn = (b) => b.eligible?.[rule.key] ?? b.approved_households
+  const recipientsIn = (b) => b.recipients?.[rule.key] ?? b.approved_households
   const households = options.barangays.reduce((sum, b) => sum + (Number(quotas[b.id]) || 0), 0)
-  const unitsNeeded = households * perHousehold
+  // Per-member rules: each household gets the amount for every qualifying member.
+  // Estimate from each barangay's average; the server checks the exact stock needed.
+  const recipients = options.barangays.reduce((sum, b) => {
+    const q = Number(quotas[b.id]) || 0
+    if (!q) return sum
+    return sum + (rule.per_member ? Math.ceil((recipientsIn(b) / Math.max(eligibleIn(b), 1)) * q) : q)
+  }, 0)
+  const unitsNeeded = recipients * perHousehold
   const over = item && unitsNeeded > item.available
+  const isCash = item?.type === 'cash'
+  // "1,200 Packs" or "₱120,000"
+  const amt = (n) => (isCash ? peso(n) : `${Number(n).toLocaleString()} ${item?.unit ?? 'units'}`)
 
   /** Fill quotas using the same priority-weighted split as the Aid Prioritization page. */
   const suggest = async () => {
     if (!item) return
     setSuggesting(true)
     try {
-      const packs = Math.floor(item.available / perHousehold)
-      const r = await api.get('/admin/prioritization', { params: { relief_item_id: item.id, packs } })
+      // Households the stock can cover, allowing for several qualifying members per household
+      const totalEligible = options.barangays.reduce((n, b) => n + eligibleIn(b), 0)
+      const totalRecipients = options.barangays.reduce((n, b) => n + recipientsIn(b), 0)
+      const perHouseholdUnits = perHousehold * (rule.per_member && totalEligible ? totalRecipients / totalEligible : 1)
+      const packs = Math.floor(item.available / perHouseholdUnits)
+      const r = await api.get('/admin/prioritization', { params: { relief_item_id: item.id, packs, eligibility: rule.key } })
       setState({ ...state, quotas: Object.fromEntries(r.data.barangays.map((b) => [b.id, b.allocation || ''])) })
     } finally { setSuggesting(false) }
   }
@@ -223,24 +253,44 @@ function CreateEventModal({ state, setState, busy, error, onClose, onSubmit }) {
 
         <div className="row g-2 mb-3">
           <div className="col-md-8">
-            <label className="rc-label" htmlFor="ev-item">Relief item</label>
+            <label className="rc-label" htmlFor="ev-item">What will be given</label>
             <select id="ev-item" className="form-select" required value={form.relief_item_id}
                     onChange={(e) => setForm('relief_item_id', e.target.value)}>
-              {options.items.map((i) => (
-                <option key={i.id} value={i.id}>{i.name} ({i.available.toLocaleString()} {i.unit} available)</option>
-              ))}
+              <optgroup label="Relief goods">
+                {options.items.filter((i) => i.type !== 'cash').map((i) => (
+                  <option key={i.id} value={i.id}>{i.name} ({i.available.toLocaleString()} {i.unit} available)</option>
+                ))}
+              </optgroup>
+              <optgroup label="Cash aid">
+                {options.items.filter((i) => i.type === 'cash').map((i) => (
+                  <option key={i.id} value={i.id}>{i.name} ({peso(i.available)} available)</option>
+                ))}
+              </optgroup>
             </select>
             {item?.reserved > 0 && (
               <div className="small text-secondary mt-1">
-                {item.reserved.toLocaleString()} of {item.in_stock.toLocaleString()} {item.unit} are already set aside for other open events.
+                {amt(item.reserved)} of {amt(item.in_stock)} {isCash ? 'is' : 'are'} already set aside for other open events.
               </div>
             )}
           </div>
           <div className="col-md-4">
-            <label className="rc-label" htmlFor="ev-qty">{item?.unit ?? 'Units'} per household</label>
-            <input id="ev-qty" type="number" min="1" max="50" className="form-control" required
+            <label className="rc-label" htmlFor="ev-qty">
+              {isCash ? `Amount per ${rule.per_member ? rule.recipient : 'household'} (₱)` : `${item?.unit ?? 'Units'} per ${rule.per_member ? rule.recipient : 'household'}`}
+            </label>
+            <input id="ev-qty" type="number" min="1" max={isCash ? 100000 : 50} className="form-control" required
                    value={form.quantity_per_household} onChange={(e) => setForm('quantity_per_household', e.target.value)} />
           </div>
+        </div>
+
+        <label className="rc-label" htmlFor="ev-who">Who can receive</label>
+        <select id="ev-who" className="form-select" value={form.eligibility}
+                onChange={(e) => setState({ ...state, form: { ...form, eligibility: e.target.value }, quotas: {} })}>
+          {options.eligibility.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+        </select>
+        <div className="small text-secondary mt-1 mb-3">
+          {rule.per_member
+            ? `Given per ${rule.recipient}: a household with 2 qualifying members receives twice the amount.`
+            : 'Given once per household.'}
         </div>
 
         <div className="row g-2 mb-3">
@@ -267,14 +317,17 @@ function CreateEventModal({ state, setState, busy, error, onClose, onSubmit }) {
           </button>
         </div>
         <table className="rc-table mb-2">
-          <thead><tr><th>Barangay</th><th>Approved households</th><th style={{ width: 140 }}>Quota</th></tr></thead>
+          <thead><tr><th>Barangay</th><th>{rule.key === 'all' ? 'Approved households' : 'Eligible households'}</th><th style={{ width: 140 }}>Quota</th></tr></thead>
           <tbody>
             {options.barangays.map((b) => (
               <tr key={b.id}>
                 <td className="fw-semibold">{b.name}</td>
-                <td className="muted">{b.approved_households}</td>
+                <td className="muted">
+                  {eligibleIn(b)}
+                  {rule.per_member && <span className="small"> ({countOf(recipientsIn(b), rule.recipient)})</span>}
+                </td>
                 <td>
-                  <input type="number" min="0" max={b.approved_households} className="form-control form-control-sm"
+                  <input type="number" min="0" max={eligibleIn(b)} className="form-control form-control-sm"
                          aria-label={`Quota for ${b.name}`} value={quotas[b.id] ?? ''}
                          onChange={(e) => setQuota(b.id, e.target.value)} />
                 </td>
@@ -283,8 +336,10 @@ function CreateEventModal({ state, setState, busy, error, onClose, onSubmit }) {
           </tbody>
         </table>
         <p className={`small mb-4 ${over ? 'text-danger fw-semibold' : 'text-secondary'}`}>
-          {households.toLocaleString()} households × {perHousehold} = {unitsNeeded.toLocaleString()} {item?.unit ?? 'units'} needed
-          {item && ` of ${item.available.toLocaleString()} available`}.
+          {rule.per_member
+            ? <>{households.toLocaleString()} households (about {countOf(recipients, rule.recipient)}) × {isCash ? peso(perHousehold) : perHousehold} = about {amt(unitsNeeded)} needed</>
+            : <>{households.toLocaleString()} households × {isCash ? peso(perHousehold) : perHousehold} = {amt(unitsNeeded)} needed</>}
+          {item && ` of ${amt(item.available)} available`}.
         </p>
 
         <button className="btn btn-rc w-100" disabled={busy || !households || over}>
@@ -321,7 +376,8 @@ function EventDetailModal({ id, onClose, onAct }) {
         <>
           <div className="rc-detail-grid mb-3">
             <div><div className="rc-label">Status</div><StatusBadge status={e.status} /></div>
-            <div><div className="rc-label">Per household</div>{qtyUnit(e.quantity_per_household, e.item.unit)} of {e.item.name}</div>
+            <div><div className="rc-label">Who can receive</div>{e.eligibility_label}</div>
+            <div><div className="rc-label">Amount</div>{qtyUnit(e.quantity_per_household, e.item.unit)} {e.item.unit === 'PHP' ? 'from the' : 'of'} {e.item.name} {perWhom(e)}</div>
             <div><div className="rc-label">Stock left</div>{e.item.quantity_in_stock.toLocaleString()} {e.item.unit}</div>
             <div><div className="rc-label">Distribute by</div>{e.distribute_by ? fmtDate(e.distribute_by) : 'No deadline'}</div>
             <div><div className="rc-label">Created by</div>{e.creator?.name}</div>
@@ -364,29 +420,7 @@ function EventDetailModal({ id, onClose, onAct }) {
             </table>
           </div>
 
-          <h3 className="rc-card-title">Latest claims</h3>
-          <div className="table-responsive mb-3">
-            <table className="rc-table">
-              <thead><tr><th>Time</th><th>Household</th><th>Barangay</th><th>Verified by</th><th>Released by</th></tr></thead>
-              <tbody>
-                {d.recent_claims.map((c) => (
-                  <tr key={c.id}>
-                    <td className="text-nowrap">{fmtDateTime(c.distributed_at)}</td>
-                    <td><div className="fw-semibold">{c.household_head}</div><div className="small text-secondary">{c.reference_number}</div></td>
-                    <td>{c.barangay}</td>
-                    <td>
-                      {c.verification_method === 'qr' ? 'QR scan' : 'Reference no.'}
-                      {c.synced_from_offline && <span className="rc-tag ms-1">Offline</span>}
-                    </td>
-                    <td className="muted">{c.released_by}</td>
-                  </tr>
-                ))}
-                {d.recent_claims.length === 0 && (
-                  <tr><td colSpan={5} className="text-center muted py-3">Claims will appear here once a barangay starts distributing.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <ClaimsList eventId={id} barangays={d.barangays} refreshKey={d.refreshed_at} />
 
           {e.status === 'open' && (
             <div className="d-flex justify-content-end">
@@ -398,5 +432,72 @@ function EventDetailModal({ id, onClose, onAct }) {
         </>
       )}
     </Modal>
+  )
+}
+
+/** Every claim of an event, searchable; click a claim to see all of its details. */
+function ClaimsList({ eventId, barangays, refreshKey }) {
+  const [filters, setFilters] = useState({ barangay_id: '', search: '' })
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [data, setData] = useState(null)
+  const [openId, setOpenId] = useState(null)
+
+  useEffect(() => {
+    const params = Object.fromEntries(Object.entries({ ...filters, page }).filter(([, v]) => v))
+    api.get(`/admin/events/${eventId}/claims`, { params }).then((r) => setData(r.data))
+  }, [eventId, filters, page, refreshKey])
+  useEffect(() => {
+    const t = setTimeout(() => { setPage(1); setFilters((f) => ({ ...f, search })) }, 350)
+    return () => clearTimeout(t)
+  }, [search])
+
+  return (
+    <>
+      <div className="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">
+        <div>
+          <h3 className="rc-card-title mb-0">Claims{data ? ` (${data.total})` : ''}</h3>
+          <div className="small text-secondary">Click a claim to see the household, members, and how it was released.</div>
+        </div>
+        <div className="d-flex gap-2">
+          <select className="form-select form-select-sm" aria-label="Filter by barangay" value={filters.barangay_id}
+                  onChange={(e) => { setPage(1); setFilters({ ...filters, barangay_id: e.target.value }) }}>
+            <option value="">All barangays</option>
+            {barangays.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+          <input className="form-control form-control-sm" placeholder="Search name or reference no." aria-label="Search claims"
+                 value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+      </div>
+      <div className="table-responsive mb-2">
+        <table className="rc-table">
+          <thead><tr><th>Time</th><th>Household</th><th>Barangay</th><th>Received</th><th>Verified by</th><th>Released by</th></tr></thead>
+          <tbody>
+            {data?.data.map((c) => (
+              <tr key={c.id} className="rc-row-click" tabIndex={0} onClick={() => setOpenId(c.id)}
+                  onKeyDown={(ev) => { if (ev.key === 'Enter') setOpenId(c.id) }}>
+                <td className="text-nowrap">{fmtDateTime(c.distributed_at)}</td>
+                <td><div className="fw-semibold">{c.household_head}</div><div className="small text-secondary">{c.reference_number}</div></td>
+                <td>{c.barangay}<div className="small text-secondary">{c.purok}</div></td>
+                <td className="text-nowrap">{c.quantity_label}</td>
+                <td>
+                  {c.verification_method === 'qr' ? 'QR scan' : 'Reference no.'}
+                  {c.synced_from_offline && <span className="rc-tag ms-1">Offline</span>}
+                </td>
+                <td className="muted">{c.released_by}</td>
+              </tr>
+            ))}
+            {data?.data.length === 0 && (
+              <tr><td colSpan={6} className="text-center muted py-3">
+                {filters.search || filters.barangay_id ? 'No claims match these filters.' : 'Claims will appear here once a barangay starts distributing.'}
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <Pagination meta={data} onPage={setPage} />
+      <div className="mb-3" />
+      {openId && <ClaimDetailModal url={`/admin/claims/${openId}`} onClose={() => setOpenId(null)} />}
+    </>
   )
 }

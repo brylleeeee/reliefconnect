@@ -3,8 +3,10 @@
 use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AnnouncementController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ClaimController as AdminClaimController;
 use App\Http\Controllers\Api\Barangay\AnnouncementController as BarangayAnnouncementController;
 use App\Http\Controllers\Api\Barangay\DistributionController as BarangayDistributionController;
+use App\Http\Controllers\Api\Barangay\HistoryController as BarangayHistoryController;
 use App\Http\Controllers\Api\Barangay\HouseholdController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\Distribution\ClaimController;
@@ -40,6 +42,10 @@ Route::middleware(['auth:sanctum', 'role:municipal_admin'])
         Route::get('/inventory', [InventoryController::class, 'index']);
         Route::post('/inventory/incoming', [InventoryController::class, 'logIncoming']);
         Route::post('/inventory/{reliefItem}/adjust', [InventoryController::class, 'adjust']);
+        Route::get('/inventory/{reliefItem}/movements', [InventoryController::class, 'movements']);
+        Route::get('/sources', [InventoryController::class, 'sources']);
+        Route::post('/sources', [InventoryController::class, 'storeSource']);
+        Route::put('/sources/{source}', [InventoryController::class, 'updateSource']);
 
         // Prioritization infographics per barangay
         Route::get('/prioritization', [PrioritizationController::class, 'index']);
@@ -54,12 +60,14 @@ Route::middleware(['auth:sanctum', 'role:municipal_admin'])
         Route::post('/events', [DistributionEventController::class, 'store']);
         Route::get('/events/{event}', [DistributionEventController::class, 'show']);
         Route::get('/events/{event}/analytics', [DistributionEventController::class, 'analytics']);
+        Route::get('/events/{event}/claims', [AdminClaimController::class, 'index']);
+        Route::get('/claims/{distribution}', [AdminClaimController::class, 'show']);
         Route::post('/events/{event}/close', [DistributionEventController::class, 'close']);
         Route::delete('/events/{event}', [DistributionEventController::class, 'destroy']);
 
-        // Reports (kept in the API; not shown in the sidebar for now)
+        // Reports: preview (json), CSV and PDF; Excel is built in the browser from the json
         Route::get('/reports/{type}', [ReportController::class, 'generate'])
-            ->whereIn('type', ['beneficiary', 'inventory', 'distribution']);
+            ->whereIn('type', ReportController::TYPES);
     });
 
 // ---------------- Barangay Admin ----------------
@@ -73,6 +81,12 @@ Route::middleware(['auth:sanctum', 'role:barangay_admin'])
         Route::put('/households/{household}', [HouseholdController::class, 'update']);
         Route::post('/households/{household}/approve', [HouseholdController::class, 'approve']);
         Route::post('/households/{household}/reject', [HouseholdController::class, 'reject']);
+        Route::delete('/households/{household}', [HouseholdController::class, 'destroy']);
+        Route::get('/households/{household}/claims', [HouseholdController::class, 'claims']);
+
+        // Distribution history: event > day > households that claimed
+        Route::get('/history', [BarangayHistoryController::class, 'index']);
+        Route::get('/history/{event}/claims', [BarangayHistoryController::class, 'claims']);
         Route::get('/households/{household}/documents/{document}', [HouseholdController::class, 'document']);
 
         // Barangay distribution day: schedule, start, close, and who has/hasn't claimed
@@ -81,6 +95,8 @@ Route::middleware(['auth:sanctum', 'role:barangay_admin'])
         Route::post('/distributions/{event}/start', [BarangayDistributionController::class, 'start']);
         Route::post('/distributions/{event}/close', [BarangayDistributionController::class, 'close']);
         Route::get('/distributions/{event}/households', [BarangayDistributionController::class, 'households']);
+        Route::get('/distributions/{event}/households/{household}/claim', [BarangayDistributionController::class, 'householdClaim']);
+        Route::get('/claims/{distribution}', [BarangayDistributionController::class, 'claim']);
 
         // Announcements: read the LGU's, announce to own residents
         Route::get('/announcements', [BarangayAnnouncementController::class, 'index']);

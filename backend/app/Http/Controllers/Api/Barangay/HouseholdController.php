@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Barangay;
 
 use App\Http\Controllers\Controller;
+use App\Models\Distribution;
 use App\Models\Household;
 use App\Models\HouseholdDocument;
 use App\Services\HouseholdService;
@@ -46,6 +47,7 @@ class HouseholdController extends Controller
         ]);
 
         $query = $this->scoped($request)
+            ->withCount('distributions as claims_count') // households with claims can't be deleted
             ->when($f['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
             ->when($f['priority'] ?? null, fn ($q, $v) => $q->where('priority_level', $v))
             ->when($f['purok'] ?? null, fn ($q, $v) => $q->where('purok', $v))
@@ -102,6 +104,62 @@ class HouseholdController extends Controller
         $this->service->save($household, $this->validateHousehold($request));
 
         return $household->load('members');
+    }
+
+    /**
+     * Removes a household registered by mistake (e.g. a duplicate or a test entry).
+     * Households that already received aid can't be deleted: their claims are the audit trail.
+     */
+    public function destroy(Request $request, Household $household)
+    {
+        $this->authorizeHousehold($request, $household);
+
+        if ($household->distributions()->exists()) {
+            throw ValidationException::withMessages([
+                'household' => 'This household has already received aid, so it cannot be deleted. Edit it instead if details changed.',
+            ]);
+        }
+
+        foreach ($household->documents as $doc) {
+            Storage::disk('local')->delete($doc->path);
+        }
+        $household->delete(); // members and documents are removed with it
+
+        return response()->noContent();
+    }
+
+    /** Every aid this household received: when, what event, goods or cash, and how much. */
+    public function claims(Request $request, Household $household)
+    {
+        $this->authorizeHousehold($request, $household);
+
+        $claims = Distribution::with(['item', 'event', 'personnel:id,name'])
+            ->where('household_id', $household->id)
+            ->latest('distributed_at')
+            ->get();
+
+        return response()->json([
+            'summary' => [
+                'claims' => $claims->count(),
+                'events' => $claims->pluck('distribution_event_id')->filter()->unique()->count(),
+                'goods_units' => (int) $claims->filter(fn ($c) => ! $c->item->isCash())->sum('quantity'),
+                'cash_total' => (int) $claims->filter(fn ($c) => $c->item->isCash())->sum('quantity'),
+                'last_claimed_at' => $claims->first()?->distributed_at,
+            ],
+            'claims' => $claims->map(fn ($c) => [
+                'id' => $c->id,
+                'distributed_at' => $c->distributed_at,
+                'event' => $c->event?->name ?? 'Earlier distribution (not linked to an event)',
+                'event_status' => $c->event?->status,
+                'type' => $c->item->isCash() ? 'Cash aid' : 'Relief goods',
+                'item' => $c->item->name,
+                'eligibility' => $c->event?->eligibility_label,
+                'quantity_label' => $c->item->describeQuantity($c->quantity),
+                'verification_method' => $c->verification_method,
+                'synced_from_offline' => $c->synced_from_offline,
+                'released_by' => $c->personnel?->name,
+            ]),
+        ]);
     }
 
     public function approve(Request $request, Household $household)

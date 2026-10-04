@@ -34,6 +34,9 @@ class ClaimController extends Controller
                 'item' => $bd->event->item->name,
                 'unit' => $bd->event->item->unit,
                 'quantity_per_household' => $bd->event->quantity_per_household,
+                // e.g. "Households with a senior citizen (60+)"; per_member = amount is per senior
+                'eligibility' => $bd->event->eligibility_label,
+                'per_member' => $bd->event->per_member,
                 'notes' => $bd->event->notes,
             ]);
     }

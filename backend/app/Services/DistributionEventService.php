@@ -33,6 +33,7 @@ class DistributionEventService
         $problem = match (true) {
             $event->status !== 'open' => 'This event is closed.',
             $household->status !== 'approved' => 'This household is not approved yet.',
+            $event->quantityFor($household) === 0 => $this->notEligibleMessage($event),
             $bd === null => "This event does not cover Barangay {$brgy}.",
             (bool) $claim => 'This household already claimed for this event.',
             $bd->status === 'closed' => "Barangay {$brgy} has closed its distribution.",
@@ -48,7 +49,8 @@ class DistributionEventService
             'can_claim' => $problem === null,
             'reason' => $problem,
             'claimed_at' => $claim?->distributed_at,
-            'quantity' => $event->quantity_per_household,
+            'quantity' => $event->quantityFor($household), // per qualifying member for member rules
+            'eligibility' => $event->eligibility_label,
             'unit' => $event->item->unit,
         ];
     }
@@ -67,6 +69,9 @@ class DistributionEventService
 
         if ($household->status !== 'approved') {
             $this->fail('not_approved', 'This household is not approved yet.');
+        }
+        if ($event->quantityFor($household) === 0) {
+            $this->fail('not_eligible', $this->notEligibleMessage($event));
         }
         if ($bd === null) {
             $this->fail('wrong_barangay', "This event does not cover Barangay {$brgy}.");
@@ -88,7 +93,8 @@ class DistributionEventService
                 // Locking the item row makes simultaneous claims wait their turn,
                 // so the quota and stock checks below can't both pass for two scanners.
                 $item = ReliefItem::lockForUpdate()->findOrFail($event->relief_item_id);
-                $qty = $event->quantity_per_household;
+                // e.g. 1 kit per senior: a household with 2 seniors receives 2
+                $qty = $event->quantityFor($household);
 
                 if ($event->distributions()->where('household_id', $household->id)->exists()) {
                     $this->fail('already_claimed', 'This household already claimed for this event.');
@@ -147,6 +153,11 @@ class DistributionEventService
         }
 
         return $household;
+    }
+
+    private function notEligibleMessage(DistributionEvent $event): string
+    {
+        return 'This event is only for '.lcfirst($event->eligibility_label).'.';
     }
 
     /** JSON error with a short code the mobile app can switch on. */

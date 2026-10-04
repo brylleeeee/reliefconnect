@@ -37,6 +37,20 @@ class BarangayDistribution extends Model
         return $this->belongsTo(Barangay::class);
     }
 
+    /** Units still promised to this barangay: what its unclaimed quota could need. */
+    public function remainingUnits(): int
+    {
+        $event = $this->event;
+        $claimedIds = Distribution::where('distribution_event_id', $this->distribution_event_id)
+            ->whereHas('household', fn ($q) => $q->where('barangay_id', $this->barangay_id))
+            ->pluck('household_id')->all();
+
+        return DistributionEvent::unitsNeeded(
+            $event->eligibility, $event->quantity_per_household, $this->barangay_id,
+            max($this->quota - count($claimedIds), 0), $claimedIds
+        );
+    }
+
     /** Claims recorded for households of this barangay in this event. */
     public function claimedCount(): int
     {

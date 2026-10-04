@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Send, SquarePen, Trash2, Users } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { CheckCircle2, ClipboardList, MapPin, Megaphone, Package, SquarePen, Trash2, Users, Wallet } from 'lucide-react'
 import api, { errorMessage } from '../api/client'
 import PageHeader from '../components/PageHeader'
-import RecipientPicker from '../components/RecipientPicker'
+import EventAnalytics from '../components/EventAnalytics'
+import LguAnnouncementModal from '../components/LguAnnouncementModal'
+import Pagination from '../components/Pagination'
+import useConfirm from '../components/useConfirm'
+import { peso } from '../components/format'
+import { C } from '../chartColors'
 
-const emptyForm = { title: '', description: '' }
-const allBarangays = { mode: 'all', ids: [] }
+const LOW_COVERAGE = 50 // % of registered households reached
+const pct = (n, total) => (total ? Math.round((n / total) * 100) : 0)
 
 function formatWhen(iso) {
   const d = new Date(iso)
@@ -17,109 +24,183 @@ function formatWhen(iso) {
   return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+/** What the LGU should act on, built from the same numbers as the charts. */
+function attentionItems(d) {
+  const items = []
+
+  d.stock.filter((s) => s.in_stock <= s.reorder_level).forEach((s) => items.push({
+    icon: Package, tone: 'danger', to: '/inventory',
+    text: <><b>{s.name}</b> is low: {s.in_stock.toLocaleString()} {s.unit} left (reorder at {s.reorder_level}).</>,
+  }))
+
+  d.by_barangay
+    .filter((b) => b.registered > 0 && pct(b.reached, b.registered) < LOW_COVERAGE)
+    .sort((a, b) => pct(a.reached, a.registered) - pct(b.reached, b.registered))
+    .forEach((b) => items.push({
+      icon: MapPin, tone: 'warning', to: '/events',
+      text: <><b>{b.name}</b>: only {b.reached} of {b.registered} households reached ({pct(b.reached, b.registered)}%).</>,
+    }))
+
+  const pending = d.by_barangay.filter((b) => b.pending > 0).sort((a, b) => b.pending - a.pending)
+  if (pending.length) {
+    items.push({
+      icon: ClipboardList, tone: 'info',
+      text: <><b>{d.kpis.pending_registrations} registrations</b> waiting for barangay review
+        ({pending.slice(0, 3).map((b) => `${b.pending} in ${b.name}`).join(', ')}{pending.length > 3 ? ', …' : ''}).</>,
+    })
+  }
+  return items
+}
+
+function Kpi({ label, value, sub, tone = '', icon: Icon }) {
+  return (
+    <div className={`rc-stat ${tone} h-100`}>
+      <div className="rc-stat-label d-flex align-items-center gap-1">{Icon && <Icon size={12} />}{label}</div>
+      <div className={`rc-stat-value ${tone}`}>{value}</div>
+      {sub && <div className="small text-secondary">{sub}</div>}
+    </div>
+  )
+}
+
 export default function Dashboard() {
-  const [stats, setStats] = useState(null)
-  const [advisories, setAdvisories] = useState([])
-  const [barangays, setBarangays] = useState([])
-  const [recipients, setRecipients] = useState(allBarangays)
-  const [form, setForm] = useState(emptyForm)
-  const [editingId, setEditingId] = useState(null)
-  const [busy, setBusy] = useState(false)
+  const [d, setD] = useState(null)
+  const [announcements, setAnnouncements] = useState(null)
+  const [annPage, setAnnPage] = useState(1)
+  const [composing, setComposing] = useState(null) // { editing: announcement | null }
+  const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
 
-  const load = () => {
-    api.get('/admin/dashboard/stats').then((r) => setStats(r.data))
-    api.get('/admin/announcements').then((r) => setAdvisories(r.data.data))
-  }
-  useEffect(load, [])
-  useEffect(() => { api.get('/admin/barangays').then((r) => setBarangays(r.data)) }, [])
+  useEffect(() => {
+    api.get('/admin/analytics').then((r) => setD(r.data)).catch((err) => setError(errorMessage(err)))
+  }, [])
+  const loadAnnouncements = () => api.get('/admin/announcements', { params: { page: annPage } })
+    .then((r) => setAnnouncements(r.data))
+  useEffect(() => { loadAnnouncements() }, [annPage])
 
-  const noRecipients = recipients.mode === 'selected' && recipients.ids.length === 0
-
-  const submit = async (e) => {
-    e.preventDefault()
-    setBusy(true); setError('')
-    try {
-      const payload = { ...form, barangay_ids: recipients.mode === 'all' ? [] : recipients.ids }
-      if (editingId) await api.put(`/admin/announcements/${editingId}`, payload)
-      else await api.post('/admin/announcements', payload)
-      setForm(emptyForm); setRecipients(allBarangays); setEditingId(null)
-      load()
-    } catch (err) {
-      setError(errorMessage(err))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const startEdit = (a) => {
-    setEditingId(a.id)
-    setForm({ title: a.title, description: a.description })
-    const ids = a.target_barangays.map((b) => b.id)
-    setRecipients(ids.length ? { mode: 'selected', ids } : allBarangays)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+  const [confirm, confirmDialog] = useConfirm()
 
   const remove = async (a) => {
-    if (!confirm(`Delete "${a.title}"? Barangays will no longer see it. Copies they already sent to residents stay.`)) return
+    const ok = await confirm({
+      title: 'Delete announcement?',
+      message: `"${a.title}" will be removed and barangays will no longer see it. Copies they already sent to their residents stay.`,
+      confirmLabel: 'Delete', danger: true,
+    })
+    if (!ok) return
     await api.delete(`/admin/announcements/${a.id}`)
-    load()
+    setNotice(`Deleted "${a.title}".`)
+    loadAnnouncements()
   }
+
+  const k = d?.kpis
+  const attention = d ? attentionItems(d) : []
+  const coverage = d ? [...d.by_barangay].filter((b) => b.registered > 0)
+    .sort((a, b) => pct(a.reached, a.registered) - pct(b.reached, b.registered)) : []
 
   return (
     <>
-      <PageHeader title="Dashboard & Communications" subtitle="Municipal disaster response administration dashboard" />
+      <PageHeader
+        title="Dashboard"
+        subtitle="Municipal relief distribution at a glance"
+        actions={(
+          <button className="btn btn-rc d-flex align-items-center gap-2" onClick={() => setComposing({ editing: null })}>
+            <Megaphone size={15} /> Publish Announcement
+          </button>
+        )}
+      />
 
-      <div className="row g-3 mb-3">
-        <div className="col-lg-8">
-          <form className="rc-card h-100" onSubmit={submit}>
-            <h2 className="rc-card-title">
-              {editingId ? 'Edit Announcement' : 'Announce to Barangays'}
-            </h2>
-            {error && <div className="alert alert-danger py-2 small">{error}</div>}
+      {error && <div className="alert alert-danger py-2 small">{error}</div>}
+      {notice && <div className="alert alert-success py-2 small">{notice}</div>}
 
-            <label className="rc-label" htmlFor="ann-title">Title</label>
-            <input id="ann-title" className="form-control mb-3" required maxLength={150}
-                   placeholder="e.g. Schedule of Food Pack Distribution for Purok 3 & 4"
-                   value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+      {k && (
+        <>
+          <div className="row g-3 mb-3">
+            <div className="col-6 col-lg-3"><Kpi label="Registered households" tone="green" icon={Users}
+                 value={k.registered_households.toLocaleString()} sub={`${k.pending_registrations} awaiting barangay review`} /></div>
+            <div className="col-6 col-lg-3"><Kpi label="Households reached" tone="blue" icon={MapPin} value={`${k.coverage_pct}%`}
+                 sub={`${k.households_reached_30d.toLocaleString()} received aid in 30 days`} /></div>
+            <div className="col-6 col-lg-3"><Kpi label="Relief goods released" icon={Package}
+                 value={k.units_distributed_30d.toLocaleString()} sub="units in the last 30 days" /></div>
+            <div className="col-6 col-lg-3"><Kpi label="Cash aid released" icon={Wallet}
+                 value={peso(k.cash_released_30d)} sub={`${peso(k.cash_available)} left in cash funds`} /></div>
+          </div>
 
-            <label className="rc-label" htmlFor="ann-desc">Description</label>
-            <textarea id="ann-desc" className="form-control mb-3" rows={3} required maxLength={2000}
-                      placeholder="Provide detailed coordinates: location (Barangay Hall), timeline, and required documentation (Digital Relief QR Code or valid LGU ID)..."
-                      value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <section className="rc-card mb-3">
+            <h2 className="rc-card-title">Needs attention</h2>
+            {attention.length === 0 ? (
+              <p className="small text-secondary mb-0 d-flex align-items-center gap-2">
+                <CheckCircle2 size={16} className="text-success" /> Nothing needs attention right now.
+              </p>
+            ) : (
+              <ul className="rc-attention">
+                {attention.map(({ icon: Icon, tone, text, to }, i) => (
+                  <li key={i} className={tone}>
+                    <Icon size={16} />
+                    <span className="flex-grow-1">{text}</span>
+                    {to && <Link to={to} className="small">View</Link>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-            <RecipientPicker value={recipients} onChange={setRecipients} barangays={barangays} />
-
-            <div className="d-flex justify-content-end gap-2">
-              {editingId && (
-                <button type="button" className="btn btn-light btn-sm"
-                        onClick={() => { setEditingId(null); setForm(emptyForm); setRecipients(allBarangays) }}>Cancel</button>
-              )}
-              <button className="btn btn-rc d-flex align-items-center gap-2" disabled={busy || noRecipients}>
-                <Send size={14} /> {editingId ? 'Save Changes' : 'Publish Announcement'}
-              </button>
+          <div className="row g-3 mb-3">
+            <div className="col-lg-7">
+              <section className="rc-card h-100">
+                <h2 className="rc-card-title mb-1">Coverage by barangay</h2>
+                <p className="small text-secondary">Share of registered households that received aid in the last 30 days. Lowest first.</p>
+                <div className="rc-cov-list">
+                  {coverage.map((b) => {
+                    const p = pct(b.reached, b.registered)
+                    return (
+                      <div key={b.id} className="rc-cov-row">
+                        <span className="rc-cov-name">{b.name}</span>
+                        <div className="rc-progress flex-grow-1">
+                          <span style={{ width: `${p}%`, background: p < LOW_COVERAGE ? C.medium : C.green }} />
+                        </div>
+                        <span className="rc-cov-num">{b.reached}/{b.registered} · <b>{p}%</b></span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
             </div>
-          </form>
-        </div>
+            <div className="col-lg-5">
+              <section className="rc-card h-100">
+                <h2 className="rc-card-title mb-1">Relief goods released per day</h2>
+                <p className="small text-secondary">Units, last 30 days.</p>
+                <div style={{ height: 180 }}>
+                  <ResponsiveContainer>
+                    <BarChart data={d.daily} margin={{ left: -20, right: 6, top: 6 }}>
+                      <CartesianGrid vertical={false} stroke={C.grid} />
+                      <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={6} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10 }} allowDecimals={false} tickLine={false} axisLine={false} />
+                      <Tooltip cursor={{ fill: '#eef1f5' }} />
+                      <Bar dataKey="units" name="Units" fill={C.green} radius={[2, 2, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </section>
+            </div>
+          </div>
+        </>
+      )}
+      {!d && !error && <p className="text-secondary">Loading…</p>}
 
-        <div className="col-lg-4 d-flex flex-column gap-3">
-          <div className="rc-stat green">
-            <div className="rc-stat-label">Active Registered Households</div>
-            <div className="rc-stat-value green">{stats ? stats.active_households.toLocaleString() : '—'}</div>
-          </div>
-          <div className="rc-stat blue">
-            <div className="rc-stat-label">Pending QR Approvals</div>
-            <div className="rc-stat-value blue">{stats ? stats.pending_qr_approvals.toLocaleString() : '—'}</div>
-          </div>
-        </div>
-      </div>
+      <section className="rc-card mb-3">
+        <h2 className="rc-card-title mb-1">Distribution events</h2>
+        <p className="small text-secondary">Claimed, pending and unclaimed households. Choose a barangay to see it by purok.</p>
+        <EventAnalytics />
+      </section>
 
       <section className="rc-card">
-        <h2 className="rc-card-title">Announcements Sent to Barangays</h2>
-        {advisories.length === 0 && (
-          <p className="text-secondary small mb-0">No announcements yet. Publish one above to notify barangays.</p>
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <h2 className="rc-card-title mb-0">Announcements sent to barangays</h2>
+          <span className="small text-secondary">Barangays relay these to their residents</span>
+        </div>
+        {announcements?.data.length === 0 && (
+          <p className="text-secondary small mb-0">No announcements yet. Use “Publish Announcement” at the top of the page.</p>
         )}
-        {advisories.map((a) => (
+        {announcements?.data.map((a) => (
           <div className="rc-advisory" key={a.id}>
             <div className="flex-grow-1">
               <div>
@@ -136,11 +217,22 @@ export default function Dashboard() {
                 </span>
               </div>
             </div>
-            <button className="btn-icon" onClick={() => startEdit(a)} aria-label="Edit"><SquarePen size={14} /></button>
-            <button className="btn-icon danger" onClick={() => remove(a)} aria-label="Delete"><Trash2 size={14} /></button>
+            <button className="btn-icon" onClick={() => setComposing({ editing: a })} aria-label={`Edit ${a.title}`}><SquarePen size={14} /></button>
+            <button className="btn-icon danger" onClick={() => remove(a)} aria-label={`Delete ${a.title}`}><Trash2 size={14} /></button>
           </div>
         ))}
+        <Pagination meta={announcements} onPage={setAnnPage} />
       </section>
+
+      {confirmDialog}
+
+      {composing && (
+        <LguAnnouncementModal editing={composing.editing} onClose={() => setComposing(null)}
+          onSaved={() => {
+            setNotice(composing.editing ? 'Announcement updated.' : 'Announcement published to the barangays.')
+            setComposing(null); setAnnPage(1); loadAnnouncements()
+          }} />
+      )}
     </>
   )
 }

@@ -29,20 +29,55 @@ class DistributionEventController extends Controller
         $approved = $this->approvedPerBarangay();
 
         return response()->json([
-            'items' => ReliefItem::orderBy('name')->get(['id', 'name', 'unit', 'quantity_in_stock'])
+            'items' => ReliefItem::orderBy('type')->orderBy('name')->get(['id', 'type', 'name', 'unit', 'quantity_in_stock'])
                 ->map(function ($i) {
                     $reserved = DistributionEvent::reservedUnits($i->id);
 
                     return [
-                        'id' => $i->id, 'name' => $i->name, 'unit' => $i->unit,
+                        'id' => $i->id, 'type' => $i->type, 'name' => $i->name, 'unit' => $i->unit,
                         'in_stock' => $i->quantity_in_stock,
                         'reserved' => $reserved,
                         'available' => max($i->quantity_in_stock - $reserved, 0),
                     ];
                 }),
             'barangays' => Barangay::orderBy('name')->get(['id', 'name'])
-                ->map(fn ($b) => ['id' => $b->id, 'name' => $b->name, 'approved_households' => (int) ($approved[$b->id] ?? 0)]),
+                ->map(fn ($b) => ['id' => $b->id, 'name' => $b->name, 'approved_households' => (int) ($approved[$b->id] ?? 0)]
+                    + ($this->eligibleCounts()[$b->id] ?? ['eligible' => [], 'recipients' => []])),
+            'eligibility' => collect(DistributionEvent::ELIGIBILITY)->map(fn ($r, $key) => [
+                'key' => $key, 'label' => $r['label'], 'per_member' => $r['per'] === 'member', 'recipient' => $r['recipient'],
+            ])->values(),
         ]);
+    }
+
+    /**
+     * Per barangay and eligibility rule: how many approved households qualify, and how many
+     * qualifying members they have (seniors, PWDs...), for the Create Event form.
+     */
+    private function eligibleCounts(): array
+    {
+        static $cache;
+        if ($cache !== null) {
+            return $cache;
+        }
+        $rows = Household::where('status', 'approved')->selectRaw('barangay_id,
+                COUNT(*) as all_hh,
+                SUM(seniors_count > 0) as senior_hh, SUM(seniors_count) as senior_n,
+                SUM(pwd_count > 0) as pwd_hh, SUM(pwd_count) as pwd_n,
+                SUM(infants_count > 0) as infant_hh, SUM(infants_count) as infant_n,
+                SUM(pregnant_count > 0) as pregnant_hh, SUM(pregnant_count) as pregnant_n,
+                SUM(is_solo_parent) as solo_parent_hh')
+            ->groupBy('barangay_id')->get();
+
+        return $cache = $rows->mapWithKeys(fn ($r) => [$r->barangay_id => [
+            'eligible' => [
+                'all' => (int) $r->all_hh, 'senior' => (int) $r->senior_hh, 'pwd' => (int) $r->pwd_hh,
+                'infant' => (int) $r->infant_hh, 'pregnant' => (int) $r->pregnant_hh, 'solo_parent' => (int) $r->solo_parent_hh,
+            ],
+            'recipients' => [
+                'all' => (int) $r->all_hh, 'senior' => (int) $r->senior_n, 'pwd' => (int) $r->pwd_n,
+                'infant' => (int) $r->infant_n, 'pregnant' => (int) $r->pregnant_n, 'solo_parent' => (int) $r->solo_parent_hh,
+            ],
+        ]])->all();
     }
 
     public function index(Request $request)
@@ -87,7 +122,10 @@ class DistributionEventController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:150'],
             'relief_item_id' => ['required', 'exists:relief_items,id'],
-            'quantity_per_household' => ['required', 'integer', 'min:1', 'max:50'],
+            'quantity_per_household' => ['required', 'integer', 'min:1',
+                // goods: a few items per household; cash: an amount in pesos
+                ReliefItem::whereKey($request->input('relief_item_id'))->value('type') === 'cash' ? 'max:100000' : 'max:50'],
+            'eligibility' => ['nullable', 'in:'.implode(',', array_keys(DistributionEvent::ELIGIBILITY))],
             'distribute_by' => ['nullable', 'date', 'after_or_equal:today'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'quotas' => ['required', 'array', 'min:1'],
@@ -99,30 +137,38 @@ class DistributionEventController extends Controller
             'distribute_by.after_or_equal' => 'The deadline cannot be in the past.',
         ]);
 
-        // A quota can't exceed the barangay's approved households (one claim per household)
-        $approved = $this->approvedPerBarangay();
+        // A quota can't exceed the barangay's eligible households (one claim per household)
+        $rule = $data['eligibility'] ?? 'all';
+        $data['eligibility'] = $rule;
+        $counts = $this->eligibleCounts();
         $names = Barangay::pluck('name', 'id');
         foreach ($data['quotas'] as $i => $q) {
-            $max = (int) ($approved[$q['barangay_id']] ?? 0);
+            $max = (int) ($counts[$q['barangay_id']]['eligible'][$rule] ?? 0);
             if ($q['quota'] > $max) {
+                $who = $rule === 'all' ? 'approved households' : 'eligible households ('.lcfirst(DistributionEvent::ELIGIBILITY[$rule]['label']).')';
                 throw ValidationException::withMessages([
-                    "quotas.$i.quota" => "Barangay {$names[$q['barangay_id']]} has only {$max} approved households.",
+                    "quotas.$i.quota" => "Barangay {$names[$q['barangay_id']]} has only {$max} {$who}.",
                 ]);
             }
         }
 
-        // Units needed must fit in stock that isn't already promised to another open event
+        // Units needed must fit in stock that isn't already promised to another open event.
+        // Per-member rules (e.g. 1 kit per senior) count each household's qualifying members.
         $item = ReliefItem::findOrFail($data['relief_item_id']);
-        $needed = array_sum(array_column($data['quotas'], 'quota')) * $data['quantity_per_household'];
+        $needed = collect($data['quotas'])->sum(fn ($q) => DistributionEvent::unitsNeeded(
+            $rule, $data['quantity_per_household'], (int) $q['barangay_id'], (int) $q['quota']
+        ));
         $available = $item->quantity_in_stock - DistributionEvent::reservedUnits($item->id);
         if ($needed > $available) {
             throw ValidationException::withMessages([
-                'quotas' => "This event needs {$needed} {$item->unit}, but only {$available} are available "
+                'quotas' => ($item->isCash()
+                        ? 'This event needs ₱'.number_format($needed).', but only ₱'.number_format(max($available, 0)).' is available '
+                        : "This event needs {$needed} {$item->unit}, but only {$available} are available ")
                     .'(stock minus what other open events still need).',
             ]);
         }
 
-        $event = DB::transaction(function () use ($data, $request, $item) {
+        $event = DB::transaction(function () use ($data, $request, $item, $rule) {
             $event = DistributionEvent::create(
                 collect($data)->except('quotas')->all() + ['created_by' => $request->user()->id]
             );
@@ -138,10 +184,12 @@ class DistributionEventController extends Controller
                 'category' => 'Distribution',
                 'title' => "New relief distribution: {$event->name}",
                 'description' => trim(sprintf(
-                    '%d %s of %s per household. Check Distributions for your barangay\'s quota and set your distribution day%s. %s',
-                    $event->quantity_per_household,
-                    $event->quantity_per_household === 1 ? Str::singular($item->unit) : $item->unit,
+                    '%s%s %s %s per %s. Check Distributions for your barangay\'s quota and set your distribution day%s. %s',
+                    $rule === 'all' ? '' : 'For '.lcfirst($event->eligibility_label).': ',
+                    $item->describeQuantity($event->quantity_per_household),
+                    $item->isCash() ? 'from the' : 'of',
                     $item->name,
+                    $event->recipient_label,
                     $event->distribute_by ? ' on or before '.$event->distribute_by->format('M j, Y') : '',
                     $event->notes ?? ''
                 )),
@@ -272,7 +320,10 @@ class DistributionEventController extends Controller
         })->sortBy('name')->values();
 
         $claimedExists = 'SUM(EXISTS (SELECT 1 FROM distributions d WHERE d.household_id = households.id AND d.distribution_event_id = ?))';
-        $households = Household::where('status', 'approved')->whereIn('barangay_id', $scopeIds);
+        // Only households that can receive in this event (e.g. those with a senior)
+        $households = DistributionEvent::applyEligibility(
+            Household::where('status', 'approved')->whereIn('barangay_id', $scopeIds), $event->eligibility
+        );
 
         // One barangay: break it down by purok (households, since quotas are per barangay)
         $byPurok = $barangayId ? (clone $households)
@@ -301,7 +352,8 @@ class DistributionEventController extends Controller
         $one = $barangayId ? $perBarangay->first() : null;
 
         return response()->json([
-            'event' => $event->only(['id', 'name', 'status', 'quantity_per_household']) + [
+            'event' => $event->only(['id', 'name', 'status', 'quantity_per_household', 'eligibility',
+                'eligibility_label', 'per_member', 'recipient_label']) + [
                 'distribute_by' => $event->distribute_by?->toDateString(), // plain date: no timezone shift
                 'item' => $event->item->only(['name', 'unit']),
             ],

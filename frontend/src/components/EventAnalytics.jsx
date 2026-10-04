@@ -93,7 +93,8 @@ export default function EventAnalytics({ eventId: fixedEventId, refreshKey }) {
       {d && (!fixedEventId || d.scope) && (
         <div className="small text-secondary mb-3">
           {!fixedEventId && <>
-            {qtyUnit(d.event.quantity_per_household, d.event.item.unit)} of {d.event.item.name} per household
+            {qtyUnit(d.event.quantity_per_household, d.event.item.unit)} {d.event.item.unit === 'PHP' ? 'from the' : 'of'} {d.event.item.name} per {d.event.per_member ? d.event.recipient_label : 'household'}
+            {d.event.eligibility !== 'all' && <> · for {d.event.eligibility_label.toLowerCase()}</>}
             {d.event.distribute_by && ` · distribute by ${fmtDate(d.event.distribute_by)}`}
           </>}
           {d.scope && <>{!fixedEventId && ' · '}{d.scope.name}'s distribution: <StatusBadge status={d.scope.status} /></>}

@@ -8,6 +8,8 @@ use App\Models\Distribution;
 use App\Models\DistributionEvent;
 use App\Models\Household;
 use App\Models\ReliefItem;
+use App\Models\Source;
+use App\Models\StockMovement;
 use App\Models\User;
 use App\Services\DistributionEventService;
 use App\Services\HouseholdService;
@@ -23,9 +25,15 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        // Sample barangays: complete with the official list from the LGU
-        $barangays = collect(['Batancaoa', 'Poblacion', 'Bayaoas', 'Angatel'])
-            ->map(fn ($name) => Barangay::create(['name' => $name]));
+        // The 21 barangays of Urbiztondo, Pangasinan
+        $barangays = collect([
+            'Angatel', 'Balangay', 'Batangcaoa', 'Baug', 'Bayaoas', 'Bituag', 'Camambugan',
+            'Dalangiring', 'Duplac', 'Galarin', 'Gueteb', 'Malaca', 'Malayo', 'Malibong',
+            'Pasibi East', 'Pasibi West', 'Pisuac', 'Poblacion', 'Real', 'Salavante', 'Sawat',
+        ])->map(fn ($name) => Barangay::create(['name' => $name]));
+
+        // Sample households, events and claims are only created for these four
+        $sample = $barangays->whereIn('name', ['Batangcaoa', 'Poblacion', 'Bayaoas', 'Angatel'])->values();
 
         // LGU (municipal) admin: not tied to one barangay
         $admin = User::create([
@@ -36,7 +44,7 @@ class DatabaseSeeder extends Seeder
             'position' => 'Disaster Operations Chief',
         ]);
 
-        // One Barangay Admin per barangay, e.g. batancaoa@urbiztondo.test
+        // One Barangay Admin per barangay, e.g. batangcaoa@urbiztondo.test, pasibi-east@urbiztondo.test
         foreach ($barangays as $b) {
             User::create([
                 'name' => "Brgy. {$b->name} Secretary",
@@ -69,9 +77,9 @@ class DatabaseSeeder extends Seeder
 
         // Households with members; the scorer computes counts and priority automatically
         $service = app(HouseholdService::class);
-        $sizes = ['Batancaoa' => 26, 'Poblacion' => 34, 'Bayaoas' => 18, 'Angatel' => 14];
+        $sizes = ['Batangcaoa' => 26, 'Poblacion' => 34, 'Bayaoas' => 18, 'Angatel' => 14];
 
-        foreach ($barangays as $b) {
+        foreach ($sample as $b) {
             for ($n = 0; $n < $sizes[$b->name]; $n++) {
                 $pending = rand(1, 100) <= 18;
                 $household = new Household([
@@ -96,7 +104,7 @@ class DatabaseSeeder extends Seeder
 
         // Demo resident for the mobile app: log in with 09171234567 / password
         $demoHousehold = Household::where('status', 'approved')
-            ->where('barangay_id', $barangays->firstWhere('name', 'Batancaoa')->id)
+            ->where('barangay_id', $barangays->firstWhere('name', 'Batangcaoa')->id)
             ->first();
         $resident = User::create([
             'name' => $demoHousehold->household_head,
@@ -118,7 +126,9 @@ class DatabaseSeeder extends Seeder
                 'distributed_at' => now()->subDays(rand(0, 29))->setTime(rand(8, 16), rand(0, 59)),
             ]));
 
-        $this->seedEvents($barangays, $items, $admin, $distributor);
+        $this->seedEvents($sample, $items, $admin, $distributor);
+        $this->seedDonationsAndCash($sample, $items, $admin, $distributor);
+        $this->seedSeniorEvent($sample, $admin, $distributor);
 
         foreach ([
             ['Nutritional Relief Pack Distribution', 'Priority collection for senior citizens and pregnant women. Please bring your approved digital Relief QR code.', now()->setTime(8, 0)],
@@ -129,6 +139,120 @@ class DatabaseSeeder extends Seeder
                 'user_id' => $admin->id, 'title' => $title,
                 'description' => $desc, 'published_at' => $date,
             ]);
+        }
+    }
+
+    /**
+     * An event only for households with a senior citizen, given per senior:
+     * a household with two seniors receives two kits.
+     */
+    private function seedSeniorEvent($barangays, User $admin, User $distributor): void
+    {
+        $kits = ReliefItem::create([
+            'name' => 'Senior Citizen Care Kit', 'contents' => 'Vitamins, Adult Diapers, Reading Glasses',
+            'unit' => 'Kits', 'quantity_in_stock' => 200, 'reorder_level' => 30,
+        ]);
+        StockMovement::create([
+            'relief_item_id' => $kits->id, 'user_id' => $admin->id, 'type' => 'incoming', 'quantity' => 200,
+            'source_id' => Source::where('name', 'DSWD Field Office I')->value('id'),
+        ])->forceFill(['created_at' => now()->subDays(3)])->save();
+
+        $event = DistributionEvent::create([
+            'name' => 'Senior Citizen Care Kits',
+            'relief_item_id' => $kits->id,
+            'quantity_per_household' => 1,
+            'eligibility' => 'senior',
+            'distribute_by' => now()->addDays(10)->toDateString(),
+            'notes' => 'One kit for each senior citizen in the household. Bring a senior citizen ID if available.',
+            'created_by' => $admin->id,
+        ]);
+
+        $service = app(DistributionEventService::class);
+        foreach ($barangays as $b) {
+            $eligible = DistributionEvent::applyEligibility(
+                Household::where('barangay_id', $b->id)->where('status', 'approved'), 'senior'
+            )->get();
+            if ($eligible->isEmpty()) {
+                continue;
+            }
+            $bd = $event->barangayDistributions()->create(['barangay_id' => $b->id, 'quota' => $eligible->count()]);
+
+            if ($b->name === 'Poblacion') { // distributing now
+                $bd->update(['status' => 'ongoing', 'scheduled_at' => now()->setTime(8, 30),
+                    'venue' => 'Poblacion Senior Citizens Center', 'started_at' => now()->setTime(8, 30)]);
+                $eligible->sortByDesc('seniors_count')->take(6)->each(function ($h) use ($service, $event, $distributor) {
+                    $claim = $service->claim($event, $h->reference_number, $distributor, ['verification_method' => 'qr']);
+                    $claim->update(['distributed_at' => now()->setTime(rand(8, 10), rand(31, 59))]);
+                });
+            }
+        }
+    }
+
+    /**
+     * Sources (donations, LGU funds, government allocations) with a history for the goods
+     * above, plus a cash fund and a cash event, so the Sources tab, the Cash Aid tab and the
+     * cash and sources reports have data.
+     */
+    private function seedDonationsAndCash($barangays, $items, User $admin, User $distributor): void
+    {
+        $sources = collect([
+            'DSWD Field Office I' => 'government_allocation',
+            'Provincial Government of Pangasinan' => 'government_allocation',
+            'Office of Civil Defense - Region I' => 'government_allocation',
+            'Urbiztondo Municipal Treasury' => 'lgu_fund',
+            'Philippine Red Cross - Pangasinan Chapter' => 'donation',
+            'Sto. Nino Parish Church' => 'donation',
+        ])->map(fn ($type, $name) => Source::create(['name' => $name, 'type' => $type]));
+
+        // Goods received (stock levels were set above; these explain where it came from)
+        foreach ([
+            [0, 'Philippine Red Cross - Pangasinan Chapter', 800, 20], [0, 'DSWD Field Office I', 400, 9],
+            [1, 'Provincial Government of Pangasinan', 450, 14], [2, 'Sto. Nino Parish Church', 340, 6],
+            [3, 'DSWD Field Office I', 120, 11], [4, 'Office of Civil Defense - Region I', 600, 25],
+        ] as [$i, $source, $qty, $daysAgo]) {
+            StockMovement::create([
+                'relief_item_id' => $items[$i]->id, 'user_id' => $admin->id,
+                'source_id' => $sources[$source]->id,
+                'type' => 'incoming', 'quantity' => $qty,
+            ])->forceFill(['created_at' => now()->subDays($daysAgo)])->save();
+        }
+
+        // Cash fund, in whole pesos, received from two sources
+        $fund = ReliefItem::create([
+            'type' => 'cash', 'name' => 'Emergency Cash Assistance Fund',
+            'contents' => 'Locally funded cash aid', 'unit' => 'PHP', 'reorder_level' => 20000,
+        ]);
+        foreach ([['Urbiztondo Municipal Treasury', 200000, 12], ['Provincial Government of Pangasinan', 100000, 5]] as [$source, $amount, $daysAgo]) {
+            $fund->increment('quantity_in_stock', $amount);
+            StockMovement::create([
+                'relief_item_id' => $fund->id, 'user_id' => $admin->id,
+                'source_id' => $sources[$source]->id,
+                'type' => 'incoming', 'quantity' => $amount,
+            ])->forceFill(['created_at' => now()->subDays($daysAgo)])->save();
+        }
+
+        // Cash event: P1,000 per household for two barangays; Bayaoas is releasing now
+        $event = DistributionEvent::create([
+            'name' => 'Flood Emergency Cash Assistance',
+            'relief_item_id' => $fund->id,
+            'quantity_per_household' => 1000,
+            'distribute_by' => now()->addDays(7)->toDateString(),
+            'notes' => 'Bring your ReliefConnect QR code or reference number and one valid ID.',
+            'created_by' => $admin->id,
+        ]);
+        $service = app(DistributionEventService::class);
+        foreach (['Bayaoas' => 'ongoing', 'Angatel' => 'unscheduled'] as $name => $stage) {
+            $b = $barangays->firstWhere('name', $name);
+            $households = Household::where('barangay_id', $b->id)->where('status', 'approved')->get();
+            $bd = $event->barangayDistributions()->create(['barangay_id' => $b->id, 'quota' => min(10, $households->count())]);
+            if ($stage === 'ongoing') {
+                $bd->update(['status' => 'ongoing', 'scheduled_at' => now()->setTime(9, 0),
+                    'venue' => "Barangay {$name} Hall", 'started_at' => now()->setTime(9, 0)]);
+                $households->sortByDesc('priority_score')->take(6)->each(function ($h) use ($service, $event, $distributor) {
+                    $claim = $service->claim($event, $h->reference_number, $distributor, ['verification_method' => 'qr']);
+                    $claim->update(['distributed_at' => now()->setTime(9, rand(5, 55))]);
+                });
+            }
         }
     }
 
@@ -153,8 +277,8 @@ class DatabaseSeeder extends Seeder
 
         // name => [status, share of households that claimed]
         $stages = [
-            'Bayaoas' => ['closed', 90],    // finished yesterday
-            'Batancaoa' => ['ongoing', 55], // distributing now
+            'Bayaoas' => ['closed', 90],     // finished yesterday
+            'Batangcaoa' => ['ongoing', 55], // started yesterday, still distributing today (Day 1 and Day 2)
             'Poblacion' => ['ongoing', 30], // distributing now
             'Angatel' => ['scheduled', 0],  // tomorrow
         ];
@@ -164,9 +288,9 @@ class DatabaseSeeder extends Seeder
             $bd = $food->barangayDistributions()->create([
                 'barangay_id' => $b->id,
                 'quota' => $approved($b)->count(),
-                'scheduled_at' => match ($stage) {
-                    'closed' => now()->subDay()->setTime(8, 0),
-                    'scheduled' => now()->addDay()->setTime(9, 0),
+                'scheduled_at' => match (true) {
+                    $stage === 'closed', $b->name === 'Batangcaoa' => now()->subDay()->setTime(8, 0),
+                    $stage === 'scheduled' => now()->addDay()->setTime(9, 0),
                     default => now()->setTime(8, 0),
                 },
                 'venue' => "Barangay {$b->name} Hall",
@@ -179,11 +303,13 @@ class DatabaseSeeder extends Seeder
 
             $bd->update(['status' => 'ongoing', 'started_at' => $bd->scheduled_at]);
             $approved($b)->shuffle()->take((int) round($approved($b)->count() * $share / 100))
-                ->each(function ($h) use ($service, $food, $distributor, $bd) {
+                ->each(function ($h, $i) use ($service, $food, $distributor, $bd, $b) {
                     $claim = $service->claim($food, $h->reference_number, $distributor, [
                         'verification_method' => rand(1, 100) <= 80 ? 'qr' : 'reference_number',
                     ]);
-                    $claim->update(['distributed_at' => $bd->scheduled_at->copy()->addMinutes(rand(0, 180))]);
+                    // Batangcaoa: about half claimed on Day 1, the rest on Day 2
+                    $day = $b->name === 'Batangcaoa' && $i % 2 ? 1 : 0;
+                    $claim->update(['distributed_at' => $bd->scheduled_at->copy()->addDays($day)->addMinutes(rand(0, 180))]);
                 });
 
             if ($stage === 'closed') {

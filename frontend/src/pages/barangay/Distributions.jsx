@@ -5,8 +5,10 @@ import PageHeader from '../../components/PageHeader'
 import Modal from '../../components/Modal'
 import Pagination from '../../components/Pagination'
 import AnnounceModal from '../../components/AnnounceModal'
+import ClaimHistory from '../../components/ClaimHistory'
+import useConfirm from '../../components/useConfirm'
 import { PriorityBadge, StatusBadge } from '../../components/Badges'
-import { fmtDate, fmtDateTime, fmtTime, qtyUnit, toLocalInput } from '../../components/format'
+import { fmtDate, fmtDateTime, fmtTime, qtyUnit, recipients, RECIPIENT_COLUMNS, toLocalInput } from '../../components/format'
 import useSummary from './useSummary'
 
 export default function Distributions() {
@@ -19,6 +21,7 @@ export default function Distributions() {
   const [data, setData] = useState(null)
   const [scheduling, setScheduling] = useState(null) // { scheduled_at, venue }
   const [announcing, setAnnouncing] = useState(null) // prefilled announcement for residents
+  const [historyOf, setHistoryOf] = useState(null)   // household whose claim history is open
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -74,19 +77,24 @@ export default function Distributions() {
     title: `Relief distribution: ${r.name}`,
     description: [
       `Distribution on ${fmtDateTime(r.scheduled_at)} at ${r.venue}.`,
-      `${qtyUnit(r.quantity_per_household, r.item.unit)} of ${r.item.name} per household.`,
+      r.eligibility !== 'all' ? `For ${r.eligibility_label.toLowerCase()}.` : null,
+      `${qtyUnit(r.quantity_per_household, r.item.unit)} ${r.item.unit === 'PHP' ? 'cash assistance' : `of ${r.item.name}`} per ${r.per_member ? r.recipient_label : 'household'}.`,
       'Bring your ReliefConnect QR code or reference number.',
       r.notes,
     ].filter(Boolean).join(' '),
     distribution_event_id: r.event_id,
   })
 
-  const start = () => {
-    if (!window.confirm(`Start the distribution for "${row.name}" now? Distribution personnel will be able to record claims.`)) return
+  const [confirm, confirmDialog] = useConfirm()
+
+  const start = async () => {
+    if (!(await confirm({ title: 'Start distribution?', confirmLabel: 'Start now',
+      message: `Start the distribution for "${row.name}" now? Distribution personnel will be able to record claims for your barangay.` }))) return
     run(() => api.post(`/barangay/distributions/${eventId}/start`), 'Distribution started. Claims can now be recorded.')
   }
-  const close = () => {
-    if (!window.confirm(`Close the distribution for "${row.name}"? No more claims can be recorded for your barangay.`)) return
+  const close = async () => {
+    if (!(await confirm({ title: 'Close distribution?', confirmLabel: 'Close distribution', danger: true,
+      message: `Close the distribution for "${row.name}"? No more claims can be recorded for your barangay.` }))) return
     run(() => api.post(`/barangay/distributions/${eventId}/close`), 'Distribution closed.')
   }
   const saveSchedule = async (e) => {
@@ -125,7 +133,8 @@ export default function Distributions() {
                   {rows.map((r) => <option key={r.event_id} value={r.event_id}>{r.name}</option>)}
                 </select>
                 <div className="small">
-                  <div className="fw-semibold">{qtyUnit(row.quantity_per_household, row.item.unit)} of {row.item.name} per household</div>
+                  <div className="fw-semibold">{qtyUnit(row.quantity_per_household, row.item.unit)} {row.item.unit === 'PHP' ? 'from the' : 'of'} {row.item.name} per {row.per_member ? row.recipient_label : 'household'}</div>
+                  {row.eligibility !== 'all' && <div><span className="rc-tag">For: {row.eligibility_label}</span></div>}
                   {row.distribute_by && <div className="text-secondary">LGU deadline: distribute by {fmtDate(row.distribute_by)}</div>}
                   {row.notes && <div className="text-secondary mt-1">{row.notes}</div>}
                 </div>
@@ -206,7 +215,7 @@ export default function Distributions() {
             <h2 className="rc-card-title">By purok</h2>
             <div className="table-responsive">
               <table className="rc-table">
-                <thead><tr><th>Purok</th><th>Approved households</th><th>Claimed</th><th>{phaseLabel}</th></tr></thead>
+                <thead><tr><th>Purok</th><th>{row.eligibility === 'all' ? 'Approved households' : 'Eligible households'}</th><th>Claimed</th><th>{phaseLabel}</th></tr></thead>
                 <tbody>
                   {data?.by_purok.map((r) => (
                     <tr key={r.purok}>
@@ -264,15 +273,25 @@ export default function Distributions() {
             <div className="table-responsive">
               <table className="rc-table">
                 <thead>
-                  <tr><th>Reference no.</th><th>Household head</th><th>Purok</th><th>Members</th><th>Priority</th><th>Contact</th><th>Claim status</th></tr>
+                  <tr><th>Reference no.</th><th>Household head</th><th>Purok</th><th>Members</th>{row.per_member && <th>Receives</th>}<th>Priority</th><th>Contact</th><th>Claim status</th></tr>
                 </thead>
                 <tbody>
                   {data?.households.data.map((h) => (
                     <tr key={h.id}>
-                      <td>{h.reference_number}</td>
+                      <td className="text-nowrap">
+                        <button type="button" className="btn btn-link p-0 rc-link" onClick={() => setHistoryOf(h)}
+                                title="See when this household claimed and what it received">{h.reference_number}</button>
+                      </td>
                       <td className="fw-semibold">{h.household_head}</td>
                       <td>{h.purok}</td>
                       <td>{h.members_count}</td>
+                      {row.per_member && (
+                        // e.g. 2 seniors at 1 kit each = 2 Kits
+                        <td className="text-nowrap">
+                          {qtyUnit(row.quantity_per_household * (h[RECIPIENT_COLUMNS[row.eligibility]] ?? 0), row.item.unit)}
+                          <div className="small text-secondary">{recipients(h[RECIPIENT_COLUMNS[row.eligibility]] ?? 0, row.recipient_label)}</div>
+                        </td>
+                      )}
                       <td><PriorityBadge level={h.priority_level} score={h.priority_score} /></td>
                       <td className="muted">{h.contact_number || '—'}</td>
                       <td>
@@ -285,7 +304,7 @@ export default function Distributions() {
                     </tr>
                   ))}
                   {data?.households.data.length === 0 && (
-                    <tr><td colSpan={7} className="text-center muted py-4">
+                    <tr><td colSpan={row.per_member ? 8 : 7} className="text-center muted py-4">
                       {filters.claim === 'unclaimed' ? 'Every approved household matching these filters has claimed.' : 'No households match these filters.'}
                     </td></tr>
                   )}
@@ -295,6 +314,17 @@ export default function Distributions() {
             <Pagination meta={data?.households} onPage={setPage} />
           </section>
         </>
+      )}
+
+      {confirmDialog}
+
+      {historyOf && (
+        <Modal title={historyOf.household_head} size="lg" onClose={() => setHistoryOf(null)}>
+          <div className="small text-secondary">
+            {historyOf.reference_number} · {historyOf.purok} · {historyOf.members_count} member{historyOf.members_count === 1 ? '' : 's'}
+          </div>
+          <ClaimHistory householdId={historyOf.id} />
+        </Modal>
       )}
 
       {announcing && (

@@ -7,6 +7,7 @@ use App\Models\BarangayDistribution;
 use App\Models\Distribution;
 use App\Models\DistributionEvent;
 use App\Models\Household;
+use App\Support\ClaimDetails;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -112,12 +113,16 @@ class DistributionController extends Controller
             ->where('distribution_event_id', $event->id)
             ->limit(1);
 
-        $base = Household::where('barangay_id', $bd->barangay_id)->where('status', 'approved');
+        // Only households that can receive in this event (e.g. those with a senior)
+        $base = DistributionEvent::applyEligibility(
+            Household::where('barangay_id', $bd->barangay_id)->where('status', 'approved'), $event->eligibility
+        );
         $hasClaim = fn ($q) => $q->where('distribution_event_id', $event->id);
 
         $list = (clone $base)
             ->select(['id', 'reference_number', 'household_head', 'purok', 'contact_number',
-                'members_count', 'priority_level', 'priority_score'])
+                'members_count', 'priority_level', 'priority_score',
+                'seniors_count', 'pwd_count', 'infants_count', 'pregnant_count'])
             ->addSelect(['claimed_at' => $claimedAt])
             ->when(($f['claim'] ?? null) === 'claimed', fn ($q) => $q->whereHas('distributions', $hasClaim))
             ->when(($f['claim'] ?? null) === 'unclaimed', fn ($q) => $q->whereDoesntHave('distributions', $hasClaim))
@@ -164,6 +169,23 @@ class DistributionController extends Controller
         ]);
     }
 
+    /** Full details of one claim by a household in this barangay. */
+    public function claim(Request $request, Distribution $distribution)
+    {
+        abort_unless($distribution->household()->where('barangay_id', $this->barangayId($request))->exists(), 404);
+
+        return response()->json(ClaimDetails::for($distribution));
+    }
+
+    /** The claim (if any) of one household in this event, so a row in the list can open its details. */
+    public function householdClaim(Request $request, DistributionEvent $event, Household $household)
+    {
+        abort_unless((int) $household->barangay_id === $this->barangayId($request), 404);
+        $claim = Distribution::where('distribution_event_id', $event->id)->where('household_id', $household->id)->firstOrFail();
+
+        return response()->json(ClaimDetails::for($claim));
+    }
+
     // ---------------------------------------------------------------
 
     private function present(BarangayDistribution $bd): array
@@ -173,8 +195,12 @@ class DistributionController extends Controller
         return [
             'event_id' => $e->id,
             'name' => $e->name,
-            'item' => ['name' => $e->item->name, 'unit' => $e->item->unit],
+            'item' => ['name' => $e->item->name, 'unit' => $e->item->unit, 'type' => $e->item->type],
             'quantity_per_household' => $e->quantity_per_household,
+            'eligibility' => $e->eligibility,
+            'eligibility_label' => $e->eligibility_label,
+            'per_member' => $e->per_member,
+            'recipient_label' => $e->recipient_label,
             'distribute_by' => $e->distribute_by?->toDateString(),
             'notes' => $e->notes,
             'event_status' => $e->status,
