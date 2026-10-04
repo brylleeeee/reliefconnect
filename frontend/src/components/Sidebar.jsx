@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutGrid, QrCode, Archive, FileText, Users, UserPlus, MapPin, ShieldPlus, LogOut, Scale,
-  CalendarCheck, ClipboardCheck, Megaphone, History as HistoryIcon, TriangleAlert,
+  CalendarCheck, ClipboardCheck, Megaphone, History as HistoryIcon, TriangleAlert, UserCog,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import Modal from './Modal'
@@ -23,6 +23,7 @@ const LINKS = {
     { to: '/walk-in', label: 'Walk-in Registration', icon: UserPlus },
     { to: '/history', label: 'Distribution History', icon: HistoryIcon },
     { to: '/announcements', label: 'Announcements', icon: Megaphone },
+    { to: '/staff', label: 'Staff Accounts', icon: UserCog },
   ],
 }
 

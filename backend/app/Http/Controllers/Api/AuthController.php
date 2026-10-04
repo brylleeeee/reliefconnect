@@ -38,6 +38,13 @@ class AuthController extends Controller
             ]);
         }
 
+        // Deactivated by the barangay admin (e.g. a staff volunteer who left)
+        if ($user->is_active === false) {
+            throw ValidationException::withMessages([
+                $field => 'This account is deactivated. Please contact your barangay.',
+            ]);
+        }
+
         // Token abilities mirror the role
         $token = $user->createToken($data['device_name'] ?? 'admin-web', [$user->role])->plainTextToken;
 

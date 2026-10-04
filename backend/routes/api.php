@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\Barangay\AnnouncementController as BarangayAnnounce
 use App\Http\Controllers\Api\Barangay\DistributionController as BarangayDistributionController;
 use App\Http\Controllers\Api\Barangay\HistoryController as BarangayHistoryController;
 use App\Http\Controllers\Api\Barangay\HouseholdController;
+use App\Http\Controllers\Api\Barangay\StaffController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\Distribution\ClaimController;
 use App\Http\Controllers\Api\Resident\AnnouncementController as ResidentAnnouncementController;
@@ -82,6 +83,13 @@ Route::middleware(['auth:sanctum', 'role:barangay_admin'])
     ->prefix('barangay')
     ->group(function () {
         Route::get('/summary', [HouseholdController::class, 'summary']);
+
+        // Staff accounts (mobile scanner) of this barangay
+        Route::get('/staff', [StaffController::class, 'index']);
+        Route::post('/staff', [StaffController::class, 'store']);
+        Route::post('/staff/{user}/reset-password', [StaffController::class, 'resetPassword']);
+        Route::post('/staff/{user}/deactivate', [StaffController::class, 'deactivate']);
+        Route::post('/staff/{user}/activate', [StaffController::class, 'activate']);
         Route::get('/households', [HouseholdController::class, 'index']);
         Route::post('/households', [HouseholdController::class, 'store']);            // walk-in
         Route::get('/households/{household}', [HouseholdController::class, 'show']);
