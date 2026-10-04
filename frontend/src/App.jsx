@@ -18,6 +18,7 @@ import WalkIn from './pages/barangay/WalkIn'
 import Distributions from './pages/barangay/Distributions'
 import BarangayAnnouncements from './pages/barangay/Announcements'
 import History from './pages/barangay/History'
+import StaffAccounts from './pages/barangay/StaffAccounts'
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth()
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/walk-in" element={brgy(<WalkIn />)} />
         <Route path="/announcements" element={brgy(<BarangayAnnouncements />)} />
         <Route path="/history" element={brgy(<History />)} />
+        <Route path="/staff" element={brgy(<StaffAccounts />)} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

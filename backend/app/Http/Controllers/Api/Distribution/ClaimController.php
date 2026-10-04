@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Distribution;
 use App\Http\Controllers\Controller;
 use App\Models\BarangayDistribution;
 use App\Models\DistributionEvent;
+use App\Models\Household;
 use App\Services\DistributionEventService;
 use Illuminate\Http\Request;
 
@@ -15,10 +16,14 @@ class ClaimController extends Controller
 {
     public function __construct(private DistributionEventService $service) {}
 
-    /** Barangay distributions running right now, i.e. where claims can be recorded. */
-    public function events()
+    /**
+     * Barangay distributions running right now, i.e. where claims can be recorded.
+     * Staff assigned to a barangay only see their own barangay's.
+     */
+    public function events(Request $request)
     {
         return BarangayDistribution::with(['event.item', 'barangay:id,name'])
+            ->when($request->user()->barangay_id, fn ($q, $id) => $q->where('barangay_id', $id))
             ->where('status', 'ongoing')
             ->whereHas('event', fn ($q) => $q->where('status', 'open'))
             ->orderBy('started_at')
@@ -46,6 +51,8 @@ class ClaimController extends Controller
     {
         $data = $request->validate(['barangay_id' => ['required', 'integer']]);
 
+        $this->ensureOwnBarangay($request, (int) $data['barangay_id']);
+
         return $this->service->offlinePack($event, (int) $data['barangay_id']);
     }
 
@@ -60,7 +67,10 @@ class ClaimController extends Controller
             'reference_number' => ['required_without:qr', 'nullable', 'string', 'max:30'],
         ]);
 
-        return $this->service->check($event, $this->reference($data));
+        $reference = $this->reference($data);
+        $this->ensureOwnHousehold($request, $reference);
+
+        return $this->service->check($event, $reference);
     }
 
     /** Step 2: staff confirms the release. A QR claim re-checks the token. */
@@ -76,9 +86,29 @@ class ClaimController extends Controller
         // The method follows what was sent, so a claim is only marked "QR" if a valid QR was scanned
         $data['verification_method'] = isset($data['qr']) ? 'qr' : 'reference_number';
 
-        $claim = $this->service->claim($event, $this->reference($data), $request->user(), $data);
+        $reference = $this->reference($data);
+        $this->ensureOwnHousehold($request, $reference);
+
+        $claim = $this->service->claim($event, $reference, $request->user(), $data);
 
         return response()->json(['message' => 'Claim recorded.', 'claim' => $claim], 201);
+    }
+
+    /** Staff assigned to a barangay can only serve that barangay. */
+    private function ensureOwnBarangay(Request $request, int $barangayId): void
+    {
+        $own = $request->user()->barangay_id;
+        abort_if($own && (int) $own !== $barangayId, 403, 'You can only serve your own barangay\'s distribution.');
+    }
+
+    private function ensureOwnHousehold(Request $request, string $reference): void
+    {
+        $barangayId = Household::where('reference_number', strtoupper(trim($reference)))->value('barangay_id');
+        if ($barangayId) {
+            $own = $request->user()->barangay_id;
+            abort_if($own && (int) $own !== (int) $barangayId, 403,
+                'This household is from another barangay. Only that barangay\'s staff can release its aid.');
+        }
     }
 
     private function reference(array $data): string
