@@ -54,6 +54,13 @@ export default function Verification() {
   const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle');
   const [ip, setIp] = useState<string | null>(null);
 
+  // Dynamic QR: a scan sends the whole QR ("RC:<reference no.>:<token>") so the server can check
+  // it is the resident's latest QR. Manual entry sends the reference number.
+  const isQr = method !== 'reference_number';
+  const sent = isQr ? { qr: reference } : { reference_number: reference };
+  // What to show and log before the server answers: never the QR's secret token
+  const shownRef = isQr ? (reference?.startsWith('RC:') ? reference.split(':')[1] : 'the scanned QR') : reference;
+
   // adviser: keep a log of every scan by this staff member
   const log = (outcome: ScanResult, data: CheckResult | null, reason?: string | null, proof?: Proof) => {
     if (!selected) return;
@@ -65,11 +72,11 @@ export default function Verification() {
       item: selected.item,
       unit: data?.unit ?? selected.unit,
       quantity: data?.quantity ?? selected.quantity_per_household,
-      reference: data?.household.reference_number ?? reference,
+      reference: data?.household.reference_number ?? shownRef,
       head: data?.household.household_head ?? null,
       result: outcome,
       reason: reason ?? null,
-      method: method ?? 'qr',
+      method: isQr ? 'qr' : 'reference_number',
       ...proof,
     }).catch(() => {});
   };
@@ -79,7 +86,7 @@ export default function Verification() {
       setError('No distribution selected. Go back to the dashboard and choose one.');
       return;
     }
-    api<CheckResult>(`/distribution/events/${selected.event_id}/check`, { query: { reference_number: reference } })
+    api<CheckResult>(`/distribution/events/${selected.event_id}/check`, { query: sent })
       .then((data) => {
         setResult(data);
         if (!data.can_claim) log('blocked', data, data.reason);
@@ -132,7 +139,8 @@ export default function Verification() {
     setReleasing(true);
     try {
       await api(`/distribution/events/${selected.event_id}/claims`, {
-        body: { reference_number: result.household.reference_number, verification_method: method ?? 'qr' },
+        // a QR claim is re-checked by the server, so it is only recorded as "QR scan" if still valid
+        body: isQr ? { qr: reference } : { reference_number: result.household.reference_number },
       });
       setReleased(true);
       log('released', result, null, {
@@ -189,7 +197,7 @@ export default function Verification() {
         {!result && !error && (
           <View style={styles.center}>
             <ActivityIndicator color={colors.primary} size="large" />
-            <Text style={styles.muted}>Checking {reference}…</Text>
+            <Text style={styles.muted}>Checking {shownRef}…</Text>
           </View>
         )}
 
