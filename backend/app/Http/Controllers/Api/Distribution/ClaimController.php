@@ -41,6 +41,14 @@ class ClaimController extends Controller
             ]);
     }
 
+    /** Offline mode: the household list a staff phone downloads while online. */
+    public function offlinePack(Request $request, DistributionEvent $event)
+    {
+        $data = $request->validate(['barangay_id' => ['required', 'integer']]);
+
+        return $this->service->offlinePack($event, (int) $data['barangay_id']);
+    }
+
     /**
      * Step 1 after scanning: show the household and whether it can claim.
      * Send "qr" (the scanned text, token checked) or "reference_number" (manual entry).

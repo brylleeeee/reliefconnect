@@ -112,6 +112,7 @@ Route::middleware(['auth:sanctum', 'role:distribution_personnel'])
     ->group(function () {
         Route::get('/events', [ClaimController::class, 'events']);
         Route::get('/events/{event}/check', [ClaimController::class, 'check']);
+        Route::get('/events/{event}/offline-pack', [ClaimController::class, 'offlinePack']); // offline mode
         Route::post('/events/{event}/claims', [ClaimController::class, 'store']);
     });
 
