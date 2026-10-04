@@ -47,11 +47,11 @@ export default function App() {
         <Route path="/reports" element={lgu(<Reports />)} />
         <Route path="/analytics" element={<Navigate to="/" replace />} />
 
+        <Route path="/distributions" element={brgy(<Distributions />)} />
         <Route path="/qr-review" element={brgy(<QrReview />)} />
         <Route path="/households" element={brgy(<Households />)} />
         <Route path="/households/:id/edit" element={brgy(<HouseholdEdit />)} />
         <Route path="/walk-in" element={brgy(<WalkIn />)} />
-        <Route path="/distributions" element={brgy(<Distributions />)} />
         <Route path="/announcements" element={brgy(<BarangayAnnouncements />)} />
         <Route path="/history" element={brgy(<History />)} />
       </Route>

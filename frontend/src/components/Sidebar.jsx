@@ -16,10 +16,10 @@ const LINKS = {
     { to: '/reports', label: 'Reports', icon: FileText },
   ],
   barangay_admin: [
+    { to: '/distributions', label: 'Distributions', icon: ClipboardCheck },
     { to: '/qr-review', label: 'QR Issuance Review', icon: QrCode },
     { to: '/households', label: 'Household Records', icon: Users },
     { to: '/walk-in', label: 'Walk-in Registration', icon: UserPlus },
-    { to: '/distributions', label: 'Distributions', icon: ClipboardCheck },
     { to: '/history', label: 'Distribution History', icon: HistoryIcon },
     { to: '/announcements', label: 'Announcements', icon: Megaphone },
   ],
