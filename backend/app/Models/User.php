@@ -16,7 +16,7 @@ class User extends Authenticatable
     public const ROLE_DISTRIBUTION = 'distribution_personnel';
     public const ROLE_RESIDENT = 'resident';
 
-    protected $fillable = ['name', 'email', 'phone', 'username', 'password', 'role', 'position', 'barangay_id'];
+    protected $fillable = ['name', 'email', 'phone', 'username', 'password', 'role', 'position', 'barangay_id', 'is_active'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -25,6 +25,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 

@@ -107,7 +107,7 @@ export default function Account() {
 
         {/* settings */}
         <View style={styles.actions}>
-          <ActionRow label="Change Password" onPress={() => comingSoon('Change Password')} />
+          <ActionRow label="Change Password" onPress={() => router.push('/change-password')} />
           <ActionRow label="Notification Preferences" onPress={() => comingSoon('Notification Preferences')} />
         </View>
 
