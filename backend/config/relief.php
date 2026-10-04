@@ -44,4 +44,14 @@ return [
 
     // Cash aid is tracked like stock, in whole pesos, but kept separate from relief goods.
     'cash_unit' => 'PHP',
+
+    // ---- SOS prioritization (which barangay gets relief goods first) ----
+    // An SOS from a resident always means "we need relief goods". Gemini ranks the barangays from the SOS
+    // facts (count, people, waiting time, recent surge). This is separate from household vulnerability scoring.
+    'sos' => [
+        'levels' => ['critical' => 0.7, 'high' => 0.4], // share of the top barangay's score
+        'waiting_max_hours' => 24,                       // used by the fallback formula
+        'ai_cache_minutes' => 10,                        // same facts = same answer, no repeat API call
+    ],
+
 ];

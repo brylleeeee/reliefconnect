@@ -7,3 +7,6 @@ export const C = {
   grid: '#e4e7eb',
   muted: '#7b8794',
 }
+
+// SOS prioritization levels
+export const SOS_LEVEL = { critical: '#b42318', high: '#e0a526', moderate: '#8fa3b8' }

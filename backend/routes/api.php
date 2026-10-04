@@ -17,6 +17,8 @@ use App\Http\Controllers\Api\DistributionEventController;
 use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\PrioritizationController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\Resident\SosController as ResidentSosController;
+use App\Http\Controllers\Api\SosAnalyticsController;
 use Illuminate\Support\Facades\Route;
 
 // Public
@@ -49,6 +51,10 @@ Route::middleware(['auth:sanctum', 'role:municipal_admin'])
 
         // Prioritization infographics per barangay
         Route::get('/prioritization', [PrioritizationController::class, 'index']);
+
+        // SOS prioritization: which barangay is asking for the most help, plus charts
+        Route::get('/sos', [SosAnalyticsController::class, 'index']);
+        Route::post('/sos/barangays/{barangay}/serve', [SosAnalyticsController::class, 'serve']);
 
         // Analytics dashboard
         Route::get('/analytics', [AnalyticsController::class, 'overview']);
@@ -121,4 +127,9 @@ Route::middleware(['auth:sanctum', 'role:resident'])
         Route::get('/announcements', [ResidentAnnouncementController::class, 'index']);
         Route::get('/household', [ResidentHouseholdController::class, 'show']);
         Route::post('/household', [ResidentHouseholdController::class, 'store']); // multipart, with documents
+
+        // SOS: one active alert per resident
+        Route::get('/sos', [ResidentSosController::class, 'show']);
+        Route::post('/sos', [ResidentSosController::class, 'store'])->middleware('throttle:6,1');
+        Route::post('/sos/cancel', [ResidentSosController::class, 'cancel']);
     });
