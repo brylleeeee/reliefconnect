@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\Resident;
 
 use App\Http\Controllers\Controller;
+use App\Models\BarangayDistribution;
+use App\Models\Distribution;
 use App\Models\Household;
 use App\Models\HouseholdDocument;
 use App\Services\HouseholdService;
@@ -25,6 +27,41 @@ class HouseholdController extends Controller
         abort_unless($household, 404, 'No household registered yet.');
 
         return response()->json($this->present($household));
+    }
+
+    /**
+     * The resident's own claim history: every relief release recorded for their household,
+     * newest first. Shows the same records the staff and admins see, so History updates
+     * as soon as aid is released (or an offline release syncs).
+     */
+    public function claims(Request $request)
+    {
+        $household = $this->own($request);
+        if (! $household) {
+            return response()->json([]);
+        }
+
+        $claims = Distribution::with(['item', 'event'])
+            ->where('household_id', $household->id)
+            ->latest('distributed_at')
+            ->get();
+
+        $venues = BarangayDistribution::where('barangay_id', $household->barangay_id)
+            ->whereIn('distribution_event_id', $claims->pluck('distribution_event_id')->filter()->unique())
+            ->pluck('venue', 'distribution_event_id');
+
+        return response()->json($claims->map(fn (Distribution $c) => [
+            'id' => $c->id,
+            'event' => $c->event?->name ?? 'Relief distribution',
+            'is_cash' => $c->item->isCash(),
+            'item' => $c->item->name,
+            'contents' => $c->item->contents,
+            'quantity' => $c->quantity,
+            'unit' => $c->item->unit,
+            'venue' => $venues[$c->distribution_event_id] ?? null,
+            'claimed_at' => $c->distributed_at,
+            'method' => $c->verification_method,
+        ])->values());
     }
 
     /** First submission, or resubmission after a rejection. Sent as multipart form data. */
