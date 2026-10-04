@@ -118,11 +118,19 @@ export default function Dashboard() {
     ]);
   };
 
+  // Tap your name: change password or log out
+  const profileMenu = () =>
+    Alert.alert(name, 'Distribution Staff', [
+      { text: 'Change Password', onPress: () => router.push('/change-password') },
+      { text: 'Log Out', style: 'destructive', onPress: handleLogout },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* header */}
       <View style={styles.header}>
-        <Pressable style={styles.profile} onPress={handleLogout}>
+        <Pressable style={styles.profile} onPress={profileMenu}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{getInitials(name)}</Text>
           </View>

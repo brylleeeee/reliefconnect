@@ -7,6 +7,7 @@ use App\Models\Barangay;
 use App\Models\DistributionEvent;
 use App\Models\Household;
 use App\Models\ReliefItem;
+use App\Models\SosAlert;
 use Illuminate\Http\Request;
 
 /**
@@ -44,13 +45,24 @@ class PrioritizationController extends Controller
 
         $w = config('relief.allocation_weights');
 
-        $rows = Barangay::orderBy('name')->get()->map(function ($b) use ($stats, $w) {
+        // Active SOS (residents asking for relief goods now) per barangay, approved households only
+        $sosPoints = (int) config('relief.sos.allocation_points', 3);
+        $sos = SosAlert::where('status', 'pending')
+            ->whereHas('household', fn ($q) => $q->where('status', 'approved'))
+            ->selectRaw('barangay_id, COUNT(*) as total')
+            ->groupBy('barangay_id')
+            ->pluck('total', 'barangay_id');
+
+        $rows = Barangay::orderBy('name')->get()->map(function ($b) use ($stats, $w, $sos, $sosPoints) {
             $s = $stats->get($b->id);
             $row = ['id' => $b->id, 'name' => $b->name];
             foreach (['households', 'high', 'medium', 'low', 'members', 'seniors', 'pwd', 'infants', 'pregnant'] as $k) {
                 $row[$k] = (int) ($s->$k ?? 0);
             }
-            $row['demand'] = $row['high'] * $w['high'] + $row['medium'] * $w['medium'] + $row['low'] * $w['low'];
+            $row['sos'] = (int) ($sos[$b->id] ?? 0);
+            $row['sos_points'] = $row['sos'] * $sosPoints;
+            $row['demand'] = $row['high'] * $w['high'] + $row['medium'] * $w['medium'] + $row['low'] * $w['low']
+                + $row['sos_points'];
 
             return $row;
         })->all();
@@ -67,6 +79,7 @@ class PrioritizationController extends Controller
                 'priority_weights' => config('relief.priority_weights'),
                 'priority_levels' => config('relief.priority_levels'),
                 'allocation_weights' => $w,
+                'sos_points' => $sosPoints,
             ],
         ]);
     }

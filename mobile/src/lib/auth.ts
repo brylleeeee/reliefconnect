@@ -59,3 +59,10 @@ export async function logout() {
   await tokenStore.clear();
   await clearOfflineData(); // offline mode: household lists don't stay on the phone after logout
 }
+
+/** Change the password of the logged-in resident or staff. Other devices are logged out by the server. */
+export async function changePassword(currentPassword: string, password: string, confirmation: string) {
+  await api('/me/password', {
+    body: { current_password: currentPassword, password, password_confirmation: confirmation },
+  });
+}
