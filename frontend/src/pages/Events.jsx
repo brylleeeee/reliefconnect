@@ -190,6 +190,7 @@ export default function Events() {
 function CreateEventModal({ state, setState, busy, error, onClose, onSubmit }) {
   const { form, quotas, options } = state
   const [suggesting, setSuggesting] = useState(false)
+  const [sosFirst, setSosFirst] = useState(true) // "Suggest by priority": cover SOS households first
   const item = options.items.find((i) => String(i.id) === String(form.relief_item_id))
   const perHousehold = Number(form.quantity_per_household) || 1
 
@@ -200,6 +201,10 @@ function CreateEventModal({ state, setState, busy, error, onClose, onSubmit }) {
   const eligibleIn = (b) => b.eligible?.[rule.key] ?? b.approved_households
   const recipientsIn = (b) => b.recipients?.[rule.key] ?? b.approved_households
   const households = options.barangays.reduce((sum, b) => sum + (Number(quotas[b.id]) || 0), 0)
+  // Barangays with active SOS first (most urgent at the top), then the rest A-Z
+  const byPriority = [...options.barangays].sort((a, b) =>
+    (a.sos?.rank ?? 999) - (b.sos?.rank ?? 999) || a.name.localeCompare(b.name))
+  const sosBarangays = options.barangays.filter((b) => b.sos).length
   // Per-member rules: each household gets the amount for every qualifying member.
   // Estimate from each barangay's average; the server checks the exact stock needed.
   const recipients = options.barangays.reduce((sum, b) => {
@@ -223,7 +228,9 @@ function CreateEventModal({ state, setState, busy, error, onClose, onSubmit }) {
       const totalRecipients = options.barangays.reduce((n, b) => n + recipientsIn(b), 0)
       const perHouseholdUnits = perHousehold * (rule.per_member && totalEligible ? totalRecipients / totalEligible : 1)
       const packs = Math.floor(item.available / perHouseholdUnits)
-      const r = await api.get('/admin/prioritization', { params: { relief_item_id: item.id, packs, eligibility: rule.key } })
+      const r = await api.get('/admin/prioritization', {
+        params: { relief_item_id: item.id, packs, eligibility: rule.key, mode: sosFirst ? 'sos_first' : 'share' },
+      })
       setState({ ...state, quotas: Object.fromEntries(r.data.barangays.map((b) => [b.id, b.allocation || ''])) })
     } finally { setSuggesting(false) }
   }
@@ -316,16 +323,34 @@ function CreateEventModal({ state, setState, busy, error, onClose, onSubmit }) {
             <div className="rc-label mb-0">Quota per barangay (households)</div>
             <div className="small text-secondary">Leave blank or 0 for barangays not included.</div>
           </div>
-          <button type="button" className="btn btn-sm btn-rc-outline" disabled={!item || suggesting} onClick={suggest}>
-            {suggesting ? 'Calculating…' : 'Suggest by priority'}
-          </button>
+          <div className="d-flex align-items-center gap-3">
+            {sosBarangays > 0 && (
+              <label className="small d-flex align-items-center gap-1 mb-0" title="Households that sent an SOS get a quota first, in priority order">
+                <input type="checkbox" checked={sosFirst} onChange={(e) => setSosFirst(e.target.checked)} />
+                SOS barangays first
+              </label>
+            )}
+            <button type="button" className="btn btn-sm btn-rc-outline" disabled={!item || suggesting} onClick={suggest}>
+              {suggesting ? 'Calculating…' : 'Suggest by priority'}
+            </button>
+          </div>
         </div>
+        {sosBarangays > 0 && (
+          <div className="small text-danger mb-2">
+            {sosBarangays} barangay{sosBarangays === 1 ? ' has' : 's have'} active SOS. They are listed first, most urgent at the top.
+          </div>
+        )}
         <table className="rc-table mb-2">
-          <thead><tr><th>Barangay</th><th>{rule.key === 'all' ? 'Approved households' : 'Eligible households'}</th><th style={{ width: 140 }}>Quota</th></tr></thead>
+          <thead><tr><th>Barangay</th><th>SOS priority</th><th>{rule.key === 'all' ? 'Approved households' : 'Eligible households'}</th><th style={{ width: 140 }}>Quota</th></tr></thead>
           <tbody>
-            {options.barangays.map((b) => (
-              <tr key={b.id}>
+            {byPriority.map((b) => (
+              <tr key={b.id} className={b.sos ? `rc-row-sos ${b.sos.level}` : ''}>
                 <td className="fw-semibold">{b.name}</td>
+                <td className="text-nowrap" title={b.sos?.reason ?? ''}>
+                  {b.sos
+                    ? <><b>#{b.sos.rank}</b> <span className={`rc-prio ${b.sos.level}`}>{b.sos.level}</span> <span className="small text-secondary">{b.sos.count} SOS</span></>
+                    : <span className="small text-secondary">—</span>}
+                </td>
                 <td className="muted">
                   {eligibleIn(b)}
                   {rule.per_member && <span className="small"> ({countOf(recipientsIn(b), rule.recipient)})</span>}

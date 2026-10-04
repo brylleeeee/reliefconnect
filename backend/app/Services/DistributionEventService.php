@@ -6,6 +6,7 @@ use App\Models\Distribution;
 use App\Models\DistributionEvent;
 use App\Models\Household;
 use App\Models\ReliefItem;
+use App\Models\SosAlert;
 use App\Models\StockMovement;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -42,10 +43,14 @@ class DistributionEventService
             default => null,
         };
 
+        $sos = SosAlert::where('household_id', $household->id)->where('status', 'pending')->latest('id')->first();
+
         return [
             'household' => $household->only([
                 'id', 'reference_number', 'household_head', 'purok', 'members_count', 'priority_level',
             ]) + ['barangay' => $brgy],
+            // This household pressed SOS and is waiting: serve it first
+            'sos' => $sos ? ['message' => $sos->message, 'reason' => $sos->ai_reason, 'sent_at' => $sos->created_at] : null,
             'can_claim' => $problem === null,
             'reason' => $problem,
             'claimed_at' => $claim?->distributed_at,
@@ -130,6 +135,12 @@ class DistributionEventService
                     'quantity' => -$qty,
                     'remarks' => "{$event->name}: {$household->reference_number}",
                 ]);
+
+                // The household received its goods: its SOS (sent before this claim) is served, so it stops
+                // counting in SOS and Aid Prioritization and the ranking moves on to the next barangay.
+                SosAlert::where('household_id', $household->id)->where('status', 'pending')
+                    ->where('created_at', '<=', $distribution->distributed_at)
+                    ->update(['status' => 'served', 'served_at' => now(), 'distribution_id' => $distribution->id]);
 
                 return $distribution;
             });

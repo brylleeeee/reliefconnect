@@ -78,8 +78,8 @@ export default function SosPrioritization() {
   const banner = engine === 'ai'
     ? "Ranking calculated by AI from the residents' SOS messages"
     : engine === 'mixed'
-      ? 'The AI scored most SOS messages. The rest used a keyword fallback because the AI was busy.'
-      : 'No AI scoring yet, so a standard formula is ranking the barangays. Check that GEMINI_API_KEY is set in the backend .env and that residents write a message with their SOS.'
+      ? 'Ranked from the residents\' SOS messages, scored by AI and by ReliefConnect\'s built-in rules.'
+      : 'Ranked by ReliefConnect\'s built-in scoring: it reads each SOS message (flood, trapped, sick, no food…) and adds points to the household. No AI key needed.'
 
   const waitData = ranking.map((r) => ({ name: r.name, hours: Math.round((r.waiting_minutes / 60) * 10) / 10 }))
   const typeData = (d.charts?.emergency_types?.labels ?? []).map((t, i) => ({
@@ -90,11 +90,11 @@ export default function SosPrioritization() {
     <>
       <PageHeader
         title="SOS Prioritization"
-        subtitle="Residents press SOS and describe what is happening. The AI adds points to each household, and the barangay with the most points is ranked first"
+        subtitle="Residents press SOS and describe what is happening. Each message adds points to the household, and the barangay with the most urgent need is ranked first"
         actions={<span className="rc-live">Live · updated {updatedAt.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })}</span>}
       />
 
-      <div className={`small mb-3 d-flex align-items-center gap-2 ${engine === 'formula' ? 'text-warning-emphasis' : 'text-success'}`}>
+      <div className={`small mb-3 d-flex align-items-center gap-2 text-success`}>
         <Sparkles size={14} />
         {banner}
       </div>

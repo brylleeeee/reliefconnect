@@ -10,6 +10,7 @@ use App\Models\Distribution;
 use App\Models\DistributionEvent;
 use App\Models\Household;
 use App\Models\ReliefItem;
+use App\Services\SosPrioritizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -24,9 +25,11 @@ use Illuminate\Validation\ValidationException;
 class DistributionEventController extends Controller
 {
     /** Data for the "Create event" form. */
-    public function options()
+    public function options(SosPrioritizer $prioritizer)
     {
         $approved = $this->approvedPerBarangay();
+        // SOS priority per barangay, shown next to each quota (same ranking as SOS and Aid Prioritization)
+        $sos = $prioritizer->rank()['rows']->keyBy('id');
 
         return response()->json([
             'items' => ReliefItem::orderBy('type')->orderBy('name')->get(['id', 'type', 'name', 'unit', 'quantity_in_stock'])
@@ -42,7 +45,10 @@ class DistributionEventController extends Controller
                 }),
             'barangays' => Barangay::orderBy('name')->get(['id', 'name'])
                 ->map(fn ($b) => ['id' => $b->id, 'name' => $b->name, 'approved_households' => (int) ($approved[$b->id] ?? 0)]
-                    + ($this->eligibleCounts()[$b->id] ?? ['eligible' => [], 'recipients' => []])),
+                    + ($this->eligibleCounts()[$b->id] ?? ['eligible' => [], 'recipients' => []])
+                    + ['sos' => ($r = $sos->get($b->id)) ? [
+                        'rank' => $r['rank'], 'level' => $r['level'], 'count' => $r['sos_count'], 'reason' => $r['reason'],
+                    ] : null]),
             'eligibility' => collect(DistributionEvent::ELIGIBILITY)->map(fn ($r, $key) => [
                 'key' => $key, 'label' => $r['label'], 'per_member' => $r['per'] === 'member', 'recipient' => $r['recipient'],
             ])->values(),

@@ -112,6 +112,7 @@ Route::middleware(['auth:sanctum', 'role:barangay_admin'])
         Route::post('/distributions/{event}/start', [BarangayDistributionController::class, 'start']);
         Route::post('/distributions/{event}/close', [BarangayDistributionController::class, 'close']);
         Route::get('/distributions/{event}/households', [BarangayDistributionController::class, 'households']);
+        Route::get('/sos-priority', [BarangayDistributionController::class, 'sosPriority']);
         Route::get('/distributions/{event}/households/{household}/claim', [BarangayDistributionController::class, 'householdClaim']);
         Route::get('/claims/{distribution}', [BarangayDistributionController::class, 'claim']);
 

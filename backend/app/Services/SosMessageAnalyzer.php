@@ -10,9 +10,11 @@ use Illuminate\Support\Facades\Log;
  * Reads the message a resident types when pressing the SOS button (English, Tagalog, Ilocano, mixed)
  * and turns it into points for that household.
  *
- * The AI only CLASSIFIES (category, severity 0-10, risk flags). The points are computed here in PHP and
- * capped, so a dramatic or malicious message can never give a household unlimited points.
- * If Gemini is down or unreadable, a keyword fallback still assigns points, so SOS are never left unscored.
+ * Two engines, same output (category, severity 0-10, risk flags, reason):
+ *  - Built-in rules (default, no API key needed): reads keywords in English, Filipino, Ilocano and Pangasinan.
+ *  - Gemini, only if GEMINI_API_KEY is set. If it fails, the built-in rules are used.
+ * Points are always computed here in PHP from severity and flags, and capped, so a dramatic or malicious
+ * message can never give a household unlimited points.
  */
 class SosMessageAnalyzer
 {
@@ -28,23 +30,44 @@ class SosMessageAnalyzer
         'no_food_water' => 3,
     ];
 
+    // Order matters: the first category that matches is the main one
     private const KEYWORD_CATEGORIES = [
-        'flood' => ['baha', 'bumabaha', 'binaha', 'lubog', 'layus', 'flood', 'rising water'],
-        'typhoon' => ['bagyo', 'typhoon', 'storm', 'malakas na hangin'],
-        'fire' => ['sunog', 'nasusunog', 'fire'],
-        'landslide' => ['guho', 'pagguho', 'landslide'],
-        'earthquake' => ['lindol', 'earthquake'],
-        'medical' => ['sugatan', 'injured', 'may sakit', 'nahimatay', 'dugo'],
-        'food_water' => ['gutom', 'walang pagkain', 'walang tubig', 'no food', 'no water', 'mabisin'],
+        'fire' => ['sunog', 'nasusunog', 'apoy', 'fire', 'burning'],
+        'landslide' => ['guho', 'gumuho', 'pagguho', 'landslide', 'natabunan'],
+        'flood' => ['baha', 'bumabaha', 'binaha', 'binabaha', 'lubog', 'nalubog', 'layus', 'nalayus', 'flood',
+            'rising water', 'tumataas ang tubig', 'umaapaw', 'apaw', 'hanggang tuhod', 'hanggang dibdib', 'tubig na sa loob'],
+        'typhoon' => ['bagyo', 'typhoon', 'storm', 'malakas na hangin', 'signal no', 'nilipad', 'liplipay'],
+        'earthquake' => ['lindol', 'earthquake', 'yugyog'],
+        'medical' => ['sugatan', 'nasugatan', 'injured', 'may sakit', 'maysakit', 'sakit', 'nahimatay', 'dugo', 'lagnat',
+            'fever', 'sick', 'hospital', 'ospital', 'gamot', 'medicine', 'hindi makahinga', 'manganganak', 'nanganganak'],
+        'food_water' => ['gutom', 'walang pagkain', 'walang makain', 'walang tubig', 'walang inumin', 'no food', 'no water',
+            'hungry', 'mabisin', 'awan ti makan', 'ubos na', 'naubusan'],
     ];
 
     private const KEYWORD_FLAGS = [
-        'trapped' => ['naipit', 'naiipit', 'trapped', 'bubong', 'roof'],
-        'injured' => ['sugatan', 'injured'],
-        'children' => ['bata', 'baby', 'sanggol', 'children', 'kids'],
-        'elderly' => ['matanda', 'lola', 'lolo', 'elderly', 'senior'],
-        'pregnant' => ['buntis', 'pregnant'],
-        'no_food_water' => ['gutom', 'walang pagkain', 'walang tubig', 'no food', 'no water', 'mabisin'],
+        'trapped' => ['naipit', 'naiipit', 'trapped', 'nasa bubong', 'on the roof', 'stranded', 'makalabas', 'makaalis', "can't get out", 'cannot get out',
+            'nasa taas ng bahay', 'nasa bubungan', 'rescue', 'saklolo', 'natabunan',
+            'nalulunod', 'drowning', 'hanggang dibdib', 'hanggang leeg', 'chest deep', 'neck deep'],
+        'injured' => ['sugatan', 'nasugatan', 'injured', 'dugo', 'nabalian', 'nahimatay'],
+        'children' => ['bata', 'baby', 'sanggol', 'children', 'kids', 'anak', 'ubing', 'infant'],
+        'elderly' => ['matanda', 'lola', 'lolo', 'elderly', 'senior', 'lakay', 'baket', 'pwd', 'may kapansanan'],
+        'pregnant' => ['buntis', 'pregnant', 'manganganak', 'nanganganak', 'masikog'],
+        'no_food_water' => ['gutom', 'walang pagkain', 'walang makain', 'walang tubig', 'walang inumin', 'no food',
+            'no water', 'hungry', 'mabisin', 'awan ti makan'],
+    ];
+
+    // Built-in rules: how serious each kind of emergency is on its own (0-10)
+    private const CATEGORY_SEVERITY = [
+        'fire' => 7, 'landslide' => 7, 'medical' => 6, 'flood' => 6, 'typhoon' => 5,
+        'earthquake' => 5, 'food_water' => 4, 'other' => 2,
+    ];
+
+    private const LABELS = [
+        'fire' => 'Fire', 'landslide' => 'Landslide', 'flood' => 'Flooding', 'typhoon' => 'Typhoon',
+        'earthquake' => 'Earthquake', 'medical' => 'Sick or injured', 'food_water' => 'No food or water',
+        'other' => 'Request for relief', 'trapped' => 'trapped or in danger', 'injured' => 'someone injured',
+        'children' => 'children', 'elderly' => 'seniors or PWDs', 'pregnant' => 'pregnant member',
+        'no_food_water' => 'no food or water',
     ];
 
     private const SYSTEM = <<<'TXT'
@@ -82,9 +105,10 @@ TXT;
         $message = trim(mb_substr($message, 0, 500));
 
         if ($message === '') {
-            return $this->result('other', 0, [], 'No message was written.', 'keywords');
+            return $this->result('other', 0, [], 'No message was written.', 'rules');
         }
 
+        // Gemini only if a key is set; otherwise (or if it fails) the built-in rules
         return $this->askGemini($message) ?? $this->fromKeywords($message);
     }
 
@@ -138,7 +162,10 @@ TXT;
         }
     }
 
-    /** Fallback when the AI is unavailable: simple keyword matching so every SOS still gets points. */
+    /**
+     * Built-in rules (no API key needed): finds the kind of emergency and the risk flags from keywords,
+     * then rates severity. Trapped or injured people raise it the most.
+     */
     private function fromKeywords(string $message): array
     {
         $text = mb_strtolower($message);
@@ -151,12 +178,39 @@ TXT;
                 break;
             }
         }
-
         $flags = collect(self::KEYWORD_FLAGS)->filter(fn ($words) => $has($words))->keys()->all();
 
-        $severity = ($category === 'other' ? 2 : 5) + ($has(['tulong', 'saklolo', 'help', 'emergency']) ? 1 : 0);
+        $severity = self::CATEGORY_SEVERITY[$category];
+        if (in_array('trapped', $flags, true)) {
+            $severity = max($severity, 9);   // life-threatening right now
+        }
+        if (in_array('injured', $flags, true)) {
+            $severity = max($severity, 8);
+        }
+        if ($has(['tulong', 'saklolo', 'help', 'emergency', 'agyamo', 'urgent', 'please', 'pakiusap'])) {
+            $severity++;                     // explicit plea for help
+        }
+        if ($has(['wala na', 'grabe', 'malala', 'mamatay', 'patay', 'nalulunod', 'drowning'])) {
+            $severity++;                     // words that signal getting worse
+        }
 
-        return $this->result($category, $severity, $flags, 'Scored from keywords because the AI was unavailable.', 'keywords');
+        return $this->result($category, $severity, $flags, $this->explain($category, $flags), 'rules');
+    }
+
+    /** "Flooding; trapped, children mentioned" */
+    private function explain(string $category, array $flags): string
+    {
+        $flags = array_values(array_filter($flags, fn ($f) => ! ($category === 'food_water' && $f === 'no_food_water')));
+        if ($category === 'other' && in_array('trapped', $flags, true)) {
+            $category = 'rescue';
+            $flags = array_values(array_diff($flags, ['trapped']));
+        }
+        $text = $category === 'rescue' ? 'Trapped or in danger, needs rescue' : (self::LABELS[$category] ?? 'Request for relief');
+        if ($flags) {
+            $text .= '; '.implode(', ', array_map(fn ($f) => self::LABELS[$f] ?? $f, $flags)).' mentioned';
+        }
+
+        return $text.'.';
     }
 
     private function result(string $category, int $severity, array $flags, string $reason, string $source): array

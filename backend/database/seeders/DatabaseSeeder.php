@@ -8,11 +8,13 @@ use App\Models\Distribution;
 use App\Models\DistributionEvent;
 use App\Models\Household;
 use App\Models\ReliefItem;
+use App\Models\SosAlert;
 use App\Models\Source;
 use App\Models\StockMovement;
 use App\Models\User;
 use App\Services\DistributionEventService;
 use App\Services\HouseholdService;
+use App\Services\SosMessageAnalyzer;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
@@ -129,6 +131,7 @@ class DatabaseSeeder extends Seeder
         $this->seedEvents($sample, $items, $admin, $distributor);
         $this->seedDonationsAndCash($sample, $items, $admin, $distributor);
         $this->seedSeniorEvent($sample, $admin, $distributor);
+        $this->seedSos($sample);
 
         foreach ([
             ['Nutritional Relief Pack Distribution', 'Priority collection for senior citizens and pregnant women. Please bring your approved digital Relief QR code.', now()->setTime(8, 0)],
@@ -146,6 +149,65 @@ class DatabaseSeeder extends Seeder
      * An event only for households with a senior citizen, given per senior:
      * a household with two seniors receives two kits.
      */
+    /**
+     * Sample SOS during a flood, with messages, scored by the built-in rules (no AI key needed),
+     * so SOS Prioritization and Aid Prioritization show a realistic priority order.
+     */
+    private function seedSos($barangays): void
+    {
+        $analyzer = app(SosMessageAnalyzer::class);
+        $messages = [
+            'Bayaoas' => [
+                ['Naipit kami sa bubong, tumataas ang tubig. Tulong po!', 40],
+                ['Baha na kami hanggang dibdib, may sanggol at lola', 55],
+                ['Binaha ang bahay, walang pagkain at tubig', 90],
+                ['May sakit ang anak ko, lagnat. Baha sa labas', 120],
+            ],
+            'Batangcaoa' => [
+                ['Baha na po dito, kailangan ng relief goods', 70],
+                ['walang makain, ubos na ang bigas', 150],
+                [null, 200],
+            ],
+            'Poblacion' => [
+                ['Need relief goods', 30],
+                ['Nasira ang bubong dahil sa bagyo', 100],
+            ],
+            'Angatel' => [
+                ['Kailangan namin ng tubig at pagkain', 240],
+            ],
+        ];
+
+        foreach ($messages as $name => $list) {
+            $b = $barangays->firstWhere('name', $name);
+            if (! $b) {
+                continue;
+            }
+            // Prefer households still waiting for relief (fewest claims), as SOS senders would be
+            $households = Household::where('barangay_id', $b->id)->where('status', 'approved')
+                ->withCount('distributions')->orderBy('distributions_count')->inRandomOrder()
+                ->take(count($list))->get();
+
+            foreach ($list as $i => [$message, $minutesAgo]) {
+                $h = $households[$i] ?? null;
+                if (! $h) {
+                    break;
+                }
+                $userId = $h->user_id ?? User::create([
+                    'name' => $h->household_head, 'password' => 'password', 'role' => User::ROLE_RESIDENT,
+                    'username' => $h->reference_number, 'barangay_id' => $h->barangay_id,
+                ])->id;
+                $h->forceFill(['user_id' => $userId])->save();
+
+                $sos = SosAlert::create([
+                    'user_id' => $userId, 'household_id' => $h->id, 'barangay_id' => $h->barangay_id,
+                    'people_count' => max($h->members_count, 1), 'message' => $message,
+                ]);
+                $sos->forceFill(['created_at' => now()->subMinutes($minutesAgo)])->save();
+                $analyzer->scoreAlert($sos);
+            }
+        }
+    }
+
     private function seedSeniorEvent($barangays, User $admin, User $distributor): void
     {
         $kits = ReliefItem::create([

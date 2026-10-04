@@ -87,13 +87,13 @@ class SosPrioritizer
         })->all();
     }
 
-    /** 'ai' when every pending SOS was read by the AI, 'mixed' when some used the keyword fallback, else 'formula'. */
+    /** 'ai' when every pending SOS was read by the AI, 'mixed' when some used the built-in rules, else 'rules'. */
     private function engine(Collection $alerts): string
     {
         $ai = $alerts->where('ai_source', 'ai')->count();
 
         if ($alerts->isEmpty() || $ai === 0) {
-            return 'formula';
+            return 'rules';
         }
 
         return $ai === $alerts->count() ? 'ai' : 'mixed';

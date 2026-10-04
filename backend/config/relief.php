@@ -55,6 +55,9 @@ return [
         // Aid Prioritization: each active SOS from an approved household adds this much to its
         // barangay's demand (same as one high-priority household), so asking barangays get more packs.
         'allocation_points' => 3,
+        // ...plus up to this many more for an urgent message (1 per 5 message points), so a barangay
+        // reporting people trapped or injured gets a bigger share than one with a plain request.
+        'message_points' => 4,
     ],
 
 ];

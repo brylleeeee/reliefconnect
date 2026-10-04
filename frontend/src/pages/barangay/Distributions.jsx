@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Search, CalendarDays, MapPin, CheckCircle2, Clock, Play, Square, XCircle, Megaphone } from 'lucide-react'
+import { Search, CalendarDays, MapPin, CheckCircle2, Clock, Play, Square, XCircle, Megaphone, Siren } from 'lucide-react'
 import api, { errorMessage } from '../../api/client'
 import useLiveTick from '../../components/useLiveTick'
 import PageHeader from '../../components/PageHeader'
@@ -16,7 +16,8 @@ export default function Distributions() {
   const [summary] = useSummary()
   const [rows, setRows] = useState(null)       // this barangay's part of each event
   const [eventId, setEventId] = useState('')
-  const [filters, setFilters] = useState({ claim: 'unclaimed', purok: '', priority: '', search: '' })
+  const [filters, setFilters] = useState({ claim: 'unclaimed', purok: '', priority: '', search: '', sos: '' })
+  const [sosPriority, setSosPriority] = useState(null) // this barangay's place in the SOS ranking
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [data, setData] = useState(null)
@@ -33,7 +34,8 @@ export default function Distributions() {
       setEventId((cur) => cur || (r.data.length ? String(r.data[0].event_id) : ''))
     })
     .catch((err) => setError(errorMessage(err)))
-  useEffect(() => { loadRows() }, [])
+  const loadSosPriority = () => api.get('/barangay/sos-priority').then((r) => setSosPriority(r.data)).catch(() => {})
+  useEffect(() => { loadRows(); loadSosPriority() }, [])
 
   const loadHouseholds = () => {
     if (!eventId) return
@@ -49,7 +51,7 @@ export default function Distributions() {
 
   // Live: refresh the schedule, counts and claims in place (selected event, filters and page are kept)
   const tick = useLiveTick()
-  useEffect(() => { if (tick) { loadRows(); loadHouseholds() } }, [tick])
+  useEffect(() => { if (tick) { loadRows(); loadHouseholds(); loadSosPriority() } }, [tick])
 
   useEffect(() => {
     const t = setTimeout(() => { setPage(1); setFilters((f) => ({ ...f, search })) }, 350)
@@ -113,6 +115,24 @@ export default function Distributions() {
 
       {error && !scheduling && <div className="alert alert-danger py-2 small">{error}</div>}
       {notice && <div className="alert alert-success py-2 small">{notice}</div>}
+
+      {sosPriority && (
+        <section className={`rc-card mb-3 rc-sos-notice ${sosPriority.level}`}>
+          <Siren size={22} />
+          <div className="flex-grow-1">
+            <div className="fw-semibold">
+              Your barangay is #{sosPriority.rank} of {sosPriority.of} barangays with SOS
+              <span className={`rc-prio ${sosPriority.level} ms-2`}>{sosPriority.level}</span>
+            </div>
+            <div className="small text-secondary">
+              {sosPriority.sos_count} household{sosPriority.sos_count === 1 ? '' : 's'} ({sosPriority.people} people) pressed SOS.
+              {sosPriority.rank === 1 ? ' Please schedule your distribution first.' : ' Please schedule your distribution as soon as you can.'}
+              {' '}Households with SOS are listed first below.
+            </div>
+            {sosPriority.reason && <div className="small mt-1">{sosPriority.reason}</div>}
+          </div>
+        </section>
+      )}
 
       {rows?.length === 0 && (
         <section className="rc-card text-center text-secondary py-5">
@@ -238,8 +258,14 @@ export default function Distributions() {
 
           <section className="rc-card">
             <h2 className="rc-card-title">Households</h2>
+            {data?.counts.sos_waiting > 0 && (
+              <div className="small text-danger mb-2 d-flex align-items-center gap-1">
+                <Siren size={13} /> {data.counts.sos_waiting} household{data.counts.sos_waiting === 1 ? '' : 's'} sent an SOS and
+                {data.counts.sos_waiting === 1 ? ' has' : ' have'} not claimed yet. Serve {data.counts.sos_waiting === 1 ? 'it' : 'them'} first; they are listed at the top.
+              </div>
+            )}
             <div className="row g-2 mb-3">
-              <div className="col-md-4">
+              <div className="col-md-3">
                 <div className="rc-search">
                   <Search size={15} />
                   <input className="form-control" placeholder="Search by name or reference no."
@@ -255,14 +281,20 @@ export default function Distributions() {
                 </select>
               </div>
               <div className="col-md-2">
+                <select className="form-select" aria-label="SOS" value={filters.sos} onChange={(e) => setFilter('sos', e.target.value)}>
+                  <option value="">All households</option>
+                  <option value="1">Sent SOS only</option>
+                </select>
+              </div>
+              <div className="col-md-2">
                 <select className="form-select" aria-label="Purok" value={filters.purok} onChange={(e) => setFilter('purok', e.target.value)}>
                   <option value="">All puroks</option>
                   {summary?.puroks.map((p) => <option key={p}>{p}</option>)}
                 </select>
               </div>
-              <div className="col-md-3">
+              <div className="col-md-2">
                 <select className="form-select" aria-label="Priority" value={filters.priority} onChange={(e) => setFilter('priority', e.target.value)}>
-                  <option value="">All priority levels</option>
+                  <option value="">All priorities</option>
                   <option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
                 </select>
               </div>
@@ -275,12 +307,24 @@ export default function Distributions() {
                 </thead>
                 <tbody>
                   {data?.households.data.map((h) => (
-                    <tr key={h.id}>
+                    <tr key={h.id} className={h.sos?.status === 'pending' && !h.claimed_at ? 'rc-row-sos critical' : ''}>
                       <td className="text-nowrap">
                         <button type="button" className="btn btn-link p-0 rc-link" onClick={() => setHistoryOf(h)}
                                 title="See when this household claimed and what it received">{h.reference_number}</button>
                       </td>
-                      <td className="fw-semibold">{h.household_head}</td>
+                      <td>
+                        <span className="fw-semibold">{h.household_head}</span>
+                        {h.sos && (
+                          <div className="small mt-1" title={h.sos.message ?? ''}>
+                            {h.sos.status === 'pending'
+                              ? <span className="rc-sos-badge">SOS</span>
+                              : <span className="rc-sos-badge served">SOS served</span>}
+                            {h.sos.status === 'pending' && (h.sos.reason || h.sos.message) && (
+                              <span className="text-secondary ms-1">{h.sos.reason ?? h.sos.message}</span>
+                            )}
+                          </div>
+                        )}
+                      </td>
                       <td>{h.purok}</td>
                       <td>{h.members_count}</td>
                       {row.per_member && (

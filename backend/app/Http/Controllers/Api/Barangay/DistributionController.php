@@ -7,7 +7,9 @@ use App\Models\BarangayDistribution;
 use App\Models\Distribution;
 use App\Models\DistributionEvent;
 use App\Models\Household;
+use App\Models\SosAlert;
 use App\Support\ClaimDetails;
+use App\Services\SosPrioritizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -99,12 +101,33 @@ class DistributionController extends Controller
     }
 
     /** Who has and hasn't claimed. Not-yet-claimed first, most vulnerable first. */
+    /**
+     * This barangay's place in the SOS ranking (null when it has no active SOS), so it knows
+     * to schedule its distribution first.
+     */
+    public function sosPriority(Request $request, SosPrioritizer $prioritizer)
+    {
+        $rows = $prioritizer->rank()['rows'];
+        $mine = $rows->firstWhere('id', $this->barangayId($request));
+
+        return response()->json($mine ? [
+            'rank' => $mine['rank'],
+            'of' => $rows->count(),
+            'level' => $mine['level'],
+            'sos_count' => $mine['sos_count'],
+            'people' => $mine['people'],
+            'waiting_minutes' => $mine['waiting_minutes'],
+            'reason' => $mine['reason'],
+        ] : null);
+    }
+
     public function households(Request $request, DistributionEvent $event)
     {
         $bd = $this->rowFor($request, $event);
 
         $f = $request->validate([
             'claim' => ['nullable', 'in:claimed,unclaimed'],
+            'sos' => ['nullable', 'boolean'], // only households that sent an SOS
             'search' => ['nullable', 'string', 'max:100'],
             'purok' => ['nullable', 'string', 'max:50'],
             'priority' => ['nullable', 'in:high,medium,low'],
@@ -121,6 +144,10 @@ class DistributionController extends Controller
         );
         $hasClaim = fn ($q) => $q->where('distribution_event_id', $event->id);
 
+        // Households with an active SOS, or whose SOS was served by their claim in this event
+        $sosSql = "EXISTS (SELECT 1 FROM sos_alerts s WHERE s.household_id = households.id AND (s.status = 'pending'
+            OR s.distribution_id IN (SELECT d.id FROM distributions d WHERE d.distribution_event_id = ?)))";
+
         $list = (clone $base)
             ->select(['id', 'reference_number', 'household_head', 'purok', 'contact_number',
                 'members_count', 'priority_level', 'priority_score',
@@ -128,17 +155,39 @@ class DistributionController extends Controller
             ->addSelect(['claimed_at' => $claimedAt])
             ->when(($f['claim'] ?? null) === 'claimed', fn ($q) => $q->whereHas('distributions', $hasClaim))
             ->when(($f['claim'] ?? null) === 'unclaimed', fn ($q) => $q->whereDoesntHave('distributions', $hasClaim))
+            ->when($f['sos'] ?? false, fn ($q) => $q->whereRaw($sosSql, [$event->id]))
             ->when($f['purok'] ?? null, fn ($q, $v) => $q->where('purok', $v))
             ->when($f['priority'] ?? null, fn ($q, $v) => $q->where('priority_level', $v))
             ->when($f['search'] ?? null, fn ($q, $s) => $q->where(fn ($w) => $w
                 ->where('household_head', 'like', "%$s%")
                 ->orWhere('reference_number', 'like', "%$s%")))
             ->orderByRaw('EXISTS (SELECT 1 FROM distributions d WHERE d.household_id = households.id AND d.distribution_event_id = ?)', [$event->id])
+            // Serve first: households waiting with an SOS, then by priority score
+            ->orderByRaw("EXISTS (SELECT 1 FROM sos_alerts s WHERE s.household_id = households.id AND s.status = 'pending') DESC")
             ->orderByDesc('priority_score')
             ->orderBy('household_head')
             ->paginate(15)->withQueryString();
 
+        // SOS details for the households on this page
+        $sos = SosAlert::whereIn('household_id', $list->getCollection()->pluck('id'))
+            ->where(fn ($q) => $q->where('status', 'pending')
+                ->orWhereIn('distribution_id', Distribution::where('distribution_event_id', $event->id)->select('id')))
+            ->latest('id')->get()->unique('household_id')->keyBy('household_id');
+        $list->getCollection()->transform(function ($h) use ($sos) {
+            $a = $sos->get($h->id);
+            $h->setAttribute('sos', $a ? [
+                'status' => $a->status, // pending = waiting; served = closed by this household's claim
+                'message' => $a->message,
+                'reason' => $a->ai_reason,
+                'sent_at' => $a->created_at,
+            ] : null);
+
+            return $h;
+        });
+
         $approved = (clone $base)->count();
+        $sosWaiting = (clone $base)->whereHas('sosAlerts', fn ($q) => $q->where('status', 'pending'))
+            ->whereDoesntHave('distributions', $hasClaim)->count();
         $claimed = $bd->claimedCount();
         $left = max($bd->quota - $claimed, 0);
         $done = $event->status === 'closed' || $bd->status === 'closed';
@@ -165,6 +214,7 @@ class DistributionController extends Controller
                 'claimed' => $claimed,
                 'pending' => $done ? 0 : $left,
                 'unclaimed' => $done ? $left : 0,
+                'sos_waiting' => $sosWaiting, // sent an SOS and haven't claimed yet
             ],
             'by_purok' => $byPurok,
             'households' => $list,

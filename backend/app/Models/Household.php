@@ -62,6 +62,11 @@ class Household extends Model
         return $this->hasMany(HouseholdDocument::class);
     }
 
+    public function sosAlerts()
+    {
+        return $this->hasMany(SosAlert::class);
+    }
+
     public function distributions()
     {
         return $this->hasMany(Distribution::class);
