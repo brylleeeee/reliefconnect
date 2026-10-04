@@ -139,7 +139,7 @@ export default function Prioritization() {
           <table className="rc-table">
             <thead>
               <tr>
-                <th>Barangay</th><th>Households</th><th>High / Med / Low</th>
+                <th>Barangay</th><th>Households</th><th>High / Med / Low</th><th>Active SOS</th>
                 <th>Seniors</th><th>PWDs</th><th>Infants</th><th>Pregnant</th>
                 <th>Suggested {unit}</th><th style={{ minWidth: 160 }}>Coverage</th>
               </tr>
@@ -153,6 +153,9 @@ export default function Prioritization() {
                     <span className="rc-dot" style={{ background: C.high }} />{r.high}
                     <span className="rc-dot ms-2" style={{ background: C.medium }} />{r.medium}
                     <span className="rc-dot ms-2" style={{ background: C.low }} />{r.low}
+                  </td>
+                  <td title="Residents in this barangay who pressed SOS and are waiting for relief goods">
+                    {r.sos ? <span className="text-danger fw-semibold">{r.sos} <span className="small">(+{r.sos_points})</span></span> : <span className="text-secondary">—</span>}
                   </td>
                   <td>{r.seniors}</td><td>{r.pwd}</td><td>{r.infants}</td><td>{r.pregnant}</td>
                   <td className="fw-bold">{r.allocation.toLocaleString()}</td>
@@ -183,6 +186,7 @@ export default function Prioritization() {
             Score {data.rules.priority_levels.high}+ is <b>high</b>, {data.rules.priority_levels.medium}–{data.rules.priority_levels.high - 1} is <b>medium</b>, below that is <b>low</b>.
             Each barangay's share is weighted {data.rules.allocation_weights.high}:{data.rules.allocation_weights.medium}:{data.rules.allocation_weights.low} by
             level, capped at one {unit.toLowerCase().replace(/s$/, '')} per household, and released high priority first.
+            Each active SOS from an approved household adds +{data.rules.sos_points} to its barangay's share, so barangays asking for help receive more.
           </p>
         </Modal>
       )}

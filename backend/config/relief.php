@@ -52,6 +52,9 @@ return [
         'levels' => ['critical' => 0.7, 'high' => 0.4], // share of the top barangay's score
         'waiting_max_hours' => 24,                       // used by the fallback formula
         'ai_cache_minutes' => 10,                        // same facts = same answer, no repeat API call
+        // Aid Prioritization: each active SOS from an approved household adds this much to its
+        // barangay's demand (same as one high-priority household), so asking barangays get more packs.
+        'allocation_points' => 3,
     ],
 
 ];
