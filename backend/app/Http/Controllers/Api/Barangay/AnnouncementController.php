@@ -49,7 +49,7 @@ class AnnouncementController extends Controller
             'published_at' => now(),
         ]);
 
-        // TODO (mobile): push / SMS to this barangay's residents
+        // Residents see this in the Announcements tab (with its pop-up); no extra notification
 
         return response()->json($announcement, 201);
     }

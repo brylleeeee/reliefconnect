@@ -71,8 +71,11 @@ class SosAnalyticsController extends Controller
     /** Goods were delivered to this barangay: close its pending SOS so the ranking moves on. */
     public function serve(Barangay $barangay)
     {
-        $count = SosAlert::where('barangay_id', $barangay->id)->where('status', 'pending')
-            ->update(['status' => 'served', 'served_at' => now()]);
+        $pending = SosAlert::where('barangay_id', $barangay->id)->where('status', 'pending');
+        $householdIds = (clone $pending)->whereNotNull('household_id')->pluck('household_id')->unique()->values()->all();
+        $count = $pending->update(['status' => 'served', 'served_at' => now()]);
+
+        app(\App\Services\ResidentNotifier::class)->sosServed($householdIds, $barangay->name); // bell: "Relief is on the way"
 
         return response()->json(['served' => $count]);
     }

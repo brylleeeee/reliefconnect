@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\Distribution\ClaimController;
 use App\Http\Controllers\Api\Resident\AnnouncementController as ResidentAnnouncementController;
 use App\Http\Controllers\Api\Resident\HouseholdController as ResidentHouseholdController;
+use App\Http\Controllers\Api\Resident\NotificationController as ResidentNotificationController;
 use App\Models\Barangay;
 use App\Http\Controllers\Api\DistributionEventController;
 use App\Http\Controllers\Api\InventoryController;
@@ -138,6 +139,10 @@ Route::middleware(['auth:sanctum', 'role:resident'])
         Route::get('/announcements', [ResidentAnnouncementController::class, 'index']);
         Route::get('/household', [ResidentHouseholdController::class, 'show']);
         Route::get('/claims', [ResidentHouseholdController::class, 'claims']); // History tab
+        // Bell icon: in-app notifications
+        Route::get('/notifications', [ResidentNotificationController::class, 'index']);
+        Route::get('/notifications/unread', [ResidentNotificationController::class, 'unread']);
+        Route::post('/notifications/read', [ResidentNotificationController::class, 'read']);
         Route::post('/household', [ResidentHouseholdController::class, 'store']); // multipart, with documents
 
         // SOS: one active alert per resident

@@ -89,7 +89,7 @@ class DistributionEventService
         }
 
         try {
-            return DB::transaction(function () use ($event, $household, $by, $options, $bd, $brgy, $offline) {
+            $distribution = DB::transaction(function () use ($event, $household, $by, $options, $bd, $brgy, $offline) {
                 // Locking the item row makes simultaneous claims wait their turn,
                 // so the quota and stock checks below can't both pass for two scanners.
                 $item = ReliefItem::lockForUpdate()->findOrFail($event->relief_item_id);
@@ -133,6 +133,10 @@ class DistributionEventService
 
                 return $distribution;
             });
+
+            app(ResidentNotifier::class)->released($distribution); // bell in the resident app
+
+            return $distribution;
         } catch (QueryException $e) {
             // 1062 = duplicate key: another scanner saved this household a moment earlier
             if (($e->errorInfo[1] ?? null) === 1062) {

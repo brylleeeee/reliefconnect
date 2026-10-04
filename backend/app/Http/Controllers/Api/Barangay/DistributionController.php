@@ -58,9 +58,10 @@ class DistributionController extends Controller
             ]);
         }
 
+        $changed = $bd->status === 'scheduled';
         $bd->update($data + ['status' => 'scheduled', 'updated_by' => $request->user()->id]);
 
-        // TODO (mobile): notify this barangay's residents of the schedule (push / SMS)
+        app(\App\Services\ResidentNotifier::class)->scheduled($bd->fresh('event.item'), $changed); // bell in the resident app
 
         return $this->present($bd->fresh('event.item'));
     }
@@ -79,6 +80,7 @@ class DistributionController extends Controller
         }
 
         $bd->update(['status' => 'ongoing', 'started_at' => now(), 'updated_by' => $request->user()->id]);
+        app(\App\Services\ResidentNotifier::class)->started($bd->fresh('event.item')); // bell in the resident app
 
         return $this->present($bd->fresh('event.item'));
     }
