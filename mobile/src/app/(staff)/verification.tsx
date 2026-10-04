@@ -60,6 +60,9 @@ export default function Verification() {
   // Dynamic QR: a scan sends the whole QR ("RC:<reference no.>:<token>") so the server can check
   // it is the resident's latest QR. Manual entry sends the reference number.
   const isQr = method !== 'reference_number';
+  // A valid dynamic QR already proves the resident is who they say, so only manual
+  // (typed) reference numbers need the photo of the beneficiary receiving the aid.
+  const needsPhoto = !isQr;
   const sent = isQr ? { qr: reference } : { reference_number: reference };
   // What to show and log before the server answers: never the QR's secret token
   const shownRef = isQr ? (reference?.startsWith('RC:') ? reference.split(':')[1] : 'the scanned QR') : reference;
@@ -226,7 +229,7 @@ export default function Verification() {
   // adviser: explicit confirmation before finalizing a release
   const confirmRelease = () => {
     if (!result) return;
-    if (!photo) {
+    if (needsPhoto && !photo) {
       Alert.alert('Photo required', 'Take a photo of the beneficiary receiving the aid before releasing.');
       return;
     }
@@ -316,20 +319,22 @@ export default function Verification() {
         )}
 
         {/* proof of distribution */}
-        {(canRelease || (released && photo)) && (
+        {(canRelease || released) && (
           <View style={styles.card}>
             <Text style={styles.label}>PROOF OF DISTRIBUTION</Text>
 
-            {photo ? (
+            {!needsPhoto && <Text style={styles.qrVerified}>Verified by the resident's QR code. No photo needed.</Text>}
+
+            {needsPhoto && (photo ? (
               <Image source={{ uri: photo }} style={styles.photo} />
             ) : (
               <View style={styles.photoEmpty}>
                 <Camera size={28} color={colors.muted} strokeWidth={2} />
-                <Text style={styles.muted}>Photo of the beneficiary receiving the aid (required)</Text>
+                <Text style={styles.muted}>Photo of the beneficiary receiving the aid (required for typed reference numbers)</Text>
               </View>
-            )}
+            ))}
 
-            {!released && (
+            {needsPhoto && !released && (
               <PrimaryButton
                 title={photo ? 'Retake Photo' : 'Take Photo'}
                 variant={photo ? 'outline' : 'solid'}
@@ -356,9 +361,9 @@ export default function Verification() {
       <View style={styles.footer}>
         {canRelease ? (
           <PrimaryButton
-            title={releasing ? 'Recording…' : photo ? `Release ${qtyUnit(result!.quantity, result!.unit)}` : 'Take a photo to release'}
+            title={releasing ? 'Recording…' : photo || !needsPhoto ? `Release ${qtyUnit(result!.quantity, result!.unit)}` : 'Take a photo to release'}
             onPress={confirmRelease}
-            disabled={releasing || !photo}
+            disabled={releasing || (needsPhoto && !photo)}
           />
         ) : (
           (result || error) && (
@@ -381,6 +386,7 @@ function Info({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  qrVerified: { fontFamily: fonts.semibold, fontSize: 13, color: colors.success },
   offlineNote: { fontFamily: fonts.semibold, fontSize: 12, color: colors.blue, backgroundColor: colors.blueTint, borderRadius: 8, padding: 10 },
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 20, gap: 16 },
