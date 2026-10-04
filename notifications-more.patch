@@ -1,0 +1,455 @@
+diff --git a/backend/app/Http/Controllers/Api/AuthController.php b/backend/app/Http/Controllers/Api/AuthController.php
+index 40e3a76151a451acd55dd13467ccfc1c775ef866..7d0a2b226bfdff6b2d3547d6968a418f1db3a887 100644
+--- a/backend/app/Http/Controllers/Api/AuthController.php
++++ b/backend/app/Http/Controllers/Api/AuthController.php
+@@ -37,13 +37,20 @@ public function login(Request $request)
+             ]);
+         }
+ 
++        // Was this account already logged in somewhere else? (checked before adding this login)
++        $otherDevice = $user->role === User::ROLE_RESIDENT && $user->tokens()->exists();
++
+         // Token abilities mirror the role
+         $token = $user->createToken($data['device_name'] ?? 'admin-web', [$user->role])->plainTextToken;
+ 
+         // Dynamic QR: every resident login issues a new QR, so the QR on any other phone
+         // (or in a screenshot) stops working. Only the latest login's QR is valid.
+         if ($user->role === User::ROLE_RESIDENT) {
+-            Household::where('user_id', $user->id)->where('status', 'approved')->latest('id')->first()?->rotateQr();
++            $household = Household::where('user_id', $user->id)->where('status', 'approved')->latest('id')->first();
++            $household?->rotateQr();
++            if ($household && $otherDevice) {
++                app(\App\Services\ResidentNotifier::class)->newLogin($household, $data['device_name'] ?? null);
++            }
+         }
+ 
+         return response()->json(['token' => $token, 'user' => $user]);
+diff --git a/backend/app/Http/Controllers/Api/Barangay/AnnouncementController.php b/backend/app/Http/Controllers/Api/Barangay/AnnouncementController.php
+index 9501acb33ae3480022aa231982f97121d4025bff..da825fb24fee456050f446db759890b3d2ed7514 100644
+--- a/backend/app/Http/Controllers/Api/Barangay/AnnouncementController.php
++++ b/backend/app/Http/Controllers/Api/Barangay/AnnouncementController.php
+@@ -49,7 +49,7 @@ public function store(Request $request)
+             'published_at' => now(),
+         ]);
+ 
+-        app(\App\Services\ResidentNotifier::class)->announcement($announcement); // bell in the resident app
++        // Residents see this in the Announcements tab (with its pop-up); no extra notification
+ 
+         return response()->json($announcement, 201);
+     }
+diff --git a/backend/app/Http/Controllers/Api/Barangay/HouseholdController.php b/backend/app/Http/Controllers/Api/Barangay/HouseholdController.php
+index fac327f576e8e065ccca1ef43d42f9f52ea67000..4c03f21f7c11b1a44dda48d24f628677958a59ea 100644
+--- a/backend/app/Http/Controllers/Api/Barangay/HouseholdController.php
++++ b/backend/app/Http/Controllers/Api/Barangay/HouseholdController.php
+@@ -81,6 +81,7 @@ public function resetQr(Request $request, Household $household)
+         abort_unless($household->status === 'approved', 422, 'Only approved households have a QR.');
+ 
+         $household->rotateQr();
++        app(\App\Services\ResidentNotifier::class)->qrReset($household);
+ 
+         return response()->json(['message' => 'QR reset. The resident gets a new QR the next time they log in to the app.']);
+     }
+diff --git a/backend/app/Http/Controllers/Api/DistributionEventController.php b/backend/app/Http/Controllers/Api/DistributionEventController.php
+index c0ad33e06fa772bb64de5ec80bc186732adae3ff..36e5c3c969e74ca8d4495d860472c24f50f066d5 100644
+--- a/backend/app/Http/Controllers/Api/DistributionEventController.php
++++ b/backend/app/Http/Controllers/Api/DistributionEventController.php
+@@ -200,6 +200,9 @@ public function store(Request $request)
+             return $event;
+         });
+ 
++        // Targeted events (seniors, PWD...): tell only the households that qualify
++        app(\App\Services\ResidentNotifier::class)->eligibleForEvent($event);
++
+         return response()->json($event, 201);
+     }
+ 
+diff --git a/backend/app/Http/Controllers/Api/Resident/SosController.php b/backend/app/Http/Controllers/Api/Resident/SosController.php
+index 17a068fb6acf70e7ecfe680a0ce00d3461ebb1c7..19ea1a13e3cfd23f0bdd31f43b3ed760e34c16a3 100644
+--- a/backend/app/Http/Controllers/Api/Resident/SosController.php
++++ b/backend/app/Http/Controllers/Api/Resident/SosController.php
+@@ -39,6 +39,8 @@ public function store(Request $request)
+             'people_count' => max($household->members_count, 1),
+         ]);
+ 
++        app(\App\Services\ResidentNotifier::class)->sosReceived($sos); // bell: "SOS received, #2 in line"
++
+         return response()->json(['sos' => $sos], 201);
+     }
+ 
+diff --git a/backend/app/Http/Controllers/Api/SosAnalyticsController.php b/backend/app/Http/Controllers/Api/SosAnalyticsController.php
+index 62d7a4d77136b68d0cb7f403e0c94d8943bed9ac..86edfc586b9d0265a1fa1de2e14b0657a63e360b 100644
+--- a/backend/app/Http/Controllers/Api/SosAnalyticsController.php
++++ b/backend/app/Http/Controllers/Api/SosAnalyticsController.php
+@@ -71,8 +71,11 @@ public function index(SosPrioritizer $prioritizer)
+     /** Goods were delivered to this barangay: close its pending SOS so the ranking moves on. */
+     public function serve(Barangay $barangay)
+     {
+-        $count = SosAlert::where('barangay_id', $barangay->id)->where('status', 'pending')
+-            ->update(['status' => 'served', 'served_at' => now()]);
++        $pending = SosAlert::where('barangay_id', $barangay->id)->where('status', 'pending');
++        $householdIds = (clone $pending)->whereNotNull('household_id')->pluck('household_id')->unique()->values()->all();
++        $count = $pending->update(['status' => 'served', 'served_at' => now()]);
++
++        app(\App\Services\ResidentNotifier::class)->sosServed($householdIds, $barangay->name); // bell: "Relief is on the way"
+ 
+         return response()->json(['served' => $count]);
+     }
+diff --git a/backend/app/Notifications/ResidentAlert.php b/backend/app/Notifications/ResidentAlert.php
+index 1b93897c1c2d27b2cdee76ae7036c9ef7b1309bd..91b513ced2cc0e00e690ce38c2c43b44542752fd 100644
+--- a/backend/app/Notifications/ResidentAlert.php
++++ b/backend/app/Notifications/ResidentAlert.php
+@@ -8,7 +8,8 @@
+  * One in-app notification for a resident (bell icon in the mobile app).
+  * Saved in the notifications table. Push to the phone can be added later as another channel.
+  *
+- * kind: announcement | schedule | started | approved | rejected | released
++ * kind: schedule | started | approved | rejected | released | eligible
++ *       | sos_received | sos_served | reminder | security
+  * link: the app screen to open when tapped, e.g. "/announcements", "/history", "/home"
+  */
+ class ResidentAlert extends Notification
+@@ -18,6 +19,7 @@ public function __construct(
+         public string $title,
+         public string $body,
+         public string $link,
++        public ?string $tag = null, // marks one-time notifications, e.g. "bd:12" for a reminder
+     ) {}
+ 
+     public function via(object $notifiable): array
+@@ -27,6 +29,9 @@ public function via(object $notifiable): array
+ 
+     public function toArray(object $notifiable): array
+     {
+-        return ['kind' => $this->kind, 'title' => $this->title, 'body' => $this->body, 'link' => $this->link];
++        return array_filter(
++            ['kind' => $this->kind, 'title' => $this->title, 'body' => $this->body, 'link' => $this->link, 'tag' => $this->tag],
++            fn ($v) => $v !== null,
++        );
+     }
+ }
+diff --git a/backend/app/Services/ResidentNotifier.php b/backend/app/Services/ResidentNotifier.php
+index 16f19e2097e03fd1f947deec77b7b2da45a16fd4..37aebb06cb923f8111af9c2d5da17e6734128c30 100644
+--- a/backend/app/Services/ResidentNotifier.php
++++ b/backend/app/Services/ResidentNotifier.php
+@@ -2,11 +2,11 @@
+ 
+ namespace App\Services;
+ 
+-use App\Models\Announcement;
+ use App\Models\BarangayDistribution;
+ use App\Models\Distribution;
+ use App\Models\DistributionEvent;
+ use App\Models\Household;
++use App\Models\SosAlert;
+ use App\Models\User;
+ use App\Notifications\ResidentAlert;
+ use Illuminate\Database\Eloquent\Builder;
+@@ -20,14 +20,8 @@
+  */
+ class ResidentNotifier
+ {
+-    /** Barangay announcement: every resident with a household in that barangay. */
+-    public function announcement(Announcement $a): void
+-    {
+-        $this->send(
+-            Household::where('barangay_id', $a->barangay_id),
+-            new ResidentAlert('announcement', 'New announcement', $a->title, '/announcements'),
+-        );
+-    }
++    // Plain announcements are not sent here: the Announcements tab and its pop-up already
++    // cover them. Notifications are only about the resident's own household.
+ 
+     /** Barangay set (or changed) the date and venue: approved households that can receive in this event. */
+     public function scheduled(BarangayDistribution $bd, bool $changed): void
+@@ -87,6 +81,113 @@ public function released(Distribution $d): void
+         );
+     }
+ 
++    /**
++     * A targeted event (seniors, PWD, infants, pregnant, solo parents) was created: only households
++     * that qualify, in the covered barangays, are told how much they will receive.
++     */
++    public function eligibleForEvent(DistributionEvent $event): void
++    {
++        if (($event->eligibility ?? 'all') === 'all') {
++            return; // everyone gets it; the barangay's schedule notification covers that
++        }
++        $event->loadMissing(['item', 'barangayDistributions']);
++
++        try {
++            $households = DistributionEvent::applyEligibility(Household::query(), $event->eligibility)
++                ->whereIn('barangay_id', $event->barangayDistributions->pluck('barangay_id'))
++                ->where('status', 'approved')
++                ->whereNotNull('user_id')
++                ->get();
++
++            foreach ($households as $h) {
++                $count = DistributionEvent::recipientsIn($event->eligibility, $h);
++                $what = $event->item->describeQuantity($event->quantityFor($h));
++                $for = $event->per_member
++                    ? " ({$count} qualifying member".($count === 1 ? '' : 's').' in your household)'
++                    : '';
++                $this->send(Household::whereKey($h->id), new ResidentAlert('eligible', 'You qualify for relief aid',
++                    "{$event->name}: {$what} of {$event->item->name}{$for}. Your barangay will announce the schedule.", '/home'));
++            }
++        } catch (\Throwable $e) {
++            Log::warning('Eligible notification failed: '.$e->getMessage());
++        }
++    }
++
++    /** SOS sent: confirm it reached the LGU and say where the barangay stands in line. */
++    public function sosReceived(SosAlert $sos): void
++    {
++        $position = '';
++        try {
++            $rows = app(SosPrioritizer::class)->rank()['rows'];
++            $row = $rows->firstWhere('id', $sos->barangay_id);
++            if ($row) {
++                $position = " Your barangay is #{$row['rank']} of {$rows->count()} barangays asking for relief goods.";
++            }
++        } catch (\Throwable) {
++            // the ranking is a bonus; the confirmation still goes out
++        }
++
++        $this->send(Household::whereKey($sos->household_id), new ResidentAlert('sos_received', 'SOS received',
++            "The LGU can see your household needs relief goods.{$position}", '/sos'));
++    }
++
++    /** The LGU marked the barangay as served: everyone whose SOS was waiting is told help is coming. */
++    public function sosServed(array $householdIds, string $barangay): void
++    {
++        if (! $householdIds) {
++            return;
++        }
++        $this->send(Household::whereIn('id', $householdIds), new ResidentAlert('sos_served', 'Relief is on the way',
++            "The LGU is sending relief goods to Barangay {$barangay}. Watch for your barangay's announcement.", '/sos'));
++    }
++
++    /**
++     * Reminder for eligible households that have not claimed yet, once per distribution.
++     * Sent by the relief:remind-unclaimed command (runs every 30 minutes).
++     *
++     * @return int how many households were reminded
++     */
++    public function remindUnclaimed(BarangayDistribution $bd): int
++    {
++        $bd->loadMissing('event.item');
++        $tag = "bd:{$bd->id}";
++
++        $households = $this->eligible($bd)
++            ->whereNotNull('user_id')
++            ->whereDoesntHave('distributions', fn ($q) => $q->where('distribution_event_id', $bd->distribution_event_id))
++            ->get(['id', 'user_id']);
++
++        // Skip anyone already reminded for this distribution
++        $already = \Illuminate\Notifications\DatabaseNotification::where('type', ResidentAlert::class)
++            ->where('data', 'like', '%"tag":"'.$tag.'"%')
++            ->pluck('notifiable_id')->all();
++        $households = $households->reject(fn ($h) => in_array($h->user_id, $already));
++
++        if ($households->isNotEmpty()) {
++            $this->send(Household::whereIn('id', $households->pluck('id')), new ResidentAlert('reminder',
++                "You haven't claimed yet",
++                "{$bd->event->name} is being released at {$bd->venue}. Go before the barangay closes it and bring your QR code.",
++                '/home', $tag));
++        }
++
++        return $households->count();
++    }
++
++    /** Logged in on another phone: the QR changed, so older phones and screenshots stop working. */
++    public function newLogin(Household $h, ?string $device): void
++    {
++        $this->send(Household::whereKey($h->id), new ResidentAlert('security', 'New login on your account',
++            'Your account was opened on '.($device ?: 'another phone').'. Your QR code changed, so the QR on any other phone no longer works. '
++            .'If this was not you, change your password.', '/home'));
++    }
++
++    /** The barangay reset the household's QR (e.g. lost phone). */
++    public function qrReset(Household $h): void
++    {
++        $this->send(Household::whereKey($h->id), new ResidentAlert('security', 'Your QR code was reset',
++            'Your barangay reset your QR code. Log in again to get the new one; the old QR no longer works.', '/home'));
++    }
++
+     private function eligible(BarangayDistribution $bd): Builder
+     {
+         return DistributionEvent::applyEligibility(Household::query(), $bd->event->eligibility ?? 'all')
+diff --git a/backend/routes/console.php b/backend/routes/console.php
+index 3c9adf1af8430da566d123514630bcc30c9c1345..125e3c4da790f1e25f693c1d9415a474c0cf9b79 100644
+--- a/backend/routes/console.php
++++ b/backend/routes/console.php
+@@ -2,7 +2,26 @@
+ 
+ use Illuminate\Foundation\Inspiring;
+ use Illuminate\Support\Facades\Artisan;
++use Illuminate\Support\Facades\Schedule;
+ 
+ Artisan::command('inspire', function () {
+     $this->comment(Inspiring::quote());
+ })->purpose('Display an inspiring quote');
++
++// Reminds eligible households that have not claimed yet, once per barangay distribution,
++// after it has been running for 2 hours. Runs every 30 minutes (needs `php artisan schedule:work`
++// on the server). For a demo, run it by hand: php artisan relief:remind-unclaimed --now
++Artisan::command('relief:remind-unclaimed {--now : Do not wait 2 hours after the start}', function () {
++    $notifier = app(\App\Services\ResidentNotifier::class);
++    $started = $this->option('now') ? now() : now()->subHours(2);
++
++    $total = \App\Models\BarangayDistribution::where('status', 'ongoing')
++        ->where('started_at', '<=', $started)
++        ->whereHas('event', fn ($q) => $q->where('status', 'open'))
++        ->get()
++        ->sum(fn ($bd) => $notifier->remindUnclaimed($bd));
++
++    $this->info("Reminded {$total} household(s) that have not claimed yet.");
++})->purpose('Remind eligible households that have not claimed during an ongoing distribution');
++
++Schedule::command('relief:remind-unclaimed')->everyThirtyMinutes();
+diff --git a/backend/tests/Feature/NotificationsTest.php b/backend/tests/Feature/NotificationsTest.php
+index b25e45e59d25f1299e6908463191cf0408ee81bb..00527abd21ab48cbadd75563e857f4c3862fbc00 100644
+--- a/backend/tests/Feature/NotificationsTest.php
++++ b/backend/tests/Feature/NotificationsTest.php
+@@ -57,15 +57,84 @@ private function kinds(User $u): array
+         return $u->notifications()->get()->pluck('data.kind')->all();
+     }
+ 
+-    public function test_barangay_announcement_notifies_only_that_barangays_residents(): void
++    public function test_plain_announcements_do_not_create_notifications(): void
+     {
+         Sanctum::actingAs($this->admin);
+         $this->postJson('/api/barangay/announcements', ['title' => 'Relief schedule', 'description' => 'Tomorrow 8 AM'])
+             ->assertCreated();
+ 
+-        $this->assertSame(['announcement'], $this->kinds($this->resident));
+-        $this->assertSame(['announcement'], $this->kinds($this->neighbor)); // pending households still get announcements
++        $this->assertSame([], $this->kinds($this->resident)); // the Announcements tab covers these
++    }
++
++    private function event(string $eligibility = 'all', string $status = 'ongoing'): array
++    {
++        $item = ReliefItem::forceCreate(['name' => 'Senior Kit', 'unit' => 'Kits', 'quantity_in_stock' => 50]);
++        $event = DistributionEvent::forceCreate(['name' => 'Typhoon Relief', 'relief_item_id' => $item->id,
++            'quantity_per_household' => 1, 'eligibility' => $eligibility, 'status' => 'open', 'created_by' => $this->admin->id]);
++        $bd = BarangayDistribution::forceCreate(['distribution_event_id' => $event->id, 'barangay_id' => $this->barangay->id,
++            'quota' => 10, 'status' => $status, 'venue' => 'Barangay Hall', 'started_at' => now()->subHours(3)]);
++
++        return [$event, $bd];
++    }
++
++    public function test_sos_received_and_served(): void
++    {
++        Sanctum::actingAs($this->resident);
++        $this->postJson('/api/resident/sos')->assertCreated();
++        $this->assertSame(['sos_received'], $this->kinds($this->resident));
++        $this->assertStringContainsString('#1 of 1', $this->resident->notifications()->first()->data['body']);
++
++        Sanctum::actingAs(User::create(['name' => 'LGU', 'email' => 'lgu@test.local', 'password' => 'Password123', 'role' => User::ROLE_MUNICIPAL_ADMIN]));
++        $this->postJson("/api/admin/sos/barangays/{$this->barangay->id}/serve")->assertOk();
++        $this->assertEqualsCanonicalizing(['sos_received', 'sos_served'], $this->kinds($this->resident));
++    }
++
++    public function test_targeted_event_notifies_only_qualifying_households(): void
++    {
++        $this->household->forceFill(['seniors_count' => 2])->save();
++        [$event] = $this->event('senior', 'unscheduled');
++
++        app(ResidentNotifier::class)->eligibleForEvent($event);
++
++        $this->assertSame(['eligible'], $this->kinds($this->resident));
++        $this->assertStringContainsString('2 qualifying members', $this->resident->notifications()->first()->data['body']);
+         $this->assertSame([], $this->kinds($this->outsider));
++
++        // events for all households don't send this (the schedule notification covers them)
++        [$everyone] = $this->event('all', 'unscheduled');
++        app(ResidentNotifier::class)->eligibleForEvent($everyone);
++        $this->assertCount(1, $this->kinds($this->resident));
++    }
++
++    public function test_unclaimed_reminder_is_sent_once_and_skips_households_that_claimed(): void
++    {
++        [$event] = $this->event();
++        $this->artisan('relief:remind-unclaimed')->assertSuccessful();
++        $this->artisan('relief:remind-unclaimed')->assertSuccessful(); // second run: no duplicate
++
++        $this->assertSame(['reminder'], $this->kinds($this->resident));
++
++        // a household that already claimed is not reminded
++        $claimed = Household::forceCreate(['user_id' => $this->neighbor->id, 'barangay_id' => $this->barangay->id,
++            'household_head' => 'Dee', 'status' => 'approved', 'reference_number' => 'URB-2026-000009', 'qr_secret' => 'y']);
++        $staff = User::create(['name' => 'Staff', 'username' => 'staff2', 'password' => 'Password123', 'role' => User::ROLE_DISTRIBUTION]);
++        app(DistributionEventService::class)->claim($event, 'URB-2026-000009', $staff, ['verification_method' => 'reference_number']);
++        $this->artisan('relief:remind-unclaimed')->assertSuccessful();
++        $this->assertNotContains('reminder', $this->kinds($this->neighbor));
++    }
++
++    public function test_security_alerts_for_new_login_and_qr_reset(): void
++    {
++        $login = fn () => $this->postJson('/api/login', ['login' => '09170000001', 'password' => 'Password123', 'device_name' => 'Redmi Note 13']);
++
++        $login()->assertOk();
++        $this->assertSame([], $this->kinds($this->resident)); // first phone: nothing to warn about
++        $login()->assertOk();
++        $this->assertSame(['security'], $this->kinds($this->resident));
++
++        Sanctum::actingAs($this->admin);
++        $this->postJson("/api/barangay/households/{$this->household->id}/reset-qr")->assertOk();
++        $this->assertSame(['security', 'security'], $this->kinds($this->resident));
+     }
+ 
+     public function test_approve_and_reject_notify_the_household(): void
+diff --git a/mobile/src/app/notifications.tsx b/mobile/src/app/notifications.tsx
+index 6275d743a34630b707a457d2e9d0da7a7b11b244..912cc4fa2985ef54a9c3e4207e6973a18e36119f 100644
+--- a/mobile/src/app/notifications.tsx
++++ b/mobile/src/app/notifications.tsx
+@@ -3,7 +3,10 @@ import { useCallback, useState } from 'react';
+ import { View, Text, FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native';
+ import { SafeAreaView } from 'react-native-safe-area-context';
+ import { router, useFocusEffect, type Href } from 'expo-router';
+-import { Megaphone, CalendarClock, PlayCircle, BadgeCheck, CircleX, PackageCheck } from 'lucide-react-native';
++import {
++  Megaphone, CalendarClock, PlayCircle, BadgeCheck, CircleX, PackageCheck,
++  AlarmClock, Gift, Siren, Truck, ShieldAlert,
++} from 'lucide-react-native';
+ import ScreenHeader from '../components/ScreenHeader';
+ import { fetchNotifications, markNotificationsRead, AppNotification } from '../data/notifications';
+ import { errorText } from '../lib/api';
+@@ -16,6 +19,11 @@ const ICONS = {
+   approved: { Icon: BadgeCheck, color: colors.success },
+   rejected: { Icon: CircleX, color: colors.danger },
+   released: { Icon: PackageCheck, color: colors.success },
++  reminder: { Icon: AlarmClock, color: colors.danger },
++  eligible: { Icon: Gift, color: colors.primary },
++  sos_received: { Icon: Siren, color: colors.danger },
++  sos_served: { Icon: Truck, color: colors.success },
++  security: { Icon: ShieldAlert, color: colors.danger },
+ } as const;
+ 
+ const when = (iso: string) =>
+@@ -78,7 +86,7 @@ export default function Notifications() {
+         }
+         ListEmptyComponent={
+           <Text style={styles.empty}>
+-            {error || (items === null ? 'Loading…' : 'No notifications yet. You will be notified about announcements, distribution schedules and aid you receive.')}
++            {error || (items === null ? 'Loading…' : 'No notifications yet. You will be notified about distribution schedules, aid for your household, your SOS, and logins to your account.')}
+           </Text>
+         }
+         renderItem={({ item: n }) => {
+diff --git a/mobile/src/data/notifications.ts b/mobile/src/data/notifications.ts
+index bc3d19da7c7795b0f913db10046fcd994ee2a339..8359ef4ab9b9345ee664edf934827e22aa053666 100644
+--- a/mobile/src/data/notifications.ts
++++ b/mobile/src/data/notifications.ts
+@@ -3,7 +3,12 @@ import { api } from '../lib/api';
+ 
+ export type AppNotification = {
+   id: string;
+-  kind: 'announcement' | 'schedule' | 'started' | 'approved' | 'rejected' | 'released';
++  kind:
++    | 'schedule' | 'started' | 'reminder'            // distributions in your barangay
++    | 'approved' | 'rejected' | 'eligible' | 'released' // your household
++    | 'sos_received' | 'sos_served'                  // your SOS
++    | 'security'                                     // new login, QR reset
++    | 'announcement';                                // older notifications only
+   title: string;
+   body: string;
+   link: string; // screen to open when tapped, e.g. "/announcements"

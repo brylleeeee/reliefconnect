@@ -67,6 +67,7 @@ class HouseholdService
         ])->save();
 
         // TODO: send the reference number to $household->contact_number via the SMS gateway
+        app(ResidentNotifier::class)->reviewed($household); // bell in the resident app (walk-ins have no account yet)
 
         return $household;
     }
@@ -78,6 +79,8 @@ class HouseholdService
             'rejection_reason' => $reason,
             'reviewed_by' => $reviewer->id,
         ])->save();
+
+        app(ResidentNotifier::class)->reviewed($household);
 
         return $household;
     }
