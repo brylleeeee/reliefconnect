@@ -1,8 +1,9 @@
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 /** Lightweight modal (no Bootstrap JS needed). size: 'md' | 'lg' */
 export default function Modal({ title, onClose, size = 'md', children }) {
-  return (
+  return createPortal(
     <div className="rc-modal-backdrop" onMouseDown={onClose}>
       <div className={`rc-modal ${size === 'lg' ? 'rc-modal-lg' : ''}`} role="dialog" aria-modal="true"
            aria-label={title} onMouseDown={(e) => e.stopPropagation()}>
@@ -14,6 +15,7 @@ export default function Modal({ title, onClose, size = 'md', children }) {
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

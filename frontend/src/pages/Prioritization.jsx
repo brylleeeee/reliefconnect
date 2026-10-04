@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Info } from 'lucide-react'
 import api from '../api/client'
+import Modal from '../components/Modal'
 import PageHeader from '../components/PageHeader'
 import useLiveTick from '../components/useLiveTick'
 import { C } from '../chartColors'
@@ -29,6 +31,7 @@ export default function Prioritization() {
   const [data, setData] = useState(null)
   const [itemId, setItemId] = useState('')
   const [packs, setPacks] = useState('')
+  const [showScoring, setShowScoring] = useState(false)
 
   const applied = useRef({}) // the item and quantity last calculated
 
@@ -104,45 +107,31 @@ export default function Prioritization() {
         </div></div>
       </div>
 
-      <div className="row g-3 mb-3">
-        <div className="col-lg-8">
-          <section className="rc-card h-100">
-            <h2 className="rc-card-title">Households by priority level</h2>
-            {/* About 28px per barangay, so all 21 barangays and their labels fit */}
-            <div style={{ height: Math.max(280, rows.length * 28 + 70) }}>
-              <ResponsiveContainer>
-                <BarChart data={rows} layout="vertical" margin={{ left: 10, right: 20 }} barCategoryGap="25%">
-                  <CartesianGrid horizontal={false} stroke={C.grid} />
-                  <XAxis type="number" tick={{ fontSize: 12 }} allowDecimals={false} />
-                  <YAxis type="category" dataKey="name" width={96} tick={{ fontSize: 12 }} interval={0} />
-                  <Tooltip />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="high" name="High" stackId="p" fill={C.high} />
-                  <Bar dataKey="medium" name="Medium" stackId="p" fill={C.medium} />
-                  <Bar dataKey="low" name="Low" stackId="p" fill={C.low} radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
+      <section className="rc-card mb-3">
+        <div className="d-flex align-items-center gap-2 mb-2">
+          <h2 className="rc-card-title mb-0">Households by priority level</h2>
+          <button type="button" className="btn btn-link p-0 text-secondary d-inline-flex"
+                  onClick={() => setShowScoring(true)}
+                  aria-label="How priority is scored" title="How priority is scored">
+            <Info size={16} />
+          </button>
         </div>
-        <div className="col-lg-4">
-          <section className="rc-card h-100">
-            <h2 className="rc-card-title">How priority is scored</h2>
-            <table className="rc-rules">
-              <tbody>
-                {Object.entries(data.rules.priority_weights).map(([k, v]) => (
-                  <tr key={k}><td>{WEIGHT_LABELS[k] ?? k}</td><td>+{v}</td></tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="small text-secondary mt-3 mb-0">
-              Score {data.rules.priority_levels.high}+ is <b>high</b>, {data.rules.priority_levels.medium}–{data.rules.priority_levels.high - 1} is <b>medium</b>, below that is <b>low</b>.
-              Each barangay's share is weighted {data.rules.allocation_weights.high}:{data.rules.allocation_weights.medium}:{data.rules.allocation_weights.low} by
-              level, capped at one {unit.toLowerCase().replace(/s$/, '')} per household, and released high priority first.
-            </p>
-          </section>
+        {/* About 28px per barangay, so all 21 barangays and their labels fit */}
+        <div style={{ height: Math.max(280, rows.length * 28 + 70) }}>
+          <ResponsiveContainer>
+            <BarChart data={rows} layout="vertical" margin={{ left: 10, right: 20 }} barCategoryGap="25%">
+              <CartesianGrid horizontal={false} stroke={C.grid} />
+              <XAxis type="number" tick={{ fontSize: 12 }} allowDecimals={false} />
+              <YAxis type="category" dataKey="name" width={96} tick={{ fontSize: 12 }} interval={0} />
+              <Tooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="high" name="High" stackId="p" fill={C.high} />
+              <Bar dataKey="medium" name="Medium" stackId="p" fill={C.medium} />
+              <Bar dataKey="low" name="Low" stackId="p" fill={C.low} radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-      </div>
+      </section>
 
       <section className="rc-card">
         <h2 className="rc-card-title">Suggested allocation: {data.selected_item?.name}</h2>
@@ -180,6 +169,23 @@ export default function Prioritization() {
           </table>
         </div>
       </section>
+
+      {showScoring && (
+        <Modal title="How priority is scored" onClose={() => setShowScoring(false)}>
+          <table className="rc-rules">
+            <tbody>
+              {Object.entries(data.rules.priority_weights).map(([k, v]) => (
+                <tr key={k}><td>{WEIGHT_LABELS[k] ?? k}</td><td>+{v}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="small text-secondary mt-3 mb-0">
+            Score {data.rules.priority_levels.high}+ is <b>high</b>, {data.rules.priority_levels.medium}–{data.rules.priority_levels.high - 1} is <b>medium</b>, below that is <b>low</b>.
+            Each barangay's share is weighted {data.rules.allocation_weights.high}:{data.rules.allocation_weights.medium}:{data.rules.allocation_weights.low} by
+            level, capped at one {unit.toLowerCase().replace(/s$/, '')} per household, and released high priority first.
+          </p>
+        </Modal>
+      )}
     </>
   )
 }
