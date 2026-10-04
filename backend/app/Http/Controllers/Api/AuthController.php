@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Household;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -38,6 +39,12 @@ class AuthController extends Controller
 
         // Token abilities mirror the role
         $token = $user->createToken($data['device_name'] ?? 'admin-web', [$user->role])->plainTextToken;
+
+        // Dynamic QR: every resident login issues a new QR, so the QR on any other phone
+        // (or in a screenshot) stops working. Only the latest login's QR is valid.
+        if ($user->role === User::ROLE_RESIDENT) {
+            Household::where('user_id', $user->id)->where('status', 'approved')->latest('id')->first()?->rotateQr();
+        }
 
         return response()->json(['token' => $token, 'user' => $user]);
     }

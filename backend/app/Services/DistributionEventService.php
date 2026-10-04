@@ -142,6 +142,28 @@ class DistributionEventService
         }
     }
 
+    /**
+     * Dynamic QR: reads a scanned "RC:<reference number>:<token>" and returns the reference
+     * number, but only if the token is the one issued at the resident's latest login.
+     * QR scans are always checked online; offline, staff use manual reference number entry.
+     */
+    public function referenceFromQr(string $qr): string
+    {
+        $parts = explode(':', trim($qr), 3);
+
+        if (count($parts) !== 3 || $parts[0] !== Household::QR_PREFIX || $parts[2] === '') {
+            $this->fail('invalid_qr', 'This is not a ReliefConnect QR code.', 422);
+        }
+
+        $household = $this->findHousehold($parts[1]);
+
+        if (! $household->qr_secret || ! hash_equals($household->qr_secret, $parts[2])) {
+            $this->fail('qr_expired', 'This QR is no longer valid. Ask the resident to log in to the app again and show the new QR, or use manual entry.', 422);
+        }
+
+        return $household->reference_number;
+    }
+
     private function findHousehold(string $referenceNumber): Household
     {
         $household = Household::with('barangay')

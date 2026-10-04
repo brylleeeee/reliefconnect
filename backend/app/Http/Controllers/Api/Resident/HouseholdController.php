@@ -168,8 +168,8 @@ class HouseholdController extends Controller
             'status' => $h->status,
             'rejection_reason' => $h->rejection_reason,
             'reference_number' => $h->reference_number,
-            // Until the dynamic QR (Sprint 2), the QR carries the reference number
-            'qr_value' => $h->status === 'approved' ? $h->reference_number : null,
+            // Dynamic QR: reference number + the token issued at this resident's latest login
+            'qr_value' => $h->qrValue(),
             'household_head' => $h->household_head,
             'contact_number' => $h->contact_number,
             'barangay' => $h->barangay,

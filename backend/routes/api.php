@@ -81,6 +81,7 @@ Route::middleware(['auth:sanctum', 'role:barangay_admin'])
         Route::put('/households/{household}', [HouseholdController::class, 'update']);
         Route::post('/households/{household}/approve', [HouseholdController::class, 'approve']);
         Route::post('/households/{household}/reject', [HouseholdController::class, 'reject']);
+        Route::post('/households/{household}/reset-qr', [HouseholdController::class, 'resetQr']);
         Route::delete('/households/{household}', [HouseholdController::class, 'destroy']);
         Route::get('/households/{household}/claims', [HouseholdController::class, 'claims']);
 
