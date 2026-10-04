@@ -81,6 +81,7 @@ class HouseholdController extends Controller
         abort_unless($household->status === 'approved', 422, 'Only approved households have a QR.');
 
         $household->rotateQr();
+        app(\App\Services\ResidentNotifier::class)->qrReset($household);
 
         return response()->json(['message' => 'QR reset. The resident gets a new QR the next time they log in to the app.']);
     }

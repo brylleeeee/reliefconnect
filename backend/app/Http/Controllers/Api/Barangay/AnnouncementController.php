@@ -49,7 +49,7 @@ class AnnouncementController extends Controller
             'published_at' => now(),
         ]);
 
-        app(\App\Services\ResidentNotifier::class)->announcement($announcement); // bell in the resident app
+        // Residents see this in the Announcements tab (with its pop-up); no extra notification
 
         return response()->json($announcement, 201);
     }

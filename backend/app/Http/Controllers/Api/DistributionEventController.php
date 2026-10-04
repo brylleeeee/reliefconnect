@@ -200,6 +200,9 @@ class DistributionEventController extends Controller
             return $event;
         });
 
+        // Targeted events (seniors, PWD...): tell only the households that qualify
+        app(\App\Services\ResidentNotifier::class)->eligibleForEvent($event);
+
         return response()->json($event, 201);
     }
 

@@ -3,7 +3,10 @@ import { useCallback, useState } from 'react';
 import { View, Text, FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, type Href } from 'expo-router';
-import { Megaphone, CalendarClock, PlayCircle, BadgeCheck, CircleX, PackageCheck } from 'lucide-react-native';
+import {
+  Megaphone, CalendarClock, PlayCircle, BadgeCheck, CircleX, PackageCheck,
+  AlarmClock, Gift, Siren, Truck, ShieldAlert,
+} from 'lucide-react-native';
 import ScreenHeader from '../components/ScreenHeader';
 import { fetchNotifications, markNotificationsRead, AppNotification } from '../data/notifications';
 import { errorText } from '../lib/api';
@@ -16,6 +19,11 @@ const ICONS = {
   approved: { Icon: BadgeCheck, color: colors.success },
   rejected: { Icon: CircleX, color: colors.danger },
   released: { Icon: PackageCheck, color: colors.success },
+  reminder: { Icon: AlarmClock, color: colors.danger },
+  eligible: { Icon: Gift, color: colors.primary },
+  sos_received: { Icon: Siren, color: colors.danger },
+  sos_served: { Icon: Truck, color: colors.success },
+  security: { Icon: ShieldAlert, color: colors.danger },
 } as const;
 
 const when = (iso: string) =>
@@ -78,7 +86,7 @@ export default function Notifications() {
         }
         ListEmptyComponent={
           <Text style={styles.empty}>
-            {error || (items === null ? 'Loading…' : 'No notifications yet. You will be notified about announcements, distribution schedules and aid you receive.')}
+            {error || (items === null ? 'Loading…' : 'No notifications yet. You will be notified about distribution schedules, aid for your household, your SOS, and logins to your account.')}
           </Text>
         }
         renderItem={({ item: n }) => {

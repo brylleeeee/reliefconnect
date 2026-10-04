@@ -3,7 +3,12 @@ import { api } from '../lib/api';
 
 export type AppNotification = {
   id: string;
-  kind: 'announcement' | 'schedule' | 'started' | 'approved' | 'rejected' | 'released';
+  kind:
+    | 'schedule' | 'started' | 'reminder'            // distributions in your barangay
+    | 'approved' | 'rejected' | 'eligible' | 'released' // your household
+    | 'sos_received' | 'sos_served'                  // your SOS
+    | 'security'                                     // new login, QR reset
+    | 'announcement';                                // older notifications only
   title: string;
   body: string;
   link: string; // screen to open when tapped, e.g. "/announcements"

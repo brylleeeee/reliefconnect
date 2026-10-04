@@ -57,15 +57,84 @@ class NotificationsTest extends TestCase
         return $u->notifications()->get()->pluck('data.kind')->all();
     }
 
-    public function test_barangay_announcement_notifies_only_that_barangays_residents(): void
+    public function test_plain_announcements_do_not_create_notifications(): void
     {
         Sanctum::actingAs($this->admin);
         $this->postJson('/api/barangay/announcements', ['title' => 'Relief schedule', 'description' => 'Tomorrow 8 AM'])
             ->assertCreated();
 
-        $this->assertSame(['announcement'], $this->kinds($this->resident));
-        $this->assertSame(['announcement'], $this->kinds($this->neighbor)); // pending households still get announcements
+        $this->assertSame([], $this->kinds($this->resident)); // the Announcements tab covers these
+    }
+
+    private function event(string $eligibility = 'all', string $status = 'ongoing'): array
+    {
+        $item = ReliefItem::forceCreate(['name' => 'Senior Kit', 'unit' => 'Kits', 'quantity_in_stock' => 50]);
+        $event = DistributionEvent::forceCreate(['name' => 'Typhoon Relief', 'relief_item_id' => $item->id,
+            'quantity_per_household' => 1, 'eligibility' => $eligibility, 'status' => 'open', 'created_by' => $this->admin->id]);
+        $bd = BarangayDistribution::forceCreate(['distribution_event_id' => $event->id, 'barangay_id' => $this->barangay->id,
+            'quota' => 10, 'status' => $status, 'venue' => 'Barangay Hall', 'started_at' => now()->subHours(3)]);
+
+        return [$event, $bd];
+    }
+
+    public function test_sos_received_and_served(): void
+    {
+        Sanctum::actingAs($this->resident);
+        $this->postJson('/api/resident/sos')->assertCreated();
+        $this->assertSame(['sos_received'], $this->kinds($this->resident));
+        $this->assertStringContainsString('#1 of 1', $this->resident->notifications()->first()->data['body']);
+
+        Sanctum::actingAs(User::create(['name' => 'LGU', 'email' => 'lgu@test.local', 'password' => 'Password123', 'role' => User::ROLE_MUNICIPAL_ADMIN]));
+        $this->postJson("/api/admin/sos/barangays/{$this->barangay->id}/serve")->assertOk();
+        $this->assertEqualsCanonicalizing(['sos_received', 'sos_served'], $this->kinds($this->resident));
+    }
+
+    public function test_targeted_event_notifies_only_qualifying_households(): void
+    {
+        $this->household->forceFill(['seniors_count' => 2])->save();
+        [$event] = $this->event('senior', 'unscheduled');
+
+        app(ResidentNotifier::class)->eligibleForEvent($event);
+
+        $this->assertSame(['eligible'], $this->kinds($this->resident));
+        $this->assertStringContainsString('2 qualifying members', $this->resident->notifications()->first()->data['body']);
         $this->assertSame([], $this->kinds($this->outsider));
+
+        // events for all households don't send this (the schedule notification covers them)
+        [$everyone] = $this->event('all', 'unscheduled');
+        app(ResidentNotifier::class)->eligibleForEvent($everyone);
+        $this->assertCount(1, $this->kinds($this->resident));
+    }
+
+    public function test_unclaimed_reminder_is_sent_once_and_skips_households_that_claimed(): void
+    {
+        [$event] = $this->event();
+        $this->artisan('relief:remind-unclaimed')->assertSuccessful();
+        $this->artisan('relief:remind-unclaimed')->assertSuccessful(); // second run: no duplicate
+
+        $this->assertSame(['reminder'], $this->kinds($this->resident));
+
+        // a household that already claimed is not reminded
+        $claimed = Household::forceCreate(['user_id' => $this->neighbor->id, 'barangay_id' => $this->barangay->id,
+            'household_head' => 'Dee', 'status' => 'approved', 'reference_number' => 'URB-2026-000009', 'qr_secret' => 'y']);
+        $staff = User::create(['name' => 'Staff', 'username' => 'staff2', 'password' => 'Password123', 'role' => User::ROLE_DISTRIBUTION]);
+        app(DistributionEventService::class)->claim($event, 'URB-2026-000009', $staff, ['verification_method' => 'reference_number']);
+        $this->artisan('relief:remind-unclaimed')->assertSuccessful();
+        $this->assertNotContains('reminder', $this->kinds($this->neighbor));
+    }
+
+    public function test_security_alerts_for_new_login_and_qr_reset(): void
+    {
+        $login = fn () => $this->postJson('/api/login', ['login' => '09170000001', 'password' => 'Password123', 'device_name' => 'Redmi Note 13']);
+
+        $login()->assertOk();
+        $this->assertSame([], $this->kinds($this->resident)); // first phone: nothing to warn about
+        $login()->assertOk();
+        $this->assertSame(['security'], $this->kinds($this->resident));
+
+        Sanctum::actingAs($this->admin);
+        $this->postJson("/api/barangay/households/{$this->household->id}/reset-qr")->assertOk();
+        $this->assertSame(['security', 'security'], $this->kinds($this->resident));
     }
 
     public function test_approve_and_reject_notify_the_household(): void

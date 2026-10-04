@@ -37,13 +37,20 @@ class AuthController extends Controller
             ]);
         }
 
+        // Was this account already logged in somewhere else? (checked before adding this login)
+        $otherDevice = $user->role === User::ROLE_RESIDENT && $user->tokens()->exists();
+
         // Token abilities mirror the role
         $token = $user->createToken($data['device_name'] ?? 'admin-web', [$user->role])->plainTextToken;
 
         // Dynamic QR: every resident login issues a new QR, so the QR on any other phone
         // (or in a screenshot) stops working. Only the latest login's QR is valid.
         if ($user->role === User::ROLE_RESIDENT) {
-            Household::where('user_id', $user->id)->where('status', 'approved')->latest('id')->first()?->rotateQr();
+            $household = Household::where('user_id', $user->id)->where('status', 'approved')->latest('id')->first();
+            $household?->rotateQr();
+            if ($household && $otherDevice) {
+                app(\App\Services\ResidentNotifier::class)->newLogin($household, $data['device_name'] ?? null);
+            }
         }
 
         return response()->json(['token' => $token, 'user' => $user]);

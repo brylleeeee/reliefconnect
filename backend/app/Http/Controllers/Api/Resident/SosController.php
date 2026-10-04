@@ -39,6 +39,8 @@ class SosController extends Controller
             'people_count' => max($household->members_count, 1),
         ]);
 
+        app(\App\Services\ResidentNotifier::class)->sosReceived($sos); // bell: "SOS received, #2 in line"
+
         return response()->json(['sos' => $sos], 201);
     }
 
