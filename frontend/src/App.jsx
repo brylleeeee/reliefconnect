@@ -19,6 +19,7 @@ import Distributions from './pages/barangay/Distributions'
 import BarangayAnnouncements from './pages/barangay/Announcements'
 import History from './pages/barangay/History'
 import StaffAccounts from './pages/barangay/StaffAccounts'
+import UpdateRequests from './pages/barangay/UpdateRequests'
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth()
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="/distributions" element={brgy(<Distributions />)} />
         <Route path="/qr-review" element={brgy(<QrReview />)} />
         <Route path="/households" element={brgy(<Households />)} />
+        <Route path="/update-requests" element={brgy(<UpdateRequests />)} />
         <Route path="/households/:id/edit" element={brgy(<HouseholdEdit />)} />
         <Route path="/walk-in" element={brgy(<WalkIn />)} />
         <Route path="/announcements" element={brgy(<BarangayAnnouncements />)} />

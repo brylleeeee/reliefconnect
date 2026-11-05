@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { CheckCircle2, ClipboardList, MapPin, Megaphone, Package, SquarePen, Trash2, Users, Wallet } from 'lucide-react'
 import api, { errorMessage } from '../api/client'
 import PageHeader from '../components/PageHeader'
 import EventAnalytics from '../components/EventAnalytics'
+import AnalyticsFilters, { defaultFilters, periodLabel } from '../components/AnalyticsFilters'
 import LguAnnouncementModal from '../components/LguAnnouncementModal'
 import Pagination from '../components/Pagination'
 import useConfirm from '../components/useConfirm'
@@ -14,6 +15,7 @@ import { C } from '../chartColors'
 
 const LOW_COVERAGE = 50 // % of registered households reached
 const pct = (n, total) => (total ? Math.round((n / total) * 100) : 0)
+const PER = { day: 'day', week: 'week', month: 'month' }
 
 function formatWhen(iso) {
   const d = new Date(iso)
@@ -65,6 +67,9 @@ function Kpi({ label, value, sub, tone = '', icon: Icon }) {
 
 export default function Dashboard() {
   const [d, setD] = useState(null)
+  const [filters, setFilters] = useState(defaultFilters)
+  const [loadingFilters, setLoadingFilters] = useState(false)
+  const latest = useRef(0) // ignore slow responses for filters that were already changed
   const [announcements, setAnnouncements] = useState(null)
   const [annPage, setAnnPage] = useState(1)
   const [composing, setComposing] = useState(null) // { editing: announcement | null }
@@ -72,11 +77,17 @@ export default function Dashboard() {
   const [error, setError] = useState('')
 
   const tick = useLiveTick()
-  const loadAnalytics = () => api.get('/admin/analytics').then((r) => { setD(r.data); setError('') })
-    .catch((err) => { if (!d) setError(errorMessage(err)) })
+  const loadAnalytics = () => {
+    const id = ++latest.current
+    const { from, to, barangay_id, relief_item_id } = filters
+    return api.get('/admin/analytics', { params: { from, to, barangay_id: barangay_id || undefined, relief_item_id: relief_item_id || undefined } })
+      .then((r) => { if (id === latest.current) { setD(r.data); setError('') } })
+      .catch((err) => { if (id === latest.current) setError(errorMessage(err)) })
+      .finally(() => { if (id === latest.current) setLoadingFilters(false) })
+  }
   const loadAnnouncements = () => api.get('/admin/announcements', { params: { page: annPage } })
     .then((r) => setAnnouncements(r.data))
-  useEffect(() => { loadAnalytics() }, [])
+  useEffect(() => { setLoadingFilters(true); loadAnalytics() }, [filters])
   useEffect(() => { loadAnnouncements() }, [annPage])
   // Live: refresh the numbers, charts and announcements in place
   useEffect(() => { if (tick) { loadAnalytics(); loadAnnouncements() } }, [tick])
@@ -96,6 +107,13 @@ export default function Dashboard() {
   }
 
   const k = d?.kpis
+  const f = d?.filters
+  const period = f ? periodLabel(f.from, f.to) : ''
+  const scope = [
+    f?.barangay_id && d.options.barangays.find((b) => b.id === Number(f.barangay_id))?.name,
+    f?.relief_item_id && d.options.items.find((i) => i.id === Number(f.relief_item_id))?.name,
+  ].filter(Boolean).join(' · ')
+  const perLabel = PER[f?.granularity] ?? 'day'
   const attention = d ? attentionItems(d) : []
   const coverage = d ? [...d.by_barangay].filter((b) => b.registered > 0)
     .sort((a, b) => pct(a.reached, a.registered) - pct(b.reached, b.registered)) : []
@@ -115,17 +133,22 @@ export default function Dashboard() {
       {error && <div className="alert alert-danger py-2 small">{error}</div>}
       {notice && <div className="alert alert-success py-2 small">{notice}</div>}
 
+      <AnalyticsFilters value={filters} onChange={setFilters} options={d?.options} />
+
       {k && (
-        <>
+        <div style={{ opacity: loadingFilters ? 0.55 : 1, transition: 'opacity .15s' }} aria-busy={loadingFilters}>
+          <p className="small text-secondary mb-2">
+            Showing <b>{period}</b>{scope ? <> for <b>{scope}</b></> : ' for the whole municipality'}.
+          </p>
           <div className="row g-3 mb-3">
             <div className="col-6 col-lg-3"><Kpi label="Registered households" tone="green" icon={Users}
                  value={k.registered_households.toLocaleString()} sub={`${k.pending_registrations} awaiting barangay review`} /></div>
             <div className="col-6 col-lg-3"><Kpi label="Households reached" tone="blue" icon={MapPin} value={`${k.coverage_pct}%`}
-                 sub={`${k.households_reached_30d.toLocaleString()} received aid in 30 days`} /></div>
+                 sub={`${k.households_reached.toLocaleString()} received aid in this period`} /></div>
             <div className="col-6 col-lg-3"><Kpi label="Relief goods released" icon={Package}
-                 value={k.units_distributed_30d.toLocaleString()} sub="units in the last 30 days" /></div>
+                 value={k.units_distributed.toLocaleString()} sub="units in this period" /></div>
             <div className="col-6 col-lg-3"><Kpi label="Cash aid released" icon={Wallet}
-                 value={peso(k.cash_released_30d)} sub={`${peso(k.cash_available)} left in cash funds`} /></div>
+                 value={peso(k.cash_released)} sub={`${peso(k.cash_available)} left in cash funds`} /></div>
           </div>
 
           <section className="rc-card mb-3">
@@ -151,7 +174,7 @@ export default function Dashboard() {
             <div className="col-lg-7">
               <section className="rc-card h-100">
                 <h2 className="rc-card-title mb-1">Coverage by barangay</h2>
-                <p className="small text-secondary">Share of registered households that received aid in the last 30 days. Lowest first.</p>
+                <p className="small text-secondary">Share of registered households that received aid in this period. Lowest first.</p>
                 <div className="rc-cov-list">
                   {coverage.map((b) => {
                     const p = pct(b.reached, b.registered)
@@ -165,18 +188,19 @@ export default function Dashboard() {
                       </div>
                     )
                   })}
+                  {coverage.length === 0 && <p className="small text-secondary mb-0">No registered households here yet.</p>}
                 </div>
               </section>
             </div>
             <div className="col-lg-5">
               <section className="rc-card h-100">
-                <h2 className="rc-card-title mb-1">Relief goods released per day</h2>
-                <p className="small text-secondary">Units, last 30 days.</p>
+                <h2 className="rc-card-title mb-1">Relief goods released per {perLabel}</h2>
+                <p className="small text-secondary">Units, {period}.</p>
                 <div style={{ height: 180 }}>
                   <ResponsiveContainer>
                     <BarChart data={d.daily} margin={{ left: -20, right: 6, top: 6 }}>
                       <CartesianGrid vertical={false} stroke={C.grid} />
-                      <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={6} tickLine={false} />
+                      <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={Math.max(0, Math.ceil(d.daily.length / 6) - 1)} tickLine={false} />
                       <YAxis tick={{ fontSize: 10 }} allowDecimals={false} tickLine={false} axisLine={false} />
                       <Tooltip cursor={{ fill: '#eef1f5' }} />
                       <Bar dataKey="units" name="Units" fill={C.green} radius={[2, 2, 0, 0]} />
@@ -186,7 +210,7 @@ export default function Dashboard() {
               </section>
             </div>
           </div>
-        </>
+        </div>
       )}
       {!d && !error && <p className="text-secondary">Loading…</p>}
 

@@ -31,6 +31,8 @@ class HouseholdController extends Controller
             'pending' => $q()->where('status', 'pending')->count(),
             'approved' => $q()->where('status', 'approved')->count(),
             'high_priority' => $q()->where('status', 'approved')->where('priority_level', 'high')->count(),
+            'update_requests_pending' => \App\Models\HouseholdUpdateRequest::where('status', 'pending')
+                ->whereHas('household', fn ($h) => $h->where('barangay_id', $request->user()->barangay_id))->count(),
             'walk_ins_this_month' => $q()->where('registration_type', 'walk_in')
                 ->where('created_at', '>=', now()->startOfMonth())->count(),
             'puroks' => $q()->whereNotNull('purok')->distinct()->orderBy('purok')->pluck('purok'),

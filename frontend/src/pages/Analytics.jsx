@@ -67,8 +67,8 @@ function Overview({ d }) {
       <div className="row g-3 mb-3">
         <div className="col-6 col-lg-3"><Kpi label="Registered households" tone="green" value={k.registered_households.toLocaleString()} /></div>
         <div className="col-6 col-lg-3"><Kpi label="Households reached" tone="blue" value={`${k.coverage_pct}%`}
-             sub={`${k.households_reached_30d.toLocaleString()} received aid`} /></div>
-        <div className="col-6 col-lg-3"><Kpi label="Units distributed" value={k.units_distributed_30d.toLocaleString()}
+             sub={`${k.households_reached.toLocaleString()} received aid`} /></div>
+        <div className="col-6 col-lg-3"><Kpi label="Units distributed" value={k.units_distributed.toLocaleString()}
              sub={verified ? `${pct(d.verification.qr, verified)}% verified by QR scan` : null} /></div>
         <div className="col-6 col-lg-3"><Kpi label="Pending registrations" value={k.pending_registrations} /></div>
       </div>

@@ -9,7 +9,7 @@ use Illuminate\Notifications\Notification;
  * Saved in the notifications table. Push to the phone can be added later as another channel.
  *
  * kind: schedule | started | approved | rejected | released | eligible
- *       | sos_received | sos_served | reminder | security
+ *       | sos_received | sos_served | reminder | security | update_approved | update_rejected
  * link: the app screen to open when tapped, e.g. "/announcements", "/history", "/home"
  */
 class ResidentAlert extends Notification
