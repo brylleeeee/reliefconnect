@@ -73,7 +73,22 @@ class HouseholdController extends Controller
     {
         $this->authorizeHousehold($request, $household);
 
-        return $household->load(['members', 'reviewer:id,name', 'documents']);
+        $household->load(['members.transferFrom.barangay', 'reviewer:id,name', 'documents']);
+
+        // Duplicate check for the reviewer: members who will be moved from another household on approval,
+        // and similar-looking people (same birthdate, similar name) in other households
+        return $household->toArray() + ['duplicate_check' => [
+            'transfers' => $household->members->whereNotNull('transfer_from_household_id')->map(fn ($m) => [
+                'member' => $m->full_name,
+                'household' => $m->transferFrom ? [
+                    'id' => $m->transferFrom->id,
+                    'head' => $m->transferFrom->household_head,
+                    'reference_number' => $m->transferFrom->reference_number,
+                    'barangay' => $m->transferFrom->barangay?->name,
+                ] : null,
+            ])->values(),
+            'possible_matches' => $this->service->possibleMatches($household),
+        ]];
     }
 
     /** Reset QR: e.g. the resident lost their phone. Their current QR stops working right away. */
