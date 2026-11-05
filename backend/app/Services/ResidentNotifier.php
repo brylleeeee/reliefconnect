@@ -6,6 +6,7 @@ use App\Models\BarangayDistribution;
 use App\Models\Distribution;
 use App\Models\DistributionEvent;
 use App\Models\Household;
+use App\Models\HouseholdUpdateRequest;
 use App\Models\SosAlert;
 use App\Models\User;
 use App\Notifications\ResidentAlert;
@@ -66,6 +67,18 @@ class ResidentNotifier
                 ($h->rejection_reason ?: 'Please check your details.').' You can correct and resubmit.', '/home');
 
         $this->send(Household::whereKey($h->id), $alert);
+    }
+
+    /** The barangay approved or rejected the resident's request to update their household details. */
+    public function updateReviewed(HouseholdUpdateRequest $r): void
+    {
+        $alert = $r->status === 'approved'
+            ? new ResidentAlert('update_approved', 'Household details updated',
+                'Your barangay approved your update request. Your household details are now changed; your QR code stays the same.', '/account')
+            : new ResidentAlert('update_rejected', 'Update request not approved',
+                ($r->review_note ?: 'Please check your details.').' You can send a new request.', '/account');
+
+        $this->send(Household::whereKey($r->household_id), $alert);
     }
 
     /** Aid was released to the household (also when an offline release syncs). */

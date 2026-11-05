@@ -9,10 +9,12 @@ use App\Http\Controllers\Api\Barangay\DistributionController as BarangayDistribu
 use App\Http\Controllers\Api\Barangay\HistoryController as BarangayHistoryController;
 use App\Http\Controllers\Api\Barangay\HouseholdController;
 use App\Http\Controllers\Api\Barangay\StaffController;
+use App\Http\Controllers\Api\Barangay\UpdateRequestController as BarangayUpdateRequestController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\Distribution\ClaimController;
 use App\Http\Controllers\Api\Resident\AnnouncementController as ResidentAnnouncementController;
 use App\Http\Controllers\Api\Resident\HouseholdController as ResidentHouseholdController;
+use App\Http\Controllers\Api\Resident\HouseholdUpdateRequestController as ResidentUpdateRequestController;
 use App\Http\Controllers\Api\Resident\NotificationController as ResidentNotificationController;
 use App\Models\Barangay;
 use App\Http\Controllers\Api\DistributionEventController;
@@ -101,6 +103,12 @@ Route::middleware(['auth:sanctum', 'role:barangay_admin'])
         Route::delete('/households/{household}', [HouseholdController::class, 'destroy']);
         Route::get('/households/{household}/claims', [HouseholdController::class, 'claims']);
 
+        // Residents' requests to update their household details or members
+        Route::get('/update-requests', [BarangayUpdateRequestController::class, 'index']);
+        Route::get('/update-requests/{updateRequest}', [BarangayUpdateRequestController::class, 'show']);
+        Route::post('/update-requests/{updateRequest}/approve', [BarangayUpdateRequestController::class, 'approve']);
+        Route::post('/update-requests/{updateRequest}/reject', [BarangayUpdateRequestController::class, 'reject']);
+
         // Distribution history: event > day > households that claimed
         Route::get('/history', [BarangayHistoryController::class, 'index']);
         Route::get('/history/{event}/claims', [BarangayHistoryController::class, 'claims']);
@@ -145,6 +153,11 @@ Route::middleware(['auth:sanctum', 'role:resident'])
         Route::get('/notifications/unread', [ResidentNotificationController::class, 'unread']);
         Route::post('/notifications/read', [ResidentNotificationController::class, 'read']);
         Route::post('/household', [ResidentHouseholdController::class, 'store']); // multipart, with documents
+
+        // Ask the barangay to update the approved household's details or members
+        Route::get('/household/update-request', [ResidentUpdateRequestController::class, 'show']);
+        Route::post('/household/update-request', [ResidentUpdateRequestController::class, 'store'])->middleware('throttle:10,1');
+        Route::delete('/household/update-request', [ResidentUpdateRequestController::class, 'destroy']);
 
         // SOS: one active alert per resident
         Route::get('/sos', [ResidentSosController::class, 'show']);

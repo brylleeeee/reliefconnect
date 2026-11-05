@@ -1,10 +1,12 @@
 // src/app/(resident)/account.tsx  —  Figma frame: resident-account
+import { useCallback, useState } from 'react';
 import { View, Text, Pressable, ScrollView, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, Redirect } from 'expo-router';
+import { router, Redirect, useFocusEffect } from 'expo-router';
 import AppHeader from '../../components/AppHeader';
 import { useResident } from '../../context/ResidentContext';
 import { logout } from '../../lib/auth';
+import { fetchUpdateRequest, UpdateStatus } from '../../data/updateRequest';
 import { colors, fonts } from '../../constants/theme';
 
 // "Juan Dela Cruz" → "JD"
@@ -30,17 +32,35 @@ function InfoRow({ label, value, valueStyle }: { label: string; value: string; v
   );
 }
 
-function ActionRow({ label, onPress }: { label: string; onPress: () => void }) {
+function ActionRow({ label, hint, hintColor, onPress }: {
+  label: string; hint?: string; hintColor?: string; onPress: () => void;
+}) {
   return (
     <Pressable style={({ pressed }) => [styles.actionRow, pressed && { opacity: 0.7 }]} onPress={onPress}>
       <Text style={styles.actionLabel}>{label}</Text>
-      <Text style={styles.actionArrow}>→</Text>
+      <View style={styles.actionRight}>
+        {hint ? <Text style={[styles.actionHint, hintColor ? { color: hintColor } : null]}>{hint}</Text> : null}
+        <Text style={styles.actionArrow}>→</Text>
+      </View>
     </Pressable>
   );
 }
 
+// Label beside "Update Household Info" for the latest request
+const UPDATE_HINT: Partial<Record<UpdateStatus, { text: string; color: string }>> = {
+  pending: { text: 'Waiting for review', color: colors.blue },
+  rejected: { text: 'Not approved', color: colors.danger },
+};
+
 export default function Account() {
   const { household, setHousehold, setUser } = useResident();
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+
+  // Status of the latest update request, refreshed whenever the tab is opened
+  useFocusEffect(useCallback(() => {
+    if (household?.status !== 'approved') return;
+    fetchUpdateRequest().then((r) => setUpdateStatus(r?.status ?? null)).catch(() => {});
+  }, [household?.status]));
 
   if (!household) return <Redirect href="/" />;
 
@@ -107,6 +127,14 @@ export default function Account() {
 
         {/* settings */}
         <View style={styles.actions}>
+          {approved && (
+            <ActionRow
+              label="Update Household Info"
+              hint={updateStatus ? UPDATE_HINT[updateStatus]?.text : undefined}
+              hintColor={updateStatus ? UPDATE_HINT[updateStatus]?.color : undefined}
+              onPress={() => router.push('/update-household')}
+            />
+          )}
           <ActionRow label="Change Password" onPress={() => router.push('/change-password')} />
           <ActionRow label="Notification Preferences" onPress={() => comingSoon('Notification Preferences')} />
         </View>
@@ -168,6 +196,8 @@ const styles = StyleSheet.create({
   },
   actionLabel: { fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
   actionArrow: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted },
+  actionRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  actionHint: { fontFamily: fonts.semibold, fontSize: 12, color: colors.muted },
 
   logout: {
     height: 48,

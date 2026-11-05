@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import {
   Megaphone, CalendarClock, PlayCircle, BadgeCheck, CircleX, PackageCheck,
-  AlarmClock, Gift, Siren, Truck, ShieldAlert,
+  AlarmClock, Gift, Siren, Truck, ShieldAlert, FilePen, FileX,
 } from 'lucide-react-native';
 import ScreenHeader from '../components/ScreenHeader';
 import { fetchNotifications, markNotificationsRead, AppNotification } from '../data/notifications';
@@ -24,6 +24,8 @@ const ICONS = {
   sos_received: { Icon: Siren, color: colors.danger },
   sos_served: { Icon: Truck, color: colors.success },
   security: { Icon: ShieldAlert, color: colors.danger },
+  update_approved: { Icon: FilePen, color: colors.success },
+  update_rejected: { Icon: FileX, color: colors.danger },
 } as const;
 
 const when = (iso: string) =>

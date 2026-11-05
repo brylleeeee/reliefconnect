@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutGrid, QrCode, Archive, FileText, Users, UserPlus, MapPin, ShieldPlus, LogOut, Scale,
-  CalendarCheck, ClipboardCheck, Megaphone, History as HistoryIcon, TriangleAlert, UserCog,
+  CalendarCheck, ClipboardCheck, Megaphone, History as HistoryIcon, TriangleAlert, UserCog, FilePen,
 } from 'lucide-react'
+import api from '../api/client'
+import useLiveTick from './useLiveTick'
 import { useAuth } from '../context/AuthContext'
 import Modal from './Modal'
 
@@ -20,6 +22,7 @@ const LINKS = {
     { to: '/distributions', label: 'Distributions', icon: ClipboardCheck },
     { to: '/qr-review', label: 'QR Issuance Review', icon: QrCode },
     { to: '/households', label: 'Household Records', icon: Users },
+    { to: '/update-requests', label: 'Update Requests', icon: FilePen, badge: 'update_requests_pending' },
     { to: '/walk-in', label: 'Walk-in Registration', icon: UserPlus },
     { to: '/history', label: 'Distribution History', icon: HistoryIcon },
     { to: '/announcements', label: 'Announcements', icon: Megaphone },
@@ -32,6 +35,14 @@ export default function Sidebar() {
   const [confirming, setConfirming] = useState(false)
   const initials = user?.name?.split(' ').map((w) => w[0]).slice(-2).join('') ?? '?'
   const isBarangay = user?.role === 'barangay_admin'
+
+  // Barangay: count of waiting update requests next to the menu item, refreshed live
+  const [counts, setCounts] = useState({})
+  const tick = useLiveTick()
+  useEffect(() => {
+    if (!isBarangay) return
+    api.get('/barangay/summary').then((r) => setCounts(r.data)).catch(() => {})
+  }, [isBarangay, tick])
 
   return (
     <aside className="rc-sidebar">
@@ -51,9 +62,10 @@ export default function Sidebar() {
       </div>
 
       <nav className="rc-nav">
-        {(LINKS[user?.role] ?? []).map(({ to, label, icon: Icon, end }) => (
+        {(LINKS[user?.role] ?? []).map(({ to, label, icon: Icon, end, badge }) => (
           <NavLink key={to} to={to} end={end} className="rc-nav-link">
             <Icon size={16} /> {label}
+            {badge && counts[badge] > 0 && <span className="rc-nav-badge" aria-label={`${counts[badge]} waiting`}>{counts[badge]}</span>}
           </NavLink>
         ))}
       </nav>

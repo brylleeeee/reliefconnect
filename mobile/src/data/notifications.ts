@@ -6,6 +6,7 @@ export type AppNotification = {
   kind:
     | 'schedule' | 'started' | 'reminder'            // distributions in your barangay
     | 'approved' | 'rejected' | 'eligible' | 'released' // your household
+    | 'update_approved' | 'update_rejected'          // your request to update household details
     | 'sos_received' | 'sos_served'                  // your SOS
     | 'security'                                     // new login, QR reset
     | 'announcement';                                // older notifications only
