@@ -81,6 +81,7 @@ class ClaimController extends Controller
             'reference_number' => ['required_without:qr', 'nullable', 'string', 'max:30'],
             'synced_from_offline' => ['boolean'],
             'distributed_at' => ['nullable', 'date', 'before_or_equal:now'],
+            'claimed_by_representative' => ['boolean'], // the household's authorized representative received it
         ]);
 
         // The method follows what was sent, so a claim is only marked "QR" if a valid QR was scanned

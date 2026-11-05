@@ -128,7 +128,7 @@ export default function Households() {
 
       {viewing && (
         <Modal title={viewing.household_head} size="lg" onClose={() => setViewing(null)}>
-          <HouseholdDetail h={viewing} />
+          <HouseholdDetail h={viewing} onRepresentativeChange={() => open(viewing.id)} />
           <div className="d-flex justify-content-end mt-3">
             <button className="btn btn-rc" onClick={() => navigate(`/households/${viewing.id}/edit`)}>Edit Household</button>
           </div>

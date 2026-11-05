@@ -61,6 +61,7 @@ class HouseholdController extends Controller
             'venue' => $venues[$c->distribution_event_id] ?? null,
             'claimed_at' => $c->distributed_at,
             'method' => $c->verification_method,
+            'claimant_name' => $c->claimant_name, // "Juan Cruz (Son)" when the representative received it
         ])->values());
     }
 

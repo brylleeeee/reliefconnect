@@ -62,6 +62,12 @@ class Household extends Model
         return $this->hasMany(HouseholdDocument::class);
     }
 
+    /** Authorized representative who may claim for this household, if any. */
+    public function representative()
+    {
+        return $this->hasOne(HouseholdRepresentative::class);
+    }
+
     public function updateRequests()
     {
         return $this->hasMany(HouseholdUpdateRequest::class);

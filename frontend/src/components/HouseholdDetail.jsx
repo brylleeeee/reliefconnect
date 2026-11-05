@@ -1,3 +1,4 @@
+import RepresentativePanel from './RepresentativePanel'
 import { useState } from 'react'
 import { FileText } from 'lucide-react'
 import api, { errorMessage } from '../api/client'
@@ -67,7 +68,7 @@ function DuplicateCheck({ check, status }) {
   )
 }
 
-export default function HouseholdDetail({ h }) {
+export default function HouseholdDetail({ h, onRepresentativeChange }) {
   const fmt = (d) => (d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—')
   return (
     <>
@@ -87,6 +88,7 @@ export default function HouseholdDetail({ h }) {
       )}
 
       <DuplicateCheck check={h.duplicate_check} status={h.status} />
+      <RepresentativePanel h={h} onChange={onRepresentativeChange} />
 
       <Documents h={h} />
 

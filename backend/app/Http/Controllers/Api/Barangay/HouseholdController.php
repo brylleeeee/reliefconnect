@@ -73,11 +73,14 @@ class HouseholdController extends Controller
     {
         $this->authorizeHousehold($request, $household);
 
-        $household->load(['members.transferFrom.barangay', 'reviewer:id,name', 'documents']);
+        $household->load(['members.transferFrom.barangay', 'reviewer:id,name', 'documents', 'representative']);
 
         // Duplicate check for the reviewer: members who will be moved from another household on approval,
         // and similar-looking people (same birthdate, similar name) in other households
-        return $household->toArray() + ['duplicate_check' => [
+        return $household->toArray() + [
+            'representative_elsewhere' => $household->representative
+                ? app(\App\Services\RepresentativeService::class)->alsoKnownAs($household->representative) : [],
+            'duplicate_check' => [
             'transfers' => $household->members->whereNotNull('transfer_from_household_id')->map(fn ($m) => [
                 'member' => $m->full_name,
                 'household' => $m->transferFrom ? [
@@ -198,6 +201,35 @@ class HouseholdController extends Controller
     }
 
     /** Every aid this household received: when, what event, goods or cash, and how much. */
+    /** Add or change the household's authorized representative (someone outside it who may claim for it). */
+    public function setRepresentative(Request $request, Household $household)
+    {
+        $this->authorizeHousehold($request, $household);
+        abort_if($household->status === 'rejected', 422, 'This household was rejected.');
+
+        $data = $request->validate([
+            'full_name' => ['required', 'string', 'max:150'],
+            'relationship' => ['required', 'in:'.implode(',', \App\Models\HouseholdRepresentative::RELATIONSHIPS)],
+            'birthdate' => ['required', 'date', 'before_or_equal:'.now()->subYears(18)->toDateString()],
+            'contact_number' => ['nullable', 'regex:/^(09|\+639)\d{9}$/'],
+        ], [
+            'birthdate.before_or_equal' => 'A representative must be at least 18 years old.',
+            'contact_number.regex' => 'Enter a mobile number like 09171234567.',
+        ]);
+
+        $rep = app(\App\Services\RepresentativeService::class)->set($household, $data, $request->user());
+
+        return response()->json(['message' => "{$rep->full_name} can now claim for this household.", 'representative' => $rep]);
+    }
+
+    public function removeRepresentative(Request $request, Household $household)
+    {
+        $this->authorizeHousehold($request, $household);
+        $household->representative()->delete();
+
+        return response()->json(['message' => 'Representative removed.']);
+    }
+
     public function claims(Request $request, Household $household)
     {
         $this->authorizeHousehold($request, $household);

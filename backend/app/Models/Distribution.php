@@ -8,12 +8,13 @@ class Distribution extends Model
 {
     protected $fillable = [
         'distribution_event_id', 'household_id', 'relief_item_id', 'distributed_by', 'quantity',
-        'verification_method', 'synced_from_offline', 'distributed_at',
+        'verification_method', 'synced_from_offline', 'distributed_at', 'claimed_by_representative', 'claimant_name',
     ];
 
     protected function casts(): array
     {
         return [
+            'claimed_by_representative' => 'boolean',
             'distributed_at' => 'datetime',
             'synced_from_offline' => 'boolean',
         ];

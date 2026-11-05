@@ -48,6 +48,10 @@ return [
     // ---- SOS prioritization (which barangay gets relief goods first) ----
     // An SOS from a resident always means "we need relief goods". Gemini ranks the barangays from the SOS
     // facts (count, people, waiting time, recent surge). This is separate from household vulnerability scoring.
+    // Authorized representatives: how many households one person may claim for (e.g. a son caring for
+    // his parents' household and his grandmother's). Keeps one person from collecting for many households.
+    'representative_max_households' => (int) env('RELIEF_REPRESENTATIVE_MAX', 2),
+
     'sos' => [
         'levels' => ['critical' => 0.7, 'high' => 0.4], // share of the top barangay's score
         'waiting_max_hours' => 24,                       // used by the fallback formula
