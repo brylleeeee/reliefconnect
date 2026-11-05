@@ -338,7 +338,16 @@ export default function Distributions() {
                       <td className="muted">{h.contact_number || '—'}</td>
                       <td>
                         {h.claimed_at
-                          ? <span className="rc-claim claimed"><CheckCircle2 size={13} /> Claimed {fmtTime(h.claimed_at)}</span>
+                          ? (
+                            <>
+                              <span className="rc-claim claimed"><CheckCircle2 size={13} /> Claimed {fmtTime(h.claimed_at)}</span>
+                              {h.claimant_name && (
+                                <div className="small text-secondary" title={`Received by authorized representative ${h.claimant_name}`}>
+                                  by representative {h.claimant_name}
+                                </div>
+                              )}
+                            </>
+                          )
                           : data.claim_phase === 'unclaimed'
                             ? <span className="rc-claim unclaimed"><XCircle size={13} /> Unclaimed</span>
                             : <span className="rc-claim pending"><Clock size={13} /> Pending</span>}
