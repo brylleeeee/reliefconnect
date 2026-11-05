@@ -2,7 +2,7 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ComponentProps } from 'react';
-import type { Tabs } from 'expo-router';
+import { router, type Href, type Tabs } from 'expo-router';
 
 // Expo Router bundles React Navigation, so take the tab bar's props type from <Tabs>
 type BottomTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
@@ -17,7 +17,7 @@ const TABS = {
   account: { label: 'Account', Icon: User },
 };
 
-export default function ResidentTabBar({ state, navigation }: BottomTabBarProps) {
+export default function ResidentTabBar({ state }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -25,9 +25,9 @@ export default function ResidentTabBar({ state, navigation }: BottomTabBarProps)
       {state.routes.map((route, index) => {
         const focused = state.index === index;
 
-        const onPress = () => {
-          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-          if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
+                const onPress = () => {
+          if (focused) return;
+          router.navigate(`/(resident)/${route.name}` as Href);
         };
 
         // Special red SOS button (only appears if an sos.tsx screen exists)
