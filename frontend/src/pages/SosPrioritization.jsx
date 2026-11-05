@@ -5,6 +5,7 @@ import {
 import { Info, Loader2, Sparkles, TriangleAlert } from 'lucide-react'
 import api, { errorMessage } from '../api/client'
 import Modal from '../components/Modal'
+import AiStatusCard from '../components/AiStatusCard'
 import PageHeader from '../components/PageHeader'
 import useLiveTick, { useLiveUpdatedAt } from '../components/useLiveTick'
 import { C, SOS_LEVEL } from '../chartColors'
@@ -133,6 +134,8 @@ export default function SosPrioritization() {
           because the AI couldn’t be reached. They still count in the ranking.
         </div>
       )}
+
+      <AiStatusCard />
 
       <div className="small mb-3 d-flex align-items-center gap-2 text-success">
         <Sparkles size={14} />

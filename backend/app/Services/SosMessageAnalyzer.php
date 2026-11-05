@@ -118,7 +118,7 @@ TXT;
     }
 
     /** @return array{category: string, severity: int, flags: array, points: int, reason: string, source: string} */
-    public function analyze(string $message, bool $useAi = true): array
+    public function analyze(string $message, bool $useAi = true, string $purpose = 'sos'): array
     {
         $message = trim(mb_substr($message, 0, 500));
 
@@ -127,7 +127,7 @@ TXT;
         }
 
         // The AI only if asked and a key is set; otherwise (or if it fails) the built-in rules
-        return ($useAi ? $this->askGemini($message) : null) ?? $this->fromKeywords($message);
+        return ($useAi ? $this->askGemini($message, $purpose) : null) ?? $this->fromKeywords($message);
     }
 
     /** HTTP statuses that mean "this model is busy right now": try the backup model. */
@@ -138,11 +138,13 @@ TXT;
      * unreachable. A wrong or blocked key (400/401/403) stops right away, since the backup would fail too.
      * Returns null when no model answered, so the caller falls back to the built-in rules.
      */
-    private function askGemini(string $message): ?array
+    private function askGemini(string $message, string $purpose = 'sos'): ?array
     {
-        if (! $this->aiEnabled()) {
-            return null;
+        $usage = app(AiUsage::class);
+        if ($usage->blockedReason()) {
+            return null; // no key, daily budget used up, or rate-limited a moment ago
         }
+        $rateLimited = 0;
 
         $models = array_values(array_unique(array_filter([
             config('services.gemini.model'),
@@ -150,6 +152,8 @@ TXT;
         ])));
 
         foreach ($models as $model) {
+            $started = microtime(true);
+            $ms = fn () => (int) round((microtime(true) - $started) * 1000);
             try {
                 $res = Http::withHeaders(['x-goog-api-key' => config('services.gemini.key')])
                     ->timeout((int) config('services.gemini.timeout', 30))
@@ -162,13 +166,21 @@ TXT;
             } catch (\Throwable $e) {
                 // Timeout or no connection: the backup model may still answer
                 Log::warning("SOS message AI error ({$model}): ".$e->getMessage());
+                $timedOut = str_contains($e->getMessage(), 'cURL error 28');
+                $usage->record($model, $purpose, $timedOut ? 'timeout' : 'error', null, $ms(), $this->shortError($e->getMessage()));
 
                 continue;
             }
 
             if (! $res->successful()) {
                 Log::warning("SOS message AI call failed ({$model})", ['status' => $res->status(), 'body' => mb_substr($res->body(), 0, 500)]);
-                if (in_array($res->status(), self::BUSY, true)) {
+                $busy = in_array($res->status(), self::BUSY, true);
+                $usage->record($model, $purpose, $busy ? 'busy' : 'invalid', $res, $ms(),
+                    (string) ($res->json('error.message') ?? "HTTP {$res->status()}"));
+                if ($res->status() === 429) {
+                    $rateLimited++;
+                }
+                if ($busy) {
                     continue;
                 }
 
@@ -183,9 +195,11 @@ TXT;
 
             if (! is_array($data) || ! isset($data['severity']) || ! is_numeric($data['severity'])) {
                 Log::warning("SOS message AI answer was unreadable ({$model})", ['text' => mb_substr($text, 0, 500)]);
+                $usage->record($model, $purpose, 'unreadable', $res, $ms(), 'The AI answer was not valid JSON.');
 
                 continue;
             }
+            $usage->record($model, $purpose, 'ok', $res, $ms());
 
             return $this->result(
                 (string) ($data['category'] ?? 'other'),
@@ -196,7 +210,18 @@ TXT;
             );
         }
 
+        // Every model said "too many requests": pause the AI briefly instead of hitting the limit again
+        if ($models && $rateLimited === count($models)) {
+            $usage->startCooldown();
+        }
+
         return null;
+    }
+
+    /** "cURL error 28: Operation timed out after 30001 ms… (see https://…)" -> the readable part */
+    private function shortError(string $message): string
+    {
+        return trim(preg_replace('/\s*\(see https?:\/\/[^)]*\).*$/s', '', $message));
     }
 
     /**
