@@ -16,7 +16,13 @@ return [
         'infant' => 2,          // each member under 2 years old
         'solo_parent' => 2,     // household headed by a solo parent
         'large_household' => 2, // household with 6 or more members
+        // No able-bodied adult: everyone is a senior, a PWD or a minor (e.g. seniors living alone). Together
+        // with the senior points this puts even a one-senior household in "high". Adviser: they shouldn't
+        // have to line up, so they are also flagged for the priority lane or home delivery.
+        'no_able_bodied_adult' => 5,
     ],
+
+    'adult_age' => 18,
 
     'senior_age' => 60,
     'infant_max_age' => 1,      // age 0–1 counts as infant
@@ -48,6 +54,10 @@ return [
     // ---- SOS prioritization (which barangay gets relief goods first) ----
     // An SOS from a resident always means "we need relief goods". Gemini ranks the barangays from the SOS
     // facts (count, people, waiting time, recent surge). This is separate from household vulnerability scoring.
+    // Authorized representatives: how many households one person may claim for (e.g. a son caring for
+    // his parents' household and his grandmother's). Keeps one person from collecting for many households.
+    'representative_max_households' => (int) env('RELIEF_REPRESENTATIVE_MAX', 2),
+
     'sos' => [
         'levels' => ['critical' => 0.7, 'high' => 0.4], // share of the top barangay's score
         'waiting_max_hours' => 24,                       // used by the fallback formula

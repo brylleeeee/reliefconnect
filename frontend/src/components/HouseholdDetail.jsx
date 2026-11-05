@@ -1,7 +1,8 @@
+import RepresentativePanel from './RepresentativePanel'
 import { useState } from 'react'
 import { FileText } from 'lucide-react'
 import api, { errorMessage } from '../api/client'
-import { PriorityBadge, StatusBadge } from './Badges'
+import { AssistTag, PriorityBadge, StatusBadge } from './Badges'
 
 /** Uploaded documents are private; fetch with the admin's token, then open in a new tab. */
 function Documents({ h }) {
@@ -37,14 +38,44 @@ function Documents({ h }) {
   )
 }
 
-export default function HouseholdDetail({ h }) {
+/** Duplicate check for the reviewer (adviser): members moving from another household, and look-alikes. */
+function DuplicateCheck({ check, status }) {
+  if (!check || (!check.transfers.length && !check.possible_matches.length)) return null
+  const ref = (hh) => (hh ? `${hh.head}’s household${hh.reference_number ? ` (${hh.reference_number})` : ''}${hh.barangay ? `, Brgy. ${hh.barangay}` : ''}` : 'another household')
+  return (
+    <>
+      {check.transfers.length > 0 && (
+        <div className="alert alert-info py-2 small">
+          <b>Also listed in another household.</b>{' '}
+          {status === 'approved' ? 'They will be moved here.' : 'When you approve, they are removed there so each person counts in one household only:'}
+          <ul className="mb-0 mt-1 ps-3">
+            {check.transfers.map((t) => <li key={t.member}><b>{t.member}</b>, now in {ref(t.household)}</li>)}
+          </ul>
+          <div className="mt-1 text-secondary">Confirm with the resident that this person really moved before approving.</div>
+        </div>
+      )}
+      {check.possible_matches.length > 0 && (
+        <div className="alert alert-warning py-2 small">
+          <b>Possible duplicates</b> (same birthdate, similar name). This is only a warning; check before approving:
+          <ul className="mb-0 mt-1 ps-3">
+            {check.possible_matches.map((p, i) => (
+              <li key={i}><b>{p.member}</b> looks like <b>{p.other_name}</b> ({p.other_relationship}) in {ref(p.household)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
+  )
+}
+
+export default function HouseholdDetail({ h, onRepresentativeChange }) {
   const fmt = (d) => (d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—')
   return (
     <>
       <div className="rc-detail-grid mb-3">
         <div><div className="rc-label">Reference no.</div>{h.reference_number ?? <span className="text-secondary">Not issued yet</span>}</div>
         <div><div className="rc-label">Status</div><StatusBadge status={h.status} /></div>
-        <div><div className="rc-label">Priority</div><PriorityBadge level={h.priority_level} score={h.priority_score} /></div>
+        <div><div className="rc-label">Priority</div><PriorityBadge level={h.priority_level} score={h.priority_score} /><AssistTag show={h.needs_assistance} /></div>
         <div><div className="rc-label">Purok</div>{h.purok}</div>
         <div><div className="rc-label">Address</div>{h.address || '—'}</div>
         <div><div className="rc-label">Mobile</div>{h.contact_number || '—'}</div>
@@ -52,9 +83,19 @@ export default function HouseholdDetail({ h }) {
         <div><div className="rc-label">Submitted</div>{fmt(h.created_at)}</div>
         <div><div className="rc-label">Solo parent</div>{h.is_solo_parent ? 'Yes' : 'No'}</div>
       </div>
+      {h.needs_assistance && (
+        <div className="alert alert-light border py-2 small">
+          <b>Needs assistance:</b> no able-bodied adult in this household (everyone is a senior, a PWD or a minor),
+          so it gets extra priority points. Serve them in the priority lane, or deliver to their home
+          {h.representative ? <> or release to their representative, <b>{h.representative.full_name}</b></> : <>, or add an authorized representative who can claim for them</>}.
+        </div>
+      )}
       {h.status === 'rejected' && h.rejection_reason && (
         <div className="alert alert-warning py-2 small">Rejected: {h.rejection_reason}</div>
       )}
+
+      <DuplicateCheck check={h.duplicate_check} status={h.status} />
+      <RepresentativePanel h={h} onChange={onRepresentativeChange} />
 
       <Documents h={h} />
 
@@ -64,7 +105,10 @@ export default function HouseholdDetail({ h }) {
           <tbody>
             {h.members.map((m) => (
               <tr key={m.id}>
-                <td className="fw-semibold">{m.full_name}</td>
+                <td className="fw-semibold">
+                  {m.full_name}
+                  {m.transfer_from_household_id && <span className="rc-tag ms-1" title="Will be moved from another household on approval">Moving in</span>}
+                </td>
                 <td>{m.relationship}</td>
                 <td>{m.age}</td>
                 <td>{m.sex}</td>

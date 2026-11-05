@@ -507,7 +507,10 @@ function ClaimsList({ eventId, barangays, refreshKey }) {
               <tr key={c.id} className="rc-row-click" tabIndex={0} onClick={() => setOpenId(c.id)}
                   onKeyDown={(ev) => { if (ev.key === 'Enter') setOpenId(c.id) }}>
                 <td className="text-nowrap">{fmtDateTime(c.distributed_at)}</td>
-                <td><div className="fw-semibold">{c.household_head}</div><div className="small text-secondary">{c.reference_number}</div></td>
+                <td>
+                  <div className="fw-semibold">{c.household_head}</div><div className="small text-secondary">{c.reference_number}</div>
+                  {c.claimant_name && <div className="small text-success">via representative {c.claimant_name}</div>}
+                </td>
                 <td>{c.barangay}<div className="small text-secondary">{c.purok}</div></td>
                 <td className="text-nowrap">{c.quantity_label}</td>
                 <td>

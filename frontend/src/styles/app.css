@@ -323,3 +323,5 @@ button.rc-user:focus-visible { outline: 2px solid var(--rc-green); outline-offse
 .rc-spin { animation: rc-spin 1s linear infinite; }
 @keyframes rc-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .rc-spin { animation: none; } }
+
+.rc-tag-assist { background: #fff4e5; color: #8a4b00; }

@@ -27,6 +27,7 @@ class ClaimDetails
             'recorded_at' => $d->created_at, // later than distributed_at when synced from offline
             'synced_from_offline' => $d->synced_from_offline,
             'verification_method' => $d->verification_method,
+            'claimant_name' => $d->claimant_name, // "Juan Cruz (Son)" when the authorized representative received it
             'released_by' => $d->personnel?->name,
             'item' => [
                 'name' => $d->item->name,

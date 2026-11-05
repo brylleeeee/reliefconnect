@@ -69,6 +69,14 @@ class ResidentNotifier
         $this->send(Household::whereKey($h->id), $alert);
     }
 
+    /** A member of this household was registered in another household and the barangay approved the move. */
+    public function memberMoved(Household $from, string $name): void
+    {
+        $this->send(Household::whereKey($from->id), new ResidentAlert('update_approved', 'Household member moved',
+            "{$name} is now registered in another household, so they were removed from yours. "
+            .'If this is a mistake, contact your barangay.', '/account'));
+    }
+
     /** The barangay approved or rejected the resident's request to update their household details. */
     public function updateReviewed(HouseholdUpdateRequest $r): void
     {

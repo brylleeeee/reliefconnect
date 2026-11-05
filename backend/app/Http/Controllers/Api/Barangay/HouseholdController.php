@@ -73,7 +73,25 @@ class HouseholdController extends Controller
     {
         $this->authorizeHousehold($request, $household);
 
-        return $household->load(['members', 'reviewer:id,name', 'documents']);
+        $household->load(['members.transferFrom.barangay', 'reviewer:id,name', 'documents', 'representative']);
+
+        // Duplicate check for the reviewer: members who will be moved from another household on approval,
+        // and similar-looking people (same birthdate, similar name) in other households
+        return $household->toArray() + [
+            'representative_elsewhere' => $household->representative
+                ? app(\App\Services\RepresentativeService::class)->alsoKnownAs($household->representative) : [],
+            'duplicate_check' => [
+            'transfers' => $household->members->whereNotNull('transfer_from_household_id')->map(fn ($m) => [
+                'member' => $m->full_name,
+                'household' => $m->transferFrom ? [
+                    'id' => $m->transferFrom->id,
+                    'head' => $m->transferFrom->household_head,
+                    'reference_number' => $m->transferFrom->reference_number,
+                    'barangay' => $m->transferFrom->barangay?->name,
+                ] : null,
+            ])->values(),
+            'possible_matches' => $this->service->possibleMatches($household),
+        ]];
     }
 
     /** Reset QR: e.g. the resident lost their phone. Their current QR stops working right away. */
@@ -183,6 +201,35 @@ class HouseholdController extends Controller
     }
 
     /** Every aid this household received: when, what event, goods or cash, and how much. */
+    /** Add or change the household's authorized representative (someone outside it who may claim for it). */
+    public function setRepresentative(Request $request, Household $household)
+    {
+        $this->authorizeHousehold($request, $household);
+        abort_if($household->status === 'rejected', 422, 'This household was rejected.');
+
+        $data = $request->validate([
+            'full_name' => ['required', 'string', 'max:150'],
+            'relationship' => ['required', 'in:'.implode(',', \App\Models\HouseholdRepresentative::RELATIONSHIPS)],
+            'birthdate' => ['required', 'date', 'before_or_equal:'.now()->subYears(18)->toDateString()],
+            'contact_number' => ['nullable', 'regex:/^(09|\+639)\d{9}$/'],
+        ], [
+            'birthdate.before_or_equal' => 'A representative must be at least 18 years old.',
+            'contact_number.regex' => 'Enter a mobile number like 09171234567.',
+        ]);
+
+        $rep = app(\App\Services\RepresentativeService::class)->set($household, $data, $request->user());
+
+        return response()->json(['message' => "{$rep->full_name} can now claim for this household.", 'representative' => $rep]);
+    }
+
+    public function removeRepresentative(Request $request, Household $household)
+    {
+        $this->authorizeHousehold($request, $household);
+        $household->representative()->delete();
+
+        return response()->json(['message' => 'Representative removed.']);
+    }
+
     public function claims(Request $request, Household $household)
     {
         $this->authorizeHousehold($request, $household);
@@ -210,6 +257,7 @@ class HouseholdController extends Controller
                 'eligibility' => $c->event?->eligibility_label,
                 'quantity_label' => $c->item->describeQuantity($c->quantity),
                 'verification_method' => $c->verification_method,
+                'claimant_name' => $c->claimant_name, // set when the authorized representative received it
                 'synced_from_offline' => $c->synced_from_offline,
                 'released_by' => $c->personnel?->name,
             ]),

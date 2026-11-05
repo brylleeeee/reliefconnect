@@ -6,7 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Network from 'expo-network';
-import { CircleCheck, CircleX, MapPin, Camera } from 'lucide-react-native';
+import { CircleCheck, CircleX, MapPin, Camera, UserCheck } from 'lucide-react-native';
 import ScreenHeader from '../../components/ScreenHeader';
 import PrimaryButton from '../../components/PrimaryButton';
 import { useStaff } from '../../context/StaffContext';
@@ -23,6 +23,7 @@ type CheckResult = {
     purok: string | null;
     members_count: number;
     priority_level: 'high' | 'medium' | 'low';
+    needs_assistance?: boolean; // no able-bodied adult: priority lane or home delivery
     barangay: string;
   };
   can_claim: boolean;
@@ -30,6 +31,8 @@ type CheckResult = {
   claimed_at: string | null;
   quantity: number;
   unit: string;
+  // authorized representative: someone outside the household who may claim for it
+  representative: { full_name: string; relationship: string; contact_number?: string | null } | null;
 };
 
 type Proof = Pick<ScanEntry, 'photoUri' | 'latitude' | 'longitude' | 'accuracy' | 'ip'>;
@@ -56,13 +59,17 @@ export default function Verification() {
   const [ip, setIp] = useState<string | null>(null);
   // offline mode: checked against the downloaded list, release saved on the phone until it syncs
   const [offline, setOffline] = useState(false);
+  // who is physically receiving: a household member, or the household's authorized representative
+  const [receiver, setReceiver] = useState<'member' | 'representative'>('member');
+  const byRep = receiver === 'representative';
 
   // Dynamic QR: a scan sends the whole QR ("RC:<reference no.>:<token>") so the server can check
   // it is the resident's latest QR. Manual entry sends the reference number.
   const isQr = method !== 'reference_number';
   // A valid dynamic QR already proves the resident is who they say, so only manual
   // (typed) reference numbers need the photo of the beneficiary receiving the aid.
-  const needsPhoto = !isQr;
+  // A representative is someone else, so their release always needs the photo.
+  const needsPhoto = !isQr || byRep;
   const sent = isQr ? { qr: reference } : { reference_number: reference };
   // What to show and log before the server answers: never the QR's secret token
   const shownRef = isQr ? (reference?.startsWith('RC:') ? reference.split(':')[1] : 'the scanned QR') : reference;
@@ -131,6 +138,7 @@ export default function Verification() {
       claimed_at: r.household.claimed_at,
       quantity: r.household.quantity,
       unit: pack.unit,
+      representative: r.household.representative ?? null,
     };
     setOffline(true);
     setResult(data);
@@ -146,6 +154,7 @@ export default function Verification() {
       reference: result.household.reference_number,
       head: result.household.household_head,
       distributedAt: new Date().toISOString(),
+      byRepresentative: byRep,
     });
     setOffline(true);
     setReleased(true);
@@ -198,7 +207,10 @@ export default function Verification() {
         try {
           await api(`/distribution/events/${selected.event_id}/claims`, {
             // a QR claim is re-checked by the server, so it is only recorded as "QR scan" if still valid
-            body: isQr ? { qr: reference } : { reference_number: result.household.reference_number },
+            body: {
+              ...(isQr ? { qr: reference } : { reference_number: result.household.reference_number }),
+              claimed_by_representative: byRep,
+            },
           });
           setReleased(true);
         } catch (e) {
@@ -230,12 +242,18 @@ export default function Verification() {
   const confirmRelease = () => {
     if (!result) return;
     if (needsPhoto && !photo) {
-      Alert.alert('Photo required', 'Take a photo of the beneficiary receiving the aid before releasing.');
+      Alert.alert('Photo required', byRep
+        ? 'Take a photo of the representative receiving the aid before releasing.'
+        : 'Take a photo of the beneficiary receiving the aid before releasing.');
       return;
     }
     Alert.alert(
       'Confirm release',
-      `Release ${qtyUnit(result.quantity, result.unit)} to ${result.household.household_head}?\n\n` +
+      (byRep && result.representative
+        ? `Release ${qtyUnit(result.quantity, result.unit)} to ${result.representative.full_name} ` +
+          `(${result.representative.relationship}), representative of ${result.household.household_head}?\n\n` +
+          'Check the representative\'s valid ID. '
+        : `Release ${qtyUnit(result.quantity, result.unit)} to ${result.household.household_head}?\n\n`) +
         'Make sure the physical relief items were checked and handed over.',
       [{ text: 'Cancel', style: 'cancel' }, { text: 'Confirm Release', onPress: release }],
     );
@@ -314,7 +332,48 @@ export default function Verification() {
               <Info label="Barangay" value={h.barangay} />
               <Info label="Purok" value={h.purok ?? '—'} />
             </View>
+            {h.needs_assistance && (
+              <Text style={styles.assist}>
+                Needs assistance: no able-bodied adult in this household. Serve them in the priority lane
+                {result?.representative ? ', or release to their authorized representative.' : ', or arrange home delivery.'}
+              </Text>
+            )}
             <Text style={styles.hint}>Ask for a valid ID and check that the name matches before releasing.</Text>
+          </View>
+        )}
+
+        {/* authorized representative: may claim for this household (e.g. a son for his senior parents) */}
+        {h && result?.representative && (
+          <View style={styles.card}>
+            <View style={styles.repHead}>
+              <UserCheck size={16} color={colors.success} strokeWidth={2} />
+              <Text style={styles.label}>AUTHORIZED REPRESENTATIVE</Text>
+            </View>
+            <Text style={styles.repName}>
+              {result.representative.full_name} <Text style={styles.repRel}>· {result.representative.relationship}</Text>
+            </Text>
+            {canRelease && (
+              <>
+                <Text style={styles.hint}>Who is receiving the aid?</Text>
+                <View style={styles.choiceRow}>
+                  {(['member', 'representative'] as const).map((who) => (
+                    <Pressable
+                      key={who}
+                      onPress={() => setReceiver(who)}
+                      style={[styles.choice, receiver === who && styles.choiceOn]}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: receiver === who }}
+                    >
+                      <Text style={[styles.choiceText, receiver === who && styles.choiceTextOn]}>
+                        {who === 'member' ? 'Household member' : 'Representative'}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                {byRep && <Text style={styles.hint}>Check the representative’s valid ID and take their photo.</Text>}
+              </>
+            )}
+            {released && byRep && <Text style={styles.qrVerified}>Released to the representative.</Text>}
           </View>
         )}
 
@@ -324,6 +383,7 @@ export default function Verification() {
             <Text style={styles.label}>PROOF OF DISTRIBUTION</Text>
 
             {!needsPhoto && <Text style={styles.qrVerified}>Verified by the resident's QR code. No photo needed.</Text>}
+            {isQr && byRep && <Text style={styles.hint}>Photo required: the representative is not the QR owner.</Text>}
 
             {needsPhoto && (photo ? (
               <Image source={{ uri: photo }} style={styles.photo} />
@@ -414,6 +474,21 @@ const styles = StyleSheet.create({
   info: { width: '50%', gap: 2 },
   value: { fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
   hint: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 4 },
+  repHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  assist: {
+    fontFamily: fonts.semibold, fontSize: 12, lineHeight: 17, color: '#8A4B00',
+    backgroundColor: '#FFF4E5', borderRadius: 8, padding: 10, marginTop: 8,
+  },
+  repName: { fontFamily: fonts.bold, fontSize: 16, color: colors.text },
+  repRel: { fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary },
+  choiceRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
+  choice: {
+    flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: colors.border,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8,
+  },
+  choiceOn: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
+  choiceText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.textSecondary },
+  choiceTextOn: { color: colors.primary },
 
   photo: { width: '100%', height: 220, borderRadius: 10, backgroundColor: colors.background },
   photoEmpty: {

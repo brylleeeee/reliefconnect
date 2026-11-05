@@ -107,6 +107,8 @@ Route::middleware(['auth:sanctum', 'role:barangay_admin'])
         Route::post('/households/{household}/reset-qr', [HouseholdController::class, 'resetQr']);
         Route::delete('/households/{household}', [HouseholdController::class, 'destroy']);
         Route::get('/households/{household}/claims', [HouseholdController::class, 'claims']);
+        Route::put('/households/{household}/representative', [HouseholdController::class, 'setRepresentative']);
+        Route::delete('/households/{household}/representative', [HouseholdController::class, 'removeRepresentative']);
 
         // Residents' requests to update their household details or members
         Route::get('/update-requests', [BarangayUpdateRequestController::class, 'index']);

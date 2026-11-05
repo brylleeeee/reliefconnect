@@ -16,8 +16,11 @@ export type PackHousehold = {
   purok: string | null;
   members_count: number;
   priority_level: 'high' | 'medium' | 'low';
+  needs_assistance?: boolean; // no able-bodied adult: priority lane or home delivery
   quantity: number;
   claimed_at: string | null;
+  // someone outside the household allowed to claim for it (e.g. a son for his senior parents)
+  representative: { full_name: string; relationship: string } | null;
 };
 
 export type OfflinePack = {
@@ -36,6 +39,7 @@ export type QueuedClaim = {
   reference: string;
   head: string;
   distributedAt: string; // when the aid was actually handed over
+  byRepresentative?: boolean; // the household's authorized representative received it
 };
 
 export type SyncProblem = QueuedClaim & { reason: string };
@@ -138,7 +142,12 @@ export function syncQueue(): Promise<{ sent: number; failed: number }> {
     for (const claim of queue) {
       try {
         await api(`/distribution/events/${claim.eventId}/claims`, {
-          body: { reference_number: claim.reference, synced_from_offline: true, distributed_at: claim.distributedAt },
+          body: {
+            reference_number: claim.reference,
+            synced_from_offline: true,
+            distributed_at: claim.distributedAt,
+            claimed_by_representative: claim.byRepresentative ?? false,
+          },
         });
         sent++;
       } catch (e) {

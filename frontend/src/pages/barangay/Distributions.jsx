@@ -8,7 +8,7 @@ import Pagination from '../../components/Pagination'
 import AnnounceModal from '../../components/AnnounceModal'
 import ClaimHistory from '../../components/ClaimHistory'
 import useConfirm from '../../components/useConfirm'
-import { PriorityBadge, StatusBadge } from '../../components/Badges'
+import { AssistTag, PriorityBadge, StatusBadge } from '../../components/Badges'
 import { fmtDate, fmtDateTime, fmtTime, qtyUnit, recipients, RECIPIENT_COLUMNS, toLocalInput } from '../../components/format'
 import useSummary from './useSummary'
 
@@ -334,11 +334,20 @@ export default function Distributions() {
                           <div className="small text-secondary">{recipients(h[RECIPIENT_COLUMNS[row.eligibility]] ?? 0, row.recipient_label)}</div>
                         </td>
                       )}
-                      <td><PriorityBadge level={h.priority_level} score={h.priority_score} /></td>
+                      <td><PriorityBadge level={h.priority_level} score={h.priority_score} /><AssistTag show={h.needs_assistance} /></td>
                       <td className="muted">{h.contact_number || '—'}</td>
                       <td>
                         {h.claimed_at
-                          ? <span className="rc-claim claimed"><CheckCircle2 size={13} /> Claimed {fmtTime(h.claimed_at)}</span>
+                          ? (
+                            <>
+                              <span className="rc-claim claimed"><CheckCircle2 size={13} /> Claimed {fmtTime(h.claimed_at)}</span>
+                              {h.claimant_name && (
+                                <div className="small text-secondary" title={`Received by authorized representative ${h.claimant_name}`}>
+                                  by representative {h.claimant_name}
+                                </div>
+                              )}
+                            </>
+                          )
                           : data.claim_phase === 'unclaimed'
                             ? <span className="rc-claim unclaimed"><XCircle size={13} /> Unclaimed</span>
                             : <span className="rc-claim pending"><Clock size={13} /> Pending</span>}

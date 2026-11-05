@@ -137,6 +137,11 @@ class DistributionController extends Controller
             ->whereColumn('household_id', 'households.id')
             ->where('distribution_event_id', $event->id)
             ->limit(1);
+        // "Juan Cruz (Son)" when the household's authorized representative received it
+        $claimant = Distribution::select('claimant_name')
+            ->whereColumn('household_id', 'households.id')
+            ->where('distribution_event_id', $event->id)
+            ->limit(1);
 
         // Only households that can receive in this event (e.g. those with a senior)
         $base = DistributionEvent::applyEligibility(
@@ -150,9 +155,9 @@ class DistributionController extends Controller
 
         $list = (clone $base)
             ->select(['id', 'reference_number', 'household_head', 'purok', 'contact_number',
-                'members_count', 'priority_level', 'priority_score',
+                'members_count', 'priority_level', 'priority_score', 'needs_assistance',
                 'seniors_count', 'pwd_count', 'infants_count', 'pregnant_count'])
-            ->addSelect(['claimed_at' => $claimedAt])
+            ->addSelect(['claimed_at' => $claimedAt, 'claimant_name' => $claimant])
             ->when(($f['claim'] ?? null) === 'claimed', fn ($q) => $q->whereHas('distributions', $hasClaim))
             ->when(($f['claim'] ?? null) === 'unclaimed', fn ($q) => $q->whereDoesntHave('distributions', $hasClaim))
             ->when($f['sos'] ?? false, fn ($q) => $q->whereRaw($sosSql, [$event->id]))

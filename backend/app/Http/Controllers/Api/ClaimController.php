@@ -38,6 +38,7 @@ class ClaimController extends Controller
             'purok' => $d->household->purok,
             'quantity_label' => $event->item->describeQuantity($d->quantity),
             'verification_method' => $d->verification_method,
+            'claimant_name' => $d->claimant_name, // set when an authorized representative received it
             'synced_from_offline' => $d->synced_from_offline,
             'released_by' => $d->personnel?->name,
         ]);

@@ -47,8 +47,12 @@ class DistributionEventService
 
         return [
             'household' => $household->only([
-                'id', 'reference_number', 'household_head', 'purok', 'members_count', 'priority_level',
+                'id', 'reference_number', 'household_head', 'purok', 'members_count', 'priority_level', 'needs_assistance',
             ]) + ['barangay' => $brgy],
+            // Someone outside the household who may claim for it (e.g. a son for his senior parents)
+            'representative' => ($r = $household->representative)
+                ? ['full_name' => $r->full_name, 'relationship' => $r->relationship, 'contact_number' => $r->contact_number]
+                : null,
             // This household pressed SOS and is waiting: serve it first
             'sos' => $sos ? ['message' => $sos->message, 'reason' => $sos->ai_reason, 'sent_at' => $sos->created_at] : null,
             'can_claim' => $problem === null,
@@ -62,7 +66,8 @@ class DistributionEventService
 
     /**
      * $options: verification_method ('qr'|'reference_number'), synced_from_offline (bool),
-     *           distributed_at (string, for claims recorded offline)
+     *           distributed_at (string, for claims recorded offline),
+     *           claimed_by_representative (bool: the household's authorized representative received it)
      */
     public function claim(DistributionEvent $event, string $referenceNumber, User $by, array $options = []): Distribution
     {
@@ -74,6 +79,13 @@ class DistributionEventService
 
         if ($household->status !== 'approved') {
             $this->fail('not_approved', 'This household is not approved yet.');
+        }
+        $rep = null;
+        if ($options['claimed_by_representative'] ?? false) {
+            $rep = $household->representative;
+            if (! $rep) {
+                $this->fail('no_representative', 'This household has no authorized representative. Only its members can claim.');
+            }
         }
         if ($event->quantityFor($household) === 0) {
             $this->fail('not_eligible', $this->notEligibleMessage($event));
@@ -94,7 +106,7 @@ class DistributionEventService
         }
 
         try {
-            $distribution = DB::transaction(function () use ($event, $household, $by, $options, $bd, $brgy, $offline) {
+            $distribution = DB::transaction(function () use ($event, $household, $by, $options, $bd, $brgy, $offline, $rep) {
                 // Locking the item row makes simultaneous claims wait their turn,
                 // so the quota and stock checks below can't both pass for two scanners.
                 $item = ReliefItem::lockForUpdate()->findOrFail($event->relief_item_id);
@@ -119,6 +131,8 @@ class DistributionEventService
                     'quantity' => $qty,
                     'verification_method' => $options['verification_method'] ?? 'reference_number',
                     'synced_from_offline' => $offline,
+                    'claimed_by_representative' => (bool) $rep,
+                    'claimant_name' => $rep?->label(),
                     'distributed_at' => isset($options['distributed_at'])
                         ? Carbon::parse($options['distributed_at']) : now(),
                 ]);
@@ -180,16 +194,21 @@ class DistributionEventService
             ->where('status', 'approved')
             ->whereNotNull('reference_number')
             ->orderBy('reference_number')
+            ->with('representative:id,household_id,full_name,relationship')
             ->get(['id', 'reference_number', 'household_head', 'purok', 'members_count', 'priority_level',
-                'seniors_count', 'pwd_count', 'infants_count', 'pregnant_count', 'is_solo_parent'])
+                'seniors_count', 'pwd_count', 'infants_count', 'pregnant_count', 'is_solo_parent', 'needs_assistance'])
             ->map(fn (Household $h) => [
                 'reference_number' => $h->reference_number,
                 'household_head' => $h->household_head,
                 'purok' => $h->purok,
                 'members_count' => $h->members_count,
                 'priority_level' => $h->priority_level,
+                'needs_assistance' => (bool) $h->needs_assistance,
                 'quantity' => $event->quantityFor($h),
                 'claimed_at' => $claimed[$h->id] ?? null,
+                'representative' => $h->representative
+                    ? ['full_name' => $h->representative->full_name, 'relationship' => $h->representative->relationship]
+                    : null,
             ])
             ->filter(fn ($h) => $h['quantity'] > 0)
             ->values();
