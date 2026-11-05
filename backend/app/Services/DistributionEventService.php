@@ -47,7 +47,7 @@ class DistributionEventService
 
         return [
             'household' => $household->only([
-                'id', 'reference_number', 'household_head', 'purok', 'members_count', 'priority_level',
+                'id', 'reference_number', 'household_head', 'purok', 'members_count', 'priority_level', 'needs_assistance',
             ]) + ['barangay' => $brgy],
             // Someone outside the household who may claim for it (e.g. a son for his senior parents)
             'representative' => ($r = $household->representative)
@@ -196,13 +196,14 @@ class DistributionEventService
             ->orderBy('reference_number')
             ->with('representative:id,household_id,full_name,relationship')
             ->get(['id', 'reference_number', 'household_head', 'purok', 'members_count', 'priority_level',
-                'seniors_count', 'pwd_count', 'infants_count', 'pregnant_count', 'is_solo_parent'])
+                'seniors_count', 'pwd_count', 'infants_count', 'pregnant_count', 'is_solo_parent', 'needs_assistance'])
             ->map(fn (Household $h) => [
                 'reference_number' => $h->reference_number,
                 'household_head' => $h->household_head,
                 'purok' => $h->purok,
                 'members_count' => $h->members_count,
                 'priority_level' => $h->priority_level,
+                'needs_assistance' => (bool) $h->needs_assistance,
                 'quantity' => $event->quantityFor($h),
                 'claimed_at' => $claimed[$h->id] ?? null,
                 'representative' => $h->representative

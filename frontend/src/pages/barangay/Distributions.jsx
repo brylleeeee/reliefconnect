@@ -8,7 +8,7 @@ import Pagination from '../../components/Pagination'
 import AnnounceModal from '../../components/AnnounceModal'
 import ClaimHistory from '../../components/ClaimHistory'
 import useConfirm from '../../components/useConfirm'
-import { PriorityBadge, StatusBadge } from '../../components/Badges'
+import { AssistTag, PriorityBadge, StatusBadge } from '../../components/Badges'
 import { fmtDate, fmtDateTime, fmtTime, qtyUnit, recipients, RECIPIENT_COLUMNS, toLocalInput } from '../../components/format'
 import useSummary from './useSummary'
 
@@ -334,7 +334,7 @@ export default function Distributions() {
                           <div className="small text-secondary">{recipients(h[RECIPIENT_COLUMNS[row.eligibility]] ?? 0, row.recipient_label)}</div>
                         </td>
                       )}
-                      <td><PriorityBadge level={h.priority_level} score={h.priority_score} /></td>
+                      <td><PriorityBadge level={h.priority_level} score={h.priority_score} /><AssistTag show={h.needs_assistance} /></td>
                       <td className="muted">{h.contact_number || '—'}</td>
                       <td>
                         {h.claimed_at

@@ -74,7 +74,12 @@ class HouseholdService
             'qr_secret' => $household->qr_secret ?? Str::random(40),
         ])->save();
 
-        $this->applyTransfers($household); // members still listed elsewhere are moved here now
+        // Members still listed elsewhere are moved here now, and start counting in this household's score
+        if ($this->applyTransfers($household) > 0) {
+            $household->load('members');
+            $this->scorer->apply($household);
+            $household->save();
+        }
 
         // TODO: send the reference number to $household->contact_number via the SMS gateway
         app(ResidentNotifier::class)->reviewed($household); // bell in the resident app (walk-ins have no account yet)

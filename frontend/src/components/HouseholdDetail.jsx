@@ -2,7 +2,7 @@ import RepresentativePanel from './RepresentativePanel'
 import { useState } from 'react'
 import { FileText } from 'lucide-react'
 import api, { errorMessage } from '../api/client'
-import { PriorityBadge, StatusBadge } from './Badges'
+import { AssistTag, PriorityBadge, StatusBadge } from './Badges'
 
 /** Uploaded documents are private; fetch with the admin's token, then open in a new tab. */
 function Documents({ h }) {
@@ -75,7 +75,7 @@ export default function HouseholdDetail({ h, onRepresentativeChange }) {
       <div className="rc-detail-grid mb-3">
         <div><div className="rc-label">Reference no.</div>{h.reference_number ?? <span className="text-secondary">Not issued yet</span>}</div>
         <div><div className="rc-label">Status</div><StatusBadge status={h.status} /></div>
-        <div><div className="rc-label">Priority</div><PriorityBadge level={h.priority_level} score={h.priority_score} /></div>
+        <div><div className="rc-label">Priority</div><PriorityBadge level={h.priority_level} score={h.priority_score} /><AssistTag show={h.needs_assistance} /></div>
         <div><div className="rc-label">Purok</div>{h.purok}</div>
         <div><div className="rc-label">Address</div>{h.address || '—'}</div>
         <div><div className="rc-label">Mobile</div>{h.contact_number || '—'}</div>
@@ -83,6 +83,13 @@ export default function HouseholdDetail({ h, onRepresentativeChange }) {
         <div><div className="rc-label">Submitted</div>{fmt(h.created_at)}</div>
         <div><div className="rc-label">Solo parent</div>{h.is_solo_parent ? 'Yes' : 'No'}</div>
       </div>
+      {h.needs_assistance && (
+        <div className="alert alert-light border py-2 small">
+          <b>Needs assistance:</b> no able-bodied adult in this household (everyone is a senior, a PWD or a minor),
+          so it gets extra priority points. Serve them in the priority lane, or deliver to their home
+          {h.representative ? <> or release to their representative, <b>{h.representative.full_name}</b></> : <>, or add an authorized representative who can claim for them</>}.
+        </div>
+      )}
       {h.status === 'rejected' && h.rejection_reason && (
         <div className="alert alert-warning py-2 small">Rejected: {h.rejection_reason}</div>
       )}

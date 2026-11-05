@@ -6,7 +6,7 @@ import PageHeader from '../../components/PageHeader'
 import Modal from '../../components/Modal'
 import Pagination from '../../components/Pagination'
 import HouseholdDetail from '../../components/HouseholdDetail'
-import { PriorityBadge } from '../../components/Badges'
+import { AssistTag, PriorityBadge } from '../../components/Badges'
 import useSummary from './useSummary'
 
 export default function QrReview() {
@@ -89,7 +89,7 @@ export default function QrReview() {
                   <td className="fw-semibold">{h.household_head}</td>
                   <td>{h.purok}</td>
                   <td>{h.members_count}</td>
-                  <td><PriorityBadge level={h.priority_level} score={h.priority_score} /></td>
+                  <td><PriorityBadge level={h.priority_level} score={h.priority_score} /><AssistTag show={h.needs_assistance} /></td>
                   <td className="muted">{new Date(h.created_at).toLocaleDateString('en-PH')}</td>
                   <td className="muted">{h.registration_type === 'walk_in' ? 'Walk-in' : 'Resident app'}</td>
                   <td className="text-end">

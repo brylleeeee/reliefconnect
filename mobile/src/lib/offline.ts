@@ -16,6 +16,7 @@ export type PackHousehold = {
   purok: string | null;
   members_count: number;
   priority_level: 'high' | 'medium' | 'low';
+  needs_assistance?: boolean; // no able-bodied adult: priority lane or home delivery
   quantity: number;
   claimed_at: string | null;
   // someone outside the household allowed to claim for it (e.g. a son for his senior parents)

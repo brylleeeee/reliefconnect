@@ -10,7 +10,7 @@ class Household extends Model
     protected $fillable = [
         'user_id', 'barangay_id', 'household_head', 'purok', 'address', 'contact_number',
         'members_count', 'seniors_count', 'pwd_count', 'infants_count', 'pregnant_count',
-        'is_solo_parent', 'priority_score', 'priority_level',
+        'is_solo_parent', 'priority_score', 'priority_level', 'needs_assistance',
         'reference_number', 'status', 'rejection_reason', 'approved_at', 'registration_type',
     ];
 
@@ -19,6 +19,7 @@ class Household extends Model
     protected function casts(): array
     {
         return [
+            'needs_assistance' => 'boolean',
             'approved_at' => 'datetime',
             'is_solo_parent' => 'boolean',
             'qr_secret' => 'encrypted',

@@ -8,7 +8,7 @@ import Modal from '../../components/Modal'
 import Pagination from '../../components/Pagination'
 import HouseholdDetail from '../../components/HouseholdDetail'
 import useConfirm from '../../components/useConfirm'
-import { PriorityBadge, StatusBadge } from '../../components/Badges'
+import { AssistTag, PriorityBadge, StatusBadge } from '../../components/Badges'
 import useSummary from './useSummary'
 
 export default function Households() {
@@ -103,7 +103,7 @@ export default function Households() {
                   <td className="fw-semibold">{h.household_head}</td>
                   <td>{h.purok}</td>
                   <td>{h.members_count}</td>
-                  <td><PriorityBadge level={h.priority_level} score={h.priority_score} /></td>
+                  <td><PriorityBadge level={h.priority_level} score={h.priority_score} /><AssistTag show={h.needs_assistance} /></td>
                   <td><StatusBadge status={h.status} /></td>
                   <td className="text-end text-nowrap">
                     <button className="btn btn-sm btn-rc-outline me-1" onClick={() => open(h.id)}>View</button>

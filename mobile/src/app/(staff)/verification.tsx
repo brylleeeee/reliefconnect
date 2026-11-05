@@ -23,6 +23,7 @@ type CheckResult = {
     purok: string | null;
     members_count: number;
     priority_level: 'high' | 'medium' | 'low';
+    needs_assistance?: boolean; // no able-bodied adult: priority lane or home delivery
     barangay: string;
   };
   can_claim: boolean;
@@ -331,6 +332,12 @@ export default function Verification() {
               <Info label="Barangay" value={h.barangay} />
               <Info label="Purok" value={h.purok ?? '—'} />
             </View>
+            {h.needs_assistance && (
+              <Text style={styles.assist}>
+                Needs assistance: no able-bodied adult in this household. Serve them in the priority lane
+                {result?.representative ? ', or release to their authorized representative.' : ', or arrange home delivery.'}
+              </Text>
+            )}
             <Text style={styles.hint}>Ask for a valid ID and check that the name matches before releasing.</Text>
           </View>
         )}
@@ -468,6 +475,10 @@ const styles = StyleSheet.create({
   value: { fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
   hint: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 4 },
   repHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  assist: {
+    fontFamily: fonts.semibold, fontSize: 12, lineHeight: 17, color: '#8A4B00',
+    backgroundColor: '#FFF4E5', borderRadius: 8, padding: 10, marginTop: 8,
+  },
   repName: { fontFamily: fonts.bold, fontSize: 16, color: colors.text },
   repRel: { fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary },
   choiceRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
