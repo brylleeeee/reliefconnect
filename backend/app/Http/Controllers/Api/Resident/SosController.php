@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Resident;
 
 use App\Http\Controllers\Controller;
 use App\Models\Household;
+use App\Jobs\ScoreSosAlert;
 use App\Models\SosAlert;
 use App\Services\SosMessageAnalyzer;
 use Illuminate\Http\Request;
@@ -11,8 +12,10 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Resident (mobile app): press SOS = "we need relief goods". The resident can also describe the situation
- * ("baha na kami", "may sakit ang anak ko"); the message is scored right away (built-in rules, or Gemini if
- * a key is set) and adds points to the household's barangay in SOS and Aid Prioritization.
+ * ("baha na kami", "may sakit ang anak ko"). The message is scored right away with the built-in rules, so the
+ * SOS counts immediately and the resident never waits; if an AI key is set, the ScoreSosAlert job then refines
+ * the score in the background on the high-priority "sos" queue. The points go to the household's barangay
+ * in SOS and Aid Prioritization.
  */
 class SosController extends Controller
 {
@@ -37,7 +40,7 @@ class SosController extends Controller
             if ($message !== '') {
                 $existing->message = mb_substr(trim($existing->message."\n".$message), 0, 1000);
                 $existing->save();
-                $analyzer->scoreAlert($existing);
+                $this->score($existing, $analyzer);
             }
 
             return response()->json(['sos' => $existing->fresh(), 'already_active' => true]);
@@ -60,7 +63,7 @@ class SosController extends Controller
             'latitude' => $data['latitude'] ?? null,
             'longitude' => $data['longitude'] ?? null,
         ]);
-        $analyzer->scoreAlert($sos); // works without an AI key (built-in rules)
+        $this->score($sos, $analyzer);
 
         app(\App\Services\ResidentNotifier::class)->sosReceived($sos); // bell: "SOS received, #2 in line"
 
@@ -73,6 +76,16 @@ class SosController extends Controller
         $this->active($request)?->update(['status' => 'cancelled']);
 
         return response()->json(['sos' => null]);
+    }
+
+    /** Rules score now (instant, offline); the AI refines it in the background when a key is set. */
+    private function score(SosAlert $sos, SosMessageAnalyzer $analyzer): void
+    {
+        $analyzer->scoreAlert($sos, useAi: false);
+
+        if ($analyzer->aiEnabled() && filled($sos->message)) {
+            ScoreSosAlert::queueFor($sos);
+        }
     }
 
     private function active(Request $request): ?SosAlert

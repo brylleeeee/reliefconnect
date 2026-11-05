@@ -319,3 +319,7 @@ button.rc-user:focus-visible { outline: 2px solid var(--rc-green); outline-offse
 .rc-sos-badge.served { background: #e8f8f0; color: #1e8449; }
 
 .rc-status.cancelled { background: #eef1f5; color: #52606d; }
+
+.rc-spin { animation: rc-spin 1s linear infinite; }
+@keyframes rc-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .rc-spin { animation: none; } }

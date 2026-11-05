@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
-import { Info, Sparkles, TriangleAlert } from 'lucide-react'
+import { Info, Loader2, Sparkles, TriangleAlert } from 'lucide-react'
 import api, { errorMessage } from '../api/client'
 import Modal from '../components/Modal'
+import AiStatusCard from '../components/AiStatusCard'
 import PageHeader from '../components/PageHeader'
 import useLiveTick, { useLiveUpdatedAt } from '../components/useLiveTick'
 import { C, SOS_LEVEL } from '../chartColors'
@@ -12,6 +13,10 @@ import { C, SOS_LEVEL } from '../chartColors'
 const MSG_COLOR = '#7c3aed'
 const AID_COLOR = '#0d9488'
 
+const ago = (iso, now) => {
+  const sec = Math.max(0, Math.round((now - new Date(iso)) / 1000))
+  return sec < 60 ? `${sec} s ago` : `${Math.floor(sec / 60)} min ago`
+}
 const waiting = (min) => (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`)
 const pretty = (t) => { const s = String(t).replace(/_/g, ' '); return s.charAt(0).toUpperCase() + s.slice(1) }
 
@@ -70,6 +75,19 @@ export default function SosPrioritization() {
   useEffect(() => { if (tick) load() }, [tick])
   const updatedAt = useLiveUpdatedAt()
 
+  // While the AI is still reading SOS messages in the background, check every 3 seconds instead of 10,
+  // so the AI's score replaces the rules score on screen as soon as it is ready.
+  const analyzing = d?.freshness?.analyzing ?? 0
+  useEffect(() => {
+    if (!analyzing) return undefined
+    const t = setTimeout(load, 3000)
+    return () => clearTimeout(t)
+  }, [d, analyzing])
+
+  // Clock for "updated 12 s ago"
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
+
   if (error) return <><PageHeader title="SOS Prioritization" subtitle="" /><div className="alert alert-danger">{error}</div></>
   if (!d) return <PageHeader title="SOS Prioritization" subtitle="Loading…" />
 
@@ -96,8 +114,28 @@ export default function SosPrioritization() {
       <PageHeader
         title="SOS Prioritization"
         subtitle="Residents press SOS and describe what is happening. Each message adds points to the household, and the barangay with the most urgent need is ranked first"
-        actions={<span className="rc-live">Live · updated {updatedAt.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })}</span>}
+        actions={(
+          <span className="rc-live" title={`Last checked ${updatedAt.toLocaleTimeString('en-PH')}`}>
+            Live · ranking updated {d.freshness ? ago(d.freshness.computed_at, now) : updatedAt.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })}
+          </span>
+        )}
       />
+
+      {analyzing > 0 && (
+        <div className="alert alert-info py-2 small d-flex align-items-center gap-2" role="status">
+          <Loader2 size={15} className="rc-spin" />
+          The AI is reading {analyzing} new SOS message{analyzing === 1 ? '' : 's'}. They already count using the
+          rule-based score, and the ranking updates by itself when the AI finishes.
+        </div>
+      )}
+      {d.freshness?.fallback > 0 && (
+        <div className="alert alert-warning py-2 small" role="status">
+          {d.freshness.fallback} SOS message{d.freshness.fallback === 1 ? ' was' : 's were'} scored by the rule-based engine
+          because the AI couldn’t be reached. They still count in the ranking.
+        </div>
+      )}
+
+      <AiStatusCard />
 
       <div className="small mb-3 d-flex align-items-center gap-2 text-success">
         <Sparkles size={14} />
@@ -116,6 +154,7 @@ export default function SosPrioritization() {
             {top.ai_points > 0 && <> The {engineName} added {top.ai_points} points from their messages.</>}
             {top.high_priority_households > 0 && <> {top.high_priority_households} of the households are high priority in Aid Prioritization.</>}
             {top.reason && <> <b>Why:</b> {top.reason}</>}
+            {top.analyzing > 0 && <> <i>(The AI is still reading {top.analyzing} of their messages; the score may change.)</i></>}
           </div>
         </section>
       ) : (
@@ -203,7 +242,7 @@ export default function SosPrioritization() {
           </p>
           <p className="small text-secondary mt-2 mb-0">
             {aiOn
-              ? 'The AI reads each message. If the AI is busy, the rule-based engine still gives points, so no SOS is left unscored.'
+              ? 'Each SOS is scored by the rule-based engine the moment it arrives, so it counts right away. The AI then reads the message in the background (SOS go first in the queue) and replaces that score, usually within seconds. If the main AI model is busy, a backup model is tried; if both fail, the rule-based score stays, so no SOS is left unscored.'
               : 'For now, the rule-based engine reads each message using keywords in English, Filipino, Ilocano and Pangasinan (for example baha, naipit, lagnat, walang pagkain). AI scoring will work once an AI API key is added, and the rule-based engine will remain as its backup.'}
           </p>
         </Modal>

@@ -203,7 +203,7 @@ class DatabaseSeeder extends Seeder
                     'people_count' => max($h->members_count, 1), 'message' => $message,
                 ]);
                 $sos->forceFill(['created_at' => now()->subMinutes($minutesAgo)])->save();
-                $analyzer->scoreAlert($sos);
+                $analyzer->scoreAlert($sos, useAi: false); // rules only: seeding shouldn't use up the AI's free limit
             }
         }
     }

@@ -12,7 +12,8 @@ class SosAnalyticsController extends Controller
 {
     public function index(SosPrioritizer $prioritizer)
     {
-        ['engine' => $engine, 'rows' => $ranking] = $prioritizer->rank();
+        $ranked = $prioritizer->rank();
+        ['engine' => $engine, 'rows' => $ranking] = $ranked;
         $pending = SosAlert::where('status', 'pending');
 
         // New SOS per hour for the last 24 hours (all statuses, so served ones still show the surge)
@@ -37,6 +38,12 @@ class SosAnalyticsController extends Controller
 
         return response()->json([
             'engine' => $engine, // 'ai' = every SOS message read by Gemini, 'mixed' = some used the keyword fallback, 'formula' = no AI used
+            // How fresh the ranking is: when it was last rebuilt, and SOS the AI is still reading in the background
+            'freshness' => [
+                'computed_at' => $ranked['computed_at'],
+                'analyzing' => $ranked['analyzing'],
+                'fallback' => $ranked['fallback'],
+            ],
             'summary' => [
                 'active' => (clone $pending)->count(),
                 'people' => (int) (clone $pending)->sum('people_count'),

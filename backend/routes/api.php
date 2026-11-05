@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AiStatusController;
 use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AnnouncementController;
 use App\Http\Controllers\Api\AuthController;
@@ -60,6 +61,10 @@ Route::middleware(['auth:sanctum', 'role:municipal_admin'])
         // SOS prioritization: which barangay is asking for the most help, plus charts
         Route::get('/sos', [SosAnalyticsController::class, 'index']);
         Route::post('/sos/barangays/{barangay}/serve', [SosAnalyticsController::class, 'serve']);
+
+        // AI status card: usage today vs. budget, last error, queue worker, test connection
+        Route::get('/ai-status', [AiStatusController::class, 'index']);
+        Route::post('/ai-status/test', [AiStatusController::class, 'test'])->middleware('throttle:6,1');
 
         // Analytics dashboard
         Route::get('/analytics', [AnalyticsController::class, 'overview']);
