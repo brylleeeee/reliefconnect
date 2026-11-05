@@ -6,23 +6,27 @@ use Illuminate\Support\Str;
 
 /**
  * Turns a name into a comparison key, so the same person written differently still matches:
- *   "Ma. Dela Cruz"  -> "maria dela cruz"     "MARIA DE LA CRUZ" -> "maria dela cruz"
+ *   "Ma. Dela Cruz"  -> "maria delacruz"      "MARIA DE LA CRUZ" -> "maria delacruz"
+ *   "John Delacruz"  -> "john delacruz"       "De Los Santos"    -> "delossantos"
  *   "Sto. Niño"      -> "santo nino"          "Juan  Cruz, Jr."  -> "juan cruz jr"
- * Suffixes (Jr., Sr., III) are kept: a father and son can share a name.
+ * Surname particles (de, del, dela, delos, san) are joined to the next word, because the same family name
+ * is written "Dela Cruz", "De la Cruz" and "Delacruz". Suffixes (Jr., Sr., III) are kept: a father and son
+ * can share a name.
  */
 class PersonName
 {
     private const TOKENS = ['ma' => 'maria', 'sto' => 'santo', 'sta' => 'santa', 'ma.' => 'maria'];
 
-    /** "de la" -> "dela", "de los" -> "delos", "de los santos" -> "delos santos" */
-    private const PARTICLES = ['/\bde la\b/' => 'dela', '/\bde los\b/' => 'delos', '/\bdel a\b/' => 'dela'];
+    /** Bump when the rules change, so a migration can recompute stored keys. */
+    public const VERSION = 2;
 
     public static function key(string $name): string
     {
         $s = Str::lower(Str::ascii(trim($name)));          // ñ -> n, é -> e
         $s = preg_replace('/[.,\'"`\-]+/', ' ', $s);         // punctuation becomes a space
         $s = preg_replace('/\s+/', ' ', trim($s));
-        $s = preg_replace(array_keys(self::PARTICLES), array_values(self::PARTICLES), $s);
+        $s = preg_replace('/\bde (la|las|los)\b/', 'de$1', $s);           // "de la" -> "dela"
+        $s = preg_replace('/\b(dela|delas|delos|del|de|san) (?=\S)/', '$1', $s); // "dela cruz" -> "delacruz"
 
         $tokens = array_map(fn ($t) => self::TOKENS[$t] ?? $t, explode(' ', $s));
 

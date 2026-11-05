@@ -73,8 +73,8 @@ class DuplicateRulesTest extends TestCase
         ])->assertCreated();
 
         $this->assertCount(1, $this->parents->fresh()->members); // removed from her parents' household
-        $this->assertSame(1, HouseholdMember::where('name_key', 'maria ana dela cruz')->count()); // counted once
-        $this->assertNull(HouseholdMember::where('name_key', 'maria ana dela cruz')->first()->transfer_from_household_id);
+        $this->assertSame(1, HouseholdMember::where('name_key', 'maria ana delacruz')->count()); // counted once
+        $this->assertNull(HouseholdMember::where('name_key', 'maria ana delacruz')->first()->transfer_from_household_id);
     }
 
     public function test_a_pending_registration_waits_and_shows_the_transfer_to_the_reviewer(): void
@@ -114,5 +114,20 @@ class DuplicateRulesTest extends TestCase
         $this->getJson("/api/barangay/households/{$id}")->assertOk()
             ->assertJsonPath('duplicate_check.possible_matches.0.member', 'Pedro D. Dela Cruz')
             ->assertJsonPath('duplicate_check.possible_matches.0.other_name', 'Pedro Dela Cruz');
+    }
+
+    public function test_surname_spelled_together_and_a_middle_initial_are_flagged(): void
+    {
+        $this->walkIn([['full_name' => 'John De La Cruz', 'relationship' => 'Head', 'birthdate' => '1999-04-04', 'sex' => 'M']])->assertCreated();
+
+        // "Delacruz" written as one word = the same name: blocked as a second head
+        $this->walkIn([['full_name' => 'John Delacruz', 'relationship' => 'Head', 'birthdate' => '1999-04-04', 'sex' => 'M']])
+            ->assertUnprocessable()->assertJsonValidationErrors('members.0.full_name');
+
+        // With a middle initial it may be someone else: allowed, but flagged for the barangay
+        $id = $this->walkIn([['full_name' => 'john p. delacruz', 'relationship' => 'Head', 'birthdate' => '1999-04-04', 'sex' => 'M']])
+            ->assertCreated()->json('id');
+        $this->getJson("/api/barangay/households/{$id}")
+            ->assertJsonPath('duplicate_check.possible_matches.0.other_name', 'John De La Cruz');
     }
 }
