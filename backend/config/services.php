@@ -32,7 +32,10 @@ return [
     // Leave the key empty and the page falls back to a plain formula.
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),
-        'model' => env('GEMINI_MODEL', 'gemini-flash-latest'),
+        'model' => env('GEMINI_MODEL', 'gemini-3.5-flash-lite'),
+        // Tried when the main model is busy (429/5xx), slow or unreachable
+        'fallback_model' => env('GEMINI_FALLBACK_MODEL', 'gemini-3.1-flash-lite'),
+        'timeout' => (int) env('GEMINI_TIMEOUT', 30), // seconds per model attempt
     ],
 
     'slack' => [

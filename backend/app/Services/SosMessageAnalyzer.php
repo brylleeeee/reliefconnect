@@ -12,7 +12,8 @@ use Illuminate\Support\Facades\Log;
  *
  * Two engines, same output (category, severity 0-10, risk flags, reason):
  *  - Built-in rules (default, no API key needed): reads keywords in English, Filipino, Ilocano and Pangasinan.
- *  - Gemini, only if GEMINI_API_KEY is set. If it fails, the built-in rules are used.
+ *  - Gemini, only if GEMINI_API_KEY is set: GEMINI_MODEL first, GEMINI_FALLBACK_MODEL if that one is busy.
+ *    If both fail, the built-in rules are used. In the app this runs in the background (ScoreSosAlert job).
  * Points are always computed here in PHP from severity and flags, and capped, so a dramatic or malicious
  * message can never give a household unlimited points.
  */
@@ -82,17 +83,34 @@ Reply with ONLY one JSON object, no other text:
 Only use facts that are in the message. Do not invent details.
 TXT;
 
-    /** Analyze the message and save the result on the SOS row. */
-    public function scoreAlert(SosAlert $alert): SosAlert
+    /** Is an AI key set? Without one, the built-in rules are used and no background job is needed. */
+    public function aiEnabled(): bool
     {
-        $r = $this->analyze((string) $alert->message);
+        return filled(config('services.gemini.key'));
+    }
 
+    /**
+     * Analyze the message and save the result on the SOS row.
+     * $useAi = false scores with the built-in rules only: instant, no internet needed. The SOS controller
+     * does this first and lets the ScoreSosAlert job ask the AI in the background.
+     */
+    public function scoreAlert(SosAlert $alert, bool $useAi = true): SosAlert
+    {
+        $result = $this->analyze((string) $alert->message, $useAi);
+
+        return $this->save($alert, $result, $result['source'] === 'ai' ? 'done' : null);
+    }
+
+    /** Stores one analysis on the SOS. $status: see the ai_status column (null = rules, final). */
+    public function save(SosAlert $alert, array $r, ?string $status): SosAlert
+    {
         $alert->forceFill([
             'ai_category' => $r['category'],
             'ai_severity' => $r['severity'],
             'ai_points' => $r['points'],
             'ai_reason' => $r['reason'],
             'ai_source' => $r['source'],
+            'ai_status' => $status,
             'ai_scored_at' => now(),
         ])->save();
 
@@ -100,7 +118,7 @@ TXT;
     }
 
     /** @return array{category: string, severity: int, flags: array, points: int, reason: string, source: string} */
-    public function analyze(string $message): array
+    public function analyze(string $message, bool $useAi = true): array
     {
         $message = trim(mb_substr($message, 0, 500));
 
@@ -108,32 +126,53 @@ TXT;
             return $this->result('other', 0, [], 'No message was written.', 'rules');
         }
 
-        // Gemini only if a key is set; otherwise (or if it fails) the built-in rules
-        return $this->askGemini($message) ?? $this->fromKeywords($message);
+        // The AI only if asked and a key is set; otherwise (or if it fails) the built-in rules
+        return ($useAi ? $this->askGemini($message) : null) ?? $this->fromKeywords($message);
     }
 
+    /** HTTP statuses that mean "this model is busy right now": try the backup model. */
+    private const BUSY = [429, 500, 502, 503, 504];
+
+    /**
+     * Asks Gemini: the main model first, then the backup model if the main one is busy, slow or
+     * unreachable. A wrong or blocked key (400/401/403) stops right away, since the backup would fail too.
+     * Returns null when no model answered, so the caller falls back to the built-in rules.
+     */
     private function askGemini(string $message): ?array
     {
-        $key = config('services.gemini.key');
-        if (blank($key)) {
+        if (! $this->aiEnabled()) {
             return null;
         }
 
-        try {
-            $model = config('services.gemini.model');
-            $res = Http::withHeaders(['x-goog-api-key' => $key])
-                ->timeout(20)
-                ->retry(2, 1000, fn ($e) => in_array($e->response?->status(), [429, 500, 503]), throw: false)
-                ->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent", [
-                    'systemInstruction' => ['parts' => [['text' => self::SYSTEM]]],
-                    'contents' => [['role' => 'user', 'parts' => [['text' => json_encode(['message' => $message], JSON_UNESCAPED_UNICODE)]]]],
-                    'generationConfig' => ['temperature' => 0, 'responseMimeType' => 'application/json'],
-                ]);
+        $models = array_values(array_unique(array_filter([
+            config('services.gemini.model'),
+            config('services.gemini.fallback_model'),
+        ])));
+
+        foreach ($models as $model) {
+            try {
+                $res = Http::withHeaders(['x-goog-api-key' => config('services.gemini.key')])
+                    ->timeout((int) config('services.gemini.timeout', 30))
+                    ->connectTimeout(10)
+                    ->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent", [
+                        'systemInstruction' => ['parts' => [['text' => self::SYSTEM]]],
+                        'contents' => [['role' => 'user', 'parts' => [['text' => json_encode(['message' => $message], JSON_UNESCAPED_UNICODE)]]]],
+                        'generationConfig' => ['temperature' => 0, 'responseMimeType' => 'application/json'],
+                    ]);
+            } catch (\Throwable $e) {
+                // Timeout or no connection: the backup model may still answer
+                Log::warning("SOS message AI error ({$model}): ".$e->getMessage());
+
+                continue;
+            }
 
             if (! $res->successful()) {
-                Log::warning('SOS message AI call failed', ['status' => $res->status(), 'body' => $res->body()]);
+                Log::warning("SOS message AI call failed ({$model})", ['status' => $res->status(), 'body' => mb_substr($res->body(), 0, 500)]);
+                if (in_array($res->status(), self::BUSY, true)) {
+                    continue;
+                }
 
-                return null;
+                return null; // key or request problem: the backup model would fail the same way
             }
 
             $text = collect($res->json('candidates.0.content.parts'))
@@ -143,9 +182,9 @@ TXT;
             $data = json_decode($text, true);
 
             if (! is_array($data) || ! isset($data['severity']) || ! is_numeric($data['severity'])) {
-                Log::warning('SOS message AI answer was unreadable', ['text' => $text]);
+                Log::warning("SOS message AI answer was unreadable ({$model})", ['text' => mb_substr($text, 0, 500)]);
 
-                return null;
+                continue;
             }
 
             return $this->result(
@@ -155,11 +194,9 @@ TXT;
                 (string) ($data['reason'] ?? ''),
                 'ai'
             );
-        } catch (\Throwable $e) {
-            Log::warning('SOS message AI error: '.$e->getMessage());
-
-            return null;
         }
+
+        return null;
     }
 
     /**
