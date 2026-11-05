@@ -257,6 +257,7 @@ class HouseholdController extends Controller
                 'eligibility' => $c->event?->eligibility_label,
                 'quantity_label' => $c->item->describeQuantity($c->quantity),
                 'verification_method' => $c->verification_method,
+                'claimant_name' => $c->claimant_name, // set when the authorized representative received it
                 'synced_from_offline' => $c->synced_from_offline,
                 'released_by' => $c->personnel?->name,
             ]),

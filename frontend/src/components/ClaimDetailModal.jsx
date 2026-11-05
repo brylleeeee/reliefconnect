@@ -36,6 +36,10 @@ export default function ClaimDetailModal({ url, onClose }) {
                 : <><Hash size={13} className="me-1" />Reference number</>}
             </div>
             <div><div className="rc-label">Released by</div>{c.released_by ?? '—'}</div>
+            <div>
+              <div className="rc-label">Received by</div>
+              {c.claimant_name ? <>{c.claimant_name} <span className="rc-tag">Authorized representative</span></> : 'Household member'}
+            </div>
             {c.synced_from_offline && (
               <div>
                 <div className="rc-label">Recorded offline</div>

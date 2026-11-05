@@ -47,7 +47,10 @@ export default function ClaimHistory({ householdId }) {
                   {c.type === 'Cash aid' ? <Wallet size={13} className="me-1 text-success" /> : <Package size={13} className="me-1 text-success" />}
                   {c.type}
                 </td>
-                <td className="text-nowrap">{c.quantity_label}<div className="small text-secondary">{c.item}</div></td>
+                <td className="text-nowrap">
+                  {c.quantity_label}<div className="small text-secondary">{c.item}</div>
+                  {c.claimant_name && <div className="small text-success">Received by representative {c.claimant_name}</div>}
+                </td>
                 <td>{c.verification_method === 'qr' ? 'QR scan' : 'Reference no.'}{c.synced_from_offline && <span className="rc-tag ms-1">Offline</span>}</td>
               </tr>
             ))}
