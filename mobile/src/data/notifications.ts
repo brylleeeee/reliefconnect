@@ -9,6 +9,7 @@ export type AppNotification = {
     | 'update_approved' | 'update_rejected'          // your request to update household details
     | 'sos_received' | 'sos_served'                  // your SOS
     | 'security'                                     // new login, QR reset
+    | 'report_resolved'                              // the barangay resolved your report
     | 'announcement';                                // older notifications only
   title: string;
   body: string;

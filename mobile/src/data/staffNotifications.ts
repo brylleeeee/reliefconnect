@@ -3,10 +3,10 @@ import { api } from '../lib/api';
 
 export type StaffNotification = {
   id: string;
-  kind: 'schedule' | 'started';
+  kind: 'schedule' | 'started' | 'report_resolved';
   title: string;
   body: string;
-  link: string; // screen to open when tapped, e.g. "/dashboard"
+  link: string; // screen to open when tapped, e.g. "/dashboard", "/assistant"
   read: boolean;
   created_at: string;
 };

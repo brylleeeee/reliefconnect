@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { View, Text, FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, type Href } from 'expo-router';
-import { Bell, CalendarClock, PlayCircle } from 'lucide-react-native';
+import { BadgeCheck, Bell, CalendarClock, PlayCircle } from 'lucide-react-native';
 import ScreenHeader from '../../components/ScreenHeader';
 import {
   fetchStaffNotifications, markStaffNotificationsRead, StaffNotification,
@@ -13,7 +13,8 @@ import { colors, fonts } from '../../constants/theme';
 
 const ICONS = {
   schedule: { Icon: CalendarClock, color: colors.blue },
-  started: { Icon: PlayCircle, color: colors.primary },
+started: { Icon: PlayCircle, color: colors.primary },
+  report_resolved: { Icon: BadgeCheck, color: colors.success },
 } as const;
 
 const when = (iso: string) =>

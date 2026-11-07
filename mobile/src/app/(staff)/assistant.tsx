@@ -1,73 +1,107 @@
-// src/app/(staff)/assistant.tsx  —  adviser: report field complaints or request technical support
-import { useState } from 'react';
+// src/app/(staff)/assistant.tsx  —  report field problems to the barangay, or call support
+import { useCallback, useState } from 'react';
 import {
   View, Text, TextInput, Pressable, ScrollView, Alert, Linking, Platform,
   KeyboardAvoidingView, StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Phone, MessageSquare } from 'lucide-react-native';
+import { useFocusEffect } from 'expo-router';
+import { Phone } from 'lucide-react-native';
 import ScreenHeader from '../../components/ScreenHeader';
 import PrimaryButton from '../../components/PrimaryButton';
+import ReportCard from '../../components/ReportCard';
 import { useStaff } from '../../context/StaffContext';
+import { ApiError, errorText } from '../../lib/api';
+import { fetchReports, sendReport, STAFF_CATEGORIES, SupportReport } from '../../data/supportReports';
 import { SUPPORT_PHONE, SUPPORT_NAME } from '../../constants/support';
 import { colors, fonts } from '../../constants/theme';
 
-const CATEGORIES = ['Technical problem', 'Field complaint', 'Resident concern', 'Other'] as const;
-type Category = (typeof CATEGORIES)[number];
-
-// Saved on the phone until the backend has a support_tickets table
-async function saveRequest(entry: Record<string, unknown>) {
-  const raw = await AsyncStorage.getItem('staff_support_requests');
-  const list = raw ? JSON.parse(raw) : [];
-  list.unshift(entry);
-  await AsyncStorage.setItem('staff_support_requests', JSON.stringify(list.slice(0, 50)));
-}
+type Category = (typeof STAFF_CATEGORIES)[number];
 
 export default function Assistant() {
   const { user, selected } = useStaff();
-  const [category, setCategory] = useState<Category>('Technical problem');
+  const [category, setCategory] = useState<Category>('Short on goods');
   const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [reports, setReports] = useState<SupportReport[] | null>(null);
+  const [listError, setListError] = useState('');
 
-  const context = [
-    `Staff: ${user?.name ?? 'Unknown'}`,
-    selected ? `Distribution: ${selected.name} (Brgy. ${selected.barangay})` : 'Distribution: none selected',
-    `Time: ${new Date().toLocaleString('en-PH')}`,
-  ].join('\n');
-
-  const send = async () => {
-    if (!message.trim()) {
-      Alert.alert('Describe the problem', 'Write a short description so support knows how to help.');
-      return;
+  const loadReports = useCallback(async () => {
+    try {
+      setReports(await fetchReports('distribution'));
+      setListError('');
+    } catch (e) {
+      setListError(errorText(e));
     }
-    const body = `[ReliefConnect ${category}]\n${message.trim()}\n\n${context}`;
+  }, []);
 
-    await saveRequest({
-      category,
-      message: message.trim(),
-      staffId: user?.id ?? null,
-      eventId: selected?.event_id ?? null,
-      barangay: selected?.barangay ?? null,
-      at: new Date().toISOString(),
-      status: 'sent_by_sms',
-    }).catch(() => {});
+  useFocusEffect(useCallback(() => { loadReports(); }, [loadReports]));
 
+  // Built at the moment of sending, so the time is correct even if writing took a while
+  const contextLines = () =>
+    [
+      `Staff: ${user?.name ?? 'Unknown'}`,
+      selected ? `Distribution: ${selected.name} (Brgy. ${selected.barangay})` : 'Distribution: none selected',
+      `Time: ${new Date().toLocaleString('en-PH')}`,
+    ].join('\n');
+
+  // Backup when there is no internet: opens the SMS app with the report ready
+  const sendSms = async () => {
+    const body = `[ReliefConnect ${category}]\n${message.trim()}\n\n${contextLines()}`;
     // Android uses ?body=, iOS uses &body=
     const url = `sms:${SUPPORT_PHONE}${Platform.OS === 'ios' ? '&' : '?'}body=${encodeURIComponent(body)}`;
     try {
       await Linking.openURL(url);
-      setMessage('');
-      router.back();
     } catch {
       Alert.alert('Could not open SMS', `Please text ${SUPPORT_PHONE} directly.`);
     }
   };
 
+  const submit = async () => {
+    if (!message.trim()) {
+      return Alert.alert('Describe the problem', 'Write a short description so your barangay knows how to help.');
+    }
+    setSending(true);
+    try {
+      await sendReport('distribution', {
+        category,
+        message: message.trim(),
+        distribution_event_id: selected?.event_id ?? null,
+      });
+      setMessage('');
+      Alert.alert('Report sent', 'Your barangay admin will see it on the website. You will be notified when it is resolved.');
+      loadReports();
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 0) {
+        // No connection: offer SMS instead
+        Alert.alert('No connection', 'The report could not reach the server. Send it by SMS instead?', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Send via SMS', onPress: sendSms },
+        ]);
+      } else {
+        Alert.alert('Report not sent', errorText(e));
+      }
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const smsInstead = () => {
+    if (!message.trim()) {
+      return Alert.alert('Describe the problem', 'Write a short description before sending.');
+    }
+    sendSms();
+  };
+
   const call = () => {
     Alert.alert('Call support?', `${SUPPORT_NAME}\n${SUPPORT_PHONE}`, [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Call', onPress: () => Linking.openURL(`tel:${SUPPORT_PHONE}`) },
+      {
+        text: 'Call',
+        onPress: () =>
+          Linking.openURL(`tel:${SUPPORT_PHONE}`).catch(() =>
+            Alert.alert('Could not start the call', `This phone cannot make calls. Please call ${SUPPORT_PHONE} from another phone.`)),
+      },
     ]);
   };
 
@@ -90,7 +124,7 @@ export default function Assistant() {
 
           <Text style={styles.label}>WHAT IS THIS ABOUT?</Text>
           <View style={styles.chips}>
-            {CATEGORIES.map((c) => (
+            {STAFF_CATEGORIES.map((c) => (
               <Pressable
                 key={c}
                 onPress={() => setCategory(c)}
@@ -104,24 +138,33 @@ export default function Assistant() {
           <Text style={styles.label}>DESCRIBE THE PROBLEM</Text>
           <TextInput
             style={styles.input}
-            placeholder="e.g. Scanner won't read printed QR cards in this hall"
+            placeholder="e.g. We only received 40 rice packs but the quota is 50"
             placeholderTextColor={colors.muted}
             value={message}
             onChangeText={setMessage}
             multiline
+            maxLength={1000}
             textAlignVertical="top"
           />
 
           <View style={styles.contextBox}>
             <Text style={styles.label}>ADDED AUTOMATICALLY</Text>
-            <Text style={styles.contextText}>{context}</Text>
+            <Text style={styles.contextText}>
+              {`Staff: ${user?.name ?? 'Unknown'}\n`}
+              {selected ? `Distribution: ${selected.name} (Brgy. ${selected.barangay})\n` : 'Distribution: none selected\n'}
+              Time: when you send
+            </Text>
           </View>
 
-          <PrimaryButton title="Send via SMS" onPress={send} />
-          <View style={styles.noteRow}>
-            <MessageSquare size={14} color={colors.textSecondary} strokeWidth={2} />
-            <Text style={styles.note}>Opens your SMS app with the message ready. A copy is saved on this phone.</Text>
-          </View>
+          <PrimaryButton title={sending ? 'Sending…' : 'Send Report'} onPress={submit} disabled={sending} />
+          <PrimaryButton title="Send via SMS instead" variant="outline" onPress={smsInstead} disabled={sending} />
+
+          {/* the staff member's past reports */}
+          <Text style={[styles.label, { marginTop: 12 }]}>MY REPORTS</Text>
+          {listError ? <Text style={styles.hint}>{listError}</Text> : null}
+          {reports === null && !listError && <Text style={styles.hint}>Loading…</Text>}
+          {reports?.length === 0 && <Text style={styles.hint}>You haven't sent any reports yet.</Text>}
+          {reports?.map((r) => <ReportCard key={r.id} report={r} />)}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -185,6 +228,5 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   contextText: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.text },
-  noteRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  note: { flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary },
+  hint: { fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
 });

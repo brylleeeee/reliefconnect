@@ -18,6 +18,9 @@ use App\Http\Controllers\Api\Resident\HouseholdController as ResidentHouseholdCo
 use App\Http\Controllers\Api\Resident\HouseholdUpdateRequestController as ResidentUpdateRequestController;
 use App\Http\Controllers\Api\Distribution\NotificationController as StaffNotificationController;
 use App\Http\Controllers\Api\Resident\NotificationController as ResidentNotificationController;
+use App\Http\Controllers\Api\Barangay\SupportReportController as BarangaySupportReportController;
+use App\Http\Controllers\Api\Distribution\SupportReportController as StaffSupportReportController;
+use App\Http\Controllers\Api\Resident\SupportReportController as ResidentSupportReportController;
 use App\Models\Barangay;
 use App\Http\Controllers\Api\DistributionEventController;
 use App\Http\Controllers\Api\InventoryController;
@@ -137,6 +140,10 @@ Route::middleware(['auth:sanctum', 'role:barangay_admin'])
         Route::post('/announcements', [BarangayAnnouncementController::class, 'store']);
         Route::put('/announcements/{announcement}', [BarangayAnnouncementController::class, 'update']);
         Route::delete('/announcements/{announcement}', [BarangayAnnouncementController::class, 'destroy']);
+
+        // Support reports: complaints from residents, field problems from staff
+        Route::get('/support-reports', [BarangaySupportReportController::class, 'index']);
+        Route::post('/support-reports/{supportReport}/resolve', [BarangaySupportReportController::class, 'resolve']);
     });
 
 // ---------------- Distribution Personnel (mobile scanner) ----------------
@@ -152,6 +159,10 @@ Route::middleware(['auth:sanctum', 'role:distribution_personnel'])
         Route::get('/notifications', [StaffNotificationController::class, 'index']);
         Route::get('/notifications/unread', [StaffNotificationController::class, 'unread']);
         Route::post('/notifications/read', [StaffNotificationController::class, 'read']);
+
+        // Assistant: report field problems to the barangay
+        Route::get('/support-reports', [StaffSupportReportController::class, 'index']);
+        Route::post('/support-reports', [StaffSupportReportController::class, 'store'])->middleware('throttle:10,1');
     });
 
 // ---------------- Resident (mobile app) ----------------
@@ -176,4 +187,8 @@ Route::middleware(['auth:sanctum', 'role:resident'])
         Route::get('/sos', [ResidentSosController::class, 'show']);
         Route::post('/sos', [ResidentSosController::class, 'store'])->middleware('throttle:6,1');
         Route::post('/sos/cancel', [ResidentSosController::class, 'cancel']);
+
+        // Report a problem to the barangay (e.g. incomplete aid)
+        Route::get('/support-reports', [ResidentSupportReportController::class, 'index']);
+        Route::post('/support-reports', [ResidentSupportReportController::class, 'store'])->middleware('throttle:10,1');
     });
