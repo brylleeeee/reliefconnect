@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\Distribution\ClaimController;
 use App\Http\Controllers\Api\Resident\AnnouncementController as ResidentAnnouncementController;
 use App\Http\Controllers\Api\Resident\HouseholdController as ResidentHouseholdController;
 use App\Http\Controllers\Api\Resident\HouseholdUpdateRequestController as ResidentUpdateRequestController;
+use App\Http\Controllers\Api\Distribution\NotificationController as StaffNotificationController;
 use App\Http\Controllers\Api\Resident\NotificationController as ResidentNotificationController;
 use App\Models\Barangay;
 use App\Http\Controllers\Api\DistributionEventController;
@@ -146,6 +147,11 @@ Route::middleware(['auth:sanctum', 'role:distribution_personnel'])
         Route::get('/events/{event}/check', [ClaimController::class, 'check']);
         Route::get('/events/{event}/offline-pack', [ClaimController::class, 'offlinePack']); // offline mode
         Route::post('/events/{event}/claims', [ClaimController::class, 'store']);
+
+        // Bell icon: in-app notifications (distribution scheduled, claiming opened)
+        Route::get('/notifications', [StaffNotificationController::class, 'index']);
+        Route::get('/notifications/unread', [StaffNotificationController::class, 'unread']);
+        Route::post('/notifications/read', [StaffNotificationController::class, 'read']);
     });
 
 // ---------------- Resident (mobile app) ----------------
