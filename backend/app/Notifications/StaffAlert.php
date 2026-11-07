@@ -2,14 +2,15 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Channels\ExpoPushChannel;
 use Illuminate\Notifications\Notification;
 
 /**
- * One in-app notification for distribution staff (bell icon on the staff dashboard).
- * Saved in the notifications table, like ResidentAlert. Push to the phone can be added later as another channel.
+ * One notification for distribution staff: saved in the notifications table (bell on the staff dashboard)
+ * and pushed to the staff member's phone, so it shows even when the app is closed.
  *
- * kind: schedule | started
- * link: the staff app screen to open when tapped, e.g. "/dashboard"
+ * kind: schedule | started | report_resolved
+ * link: the staff app screen to open when tapped, e.g. "/dashboard", "/assistant"
  */
 class StaffAlert extends Notification
 {
@@ -23,7 +24,7 @@ class StaffAlert extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', ExpoPushChannel::class];
     }
 
     public function toArray(object $notifiable): array
@@ -32,5 +33,15 @@ class StaffAlert extends Notification
             ['kind' => $this->kind, 'title' => $this->title, 'body' => $this->body, 'link' => $this->link, 'tag' => $this->tag],
             fn ($v) => $v !== null,
         );
+    }
+
+    /** The phone notification: same title and text; tapping it opens the same screen as the bell. */
+    public function toExpoPush(object $notifiable): array
+    {
+        return [
+            'title' => $this->title,
+            'body' => $this->body,
+            'data' => ['link' => $this->link, 'kind' => $this->kind],
+        ];
     }
 }
