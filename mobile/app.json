@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "reliefconnect-mobile",
+    "name": "ReliefConnect",
     "slug": "reliefconnect-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,9 +8,11 @@
     "scheme": "reliefconnectmobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.reliefconnect.mobile"
     },
     "android": {
+      "package": "com.reliefconnect.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -34,7 +36,13 @@
         }
       ],
       "expo-font",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#2E7D6B"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

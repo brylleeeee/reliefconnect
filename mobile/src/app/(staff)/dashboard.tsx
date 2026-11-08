@@ -9,6 +9,7 @@ import { useStaff } from '../../context/StaffContext';
 import { logout } from '../../lib/auth';
 import { errorText, qtyUnit } from '../../lib/api';
 import { downloadPack, getPack, getQueue, getProblems, clearProblems, syncQueue, SyncProblem } from '../../lib/offline';
+import { fetchStaffUnreadCount } from '../../data/staffNotifications';
 import { colors, fonts } from '../../constants/theme';
 
 function getInitials(name: string) {
@@ -28,6 +29,7 @@ export default function Dashboard() {
   const [syncingNow, setSyncingNow] = useState(false);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [unread, setUnread] = useState(0); // bell badge
 
   const refreshOffline = useCallback(async () => {
     setPending((await getQueue()).length);
@@ -43,6 +45,7 @@ export default function Dashboard() {
       setError(errorText(e));
     }
     await refreshOffline();
+    fetchStaffUnreadCount().then(setUnread).catch(() => {}); // bell badge; skipped quietly when offline
   }, [reload, refreshOffline]);
 
   // Online: send queued offline releases, then download a fresh household list for offline use
@@ -146,8 +149,13 @@ export default function Dashboard() {
           <Pressable style={styles.bell} hitSlop={6} onPress={() => router.push('/assistant')}>
             <Headset size={18} color={colors.primary} strokeWidth={2} />
           </Pressable>
-          <Pressable style={styles.bell} hitSlop={6} onPress={() => { /* TODO: notifications */ }}>
+          <Pressable style={styles.bell} hitSlop={6} onPress={() => router.push('/staff-notifications')}>
             <Bell size={18} color={colors.text} strokeWidth={2} />
+            {unread > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unread > 9 ? '9+' : unread}</Text>
+              </View>
+            )}
           </Pressable>
         </View>
       </View>
@@ -362,6 +370,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerIcons: { flexDirection: 'row', gap: 8 },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { fontFamily: fonts.bold, fontSize: 9, color: colors.white },
 
   content: { padding: 20, paddingTop: 16, gap: 16 },
 

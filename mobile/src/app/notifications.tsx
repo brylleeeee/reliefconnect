@@ -26,6 +26,7 @@ const ICONS = {
   security: { Icon: ShieldAlert, color: colors.danger },
   update_approved: { Icon: FilePen, color: colors.success },
   update_rejected: { Icon: FileX, color: colors.danger },
+   report_resolved: { Icon: BadgeCheck, color: colors.success },
 } as const;
 
 const when = (iso: string) =>

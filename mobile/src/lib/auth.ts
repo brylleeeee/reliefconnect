@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import { api, tokenStore, ApiError } from './api';
 import { clearOfflineData } from './offline';
+import { registerForPush, unregisterPush } from './push';
 
 export type Role = 'resident' | 'distribution_personnel' | 'barangay_admin' | 'municipal_admin';
 
@@ -33,6 +34,7 @@ export async function login(loginId: string, password: string, role: Role): Prom
       : 'This account is not a distribution staff account.');
   }
   await tokenStore.set(res.token);
+  registerForPush(); // push: in the background, never delays login
   return res.user;
 }
 
@@ -41,6 +43,7 @@ export async function register(name: string, phone: string, password: string): P
     body: { name: name.trim(), phone, password, device_name: deviceName() },
   });
   await tokenStore.set(res.token);
+  registerForPush(); // push: in the background, never delays sign-up
   return res.user;
 }
 
@@ -48,13 +51,16 @@ export async function register(name: string, phone: string, password: string): P
 export async function currentUser(): Promise<User | null> {
   if (!(await tokenStore.get())) return null;
   try {
-    return await api<User>('/me');
+    const user = await api<User>('/me');
+    registerForPush(); // push: refresh the token when the app reopens with a saved session
+    return user;
   } catch {
     return null;
   }
 }
 
 export async function logout() {
+  await unregisterPush(); // push: this phone stops receiving this account's notifications
   await api('/logout', { method: 'POST' }).catch(() => {}); // still log out locally if offline
   await tokenStore.clear();
   await clearOfflineData(); // offline mode: household lists don't stay on the phone after logout
