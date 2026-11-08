@@ -42,6 +42,13 @@ return [
         'daily_tokens' => (int) env('GEMINI_DAILY_TOKENS', 0),
     ],
 
+    // Push notifications: Laravel -> Expo Push Service -> Firebase (FCM) -> the phone.
+    // EXPO_ACCESS_TOKEN is optional (only needed if "Enhanced Security for Push Notifications" is on in expo.dev).
+    'expo' => [
+        'push_url' => env('EXPO_PUSH_URL', 'https://exp.host/--/api/v2/push/send'),
+        'access_token' => env('EXPO_ACCESS_TOKEN'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

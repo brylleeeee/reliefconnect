@@ -25,10 +25,16 @@ export async function registerForPush(): Promise<void> {
 
     if (Platform.OS === 'android') {
       // Android shows notifications through a channel; "high" makes them pop up
+      // MAX = pops up as a heads-up banner and plays the sound, even when the app is closed.
+      // The channel id must match `channelId` in backend/app/Jobs/SendExpoPush.php.
+      // (Android freezes a channel's settings after it is created: if you change them, reinstall the app.)
       await Notifications.setNotificationChannelAsync('default', {
         name: 'ReliefConnect',
-        importance: Notifications.AndroidImportance.HIGH,
+        importance: Notifications.AndroidImportance.MAX,
+        sound: 'default',
+        enableVibrate: true,
         vibrationPattern: [0, 250, 250, 250],
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
         lightColor: '#2E7D6B',
       });
     }
