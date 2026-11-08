@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\SendExpoPush;
+use Illuminate\Support\Facades\Bus;
 use App\Models\Barangay;
 use App\Models\BarangayDistribution;
 use App\Models\DistributionEvent;
@@ -66,6 +68,24 @@ class NotificationsTest extends TestCase
         $this->assertSame([], $this->kinds($this->resident)); // the Announcements tab covers these
     }
 
+        public function test_announcements_are_pushed_to_the_barangays_residents_only(): void
+    {
+        Bus::fake();
+        foreach ([$this->resident, $this->neighbor, $this->outsider] as $i => $u) {
+            $u->forceFill(['expo_push_token' => "ExponentPushToken[t{$i}]"])->save();
+        }
+
+        Sanctum::actingAs($this->admin);
+        $this->postJson('/api/barangay/announcements', ['title' => 'Relief schedule', 'description' => 'Tomorrow 8 AM'])
+            ->assertCreated();
+
+        // Both households in the barangay (approved and pending), not the one in another barangay
+        $pushed = Bus::dispatched(SendExpoPush::class)->pluck('userId')->sort()->values()->all();
+        $this->assertSame([$this->resident->id, $this->neighbor->id], $pushed);
+
+        Bus::assertDispatched(SendExpoPush::class, fn ($job) => $job->message['title'] === 'Relief schedule'
+            && $job->message['data']['link'] === '/announcements');
+    }
     private function event(string $eligibility = 'all', string $status = 'ongoing'): array
     {
         $item = ReliefItem::forceCreate(['name' => 'Senior Kit', 'unit' => 'Kits', 'quantity_in_stock' => 50]);

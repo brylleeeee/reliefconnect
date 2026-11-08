@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Announcement;
 use App\Models\BarangayDistribution;
 use App\Models\Distribution;
 use App\Models\DistributionEvent;
@@ -13,6 +14,7 @@ use App\Notifications\ResidentAlert;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 
 /**
  * Decides which residents get which in-app notification.
@@ -21,8 +23,23 @@ use Illuminate\Support\Facades\Notification;
  */
 class ResidentNotifier
 {
-    // Plain announcements are not sent here: the Announcements tab and its pop-up already
-    // cover them. Notifications are only about the resident's own household.
+        /**
+     * The barangay published an announcement: its own, one relayed from the LGU, or
+     * "Announce to residents" from the Distributions page. Pushed to the phones of the
+     * barangay's residents. Not added to the bell list, since the Announcements tab and
+     * its pop-up already show it inside the app.
+     */
+    public function announced(Announcement $a): void
+    {
+        if (! $a->barangay_id) {
+            return; // LGU announcements go to barangay officials; residents get them when relayed
+        }
+
+        $this->send(
+            Household::where('barangay_id', $a->barangay_id),
+            new ResidentAlert('announcement', $a->title, Str::limit($a->description, 150), '/announcements', inApp: false),
+        );
+    }
 
     /** Barangay set (or changed) the date and venue: approved households that can receive in this event. */
     public function scheduled(BarangayDistribution $bd, bool $changed): void
