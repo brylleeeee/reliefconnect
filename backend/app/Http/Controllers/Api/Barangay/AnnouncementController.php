@@ -71,7 +71,8 @@ class AnnouncementController extends Controller
             'published_at' => now(),
         ]);
 
-        // Residents see this in the Announcements tab (with its pop-up); no extra notification
+        // Residents see it in the Announcements tab (with its pop-up) and get a phone notification
+        app(\App\Services\ResidentNotifier::class)->announced($announcement);
 
         return response()->json($announcement, 201);
     }
