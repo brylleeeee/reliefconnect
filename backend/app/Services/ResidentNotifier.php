@@ -60,16 +60,16 @@ class ResidentNotifier
     /** Claiming closed in the barangay. */
     public function ended(BarangayDistribution $bd): void
     {
-       $bd->loadMissing('event.item');
+        $bd->loadMissing('event.item');
 
-       $this->send(
+        $this->send(
             $this->eligible($bd),
             new ResidentAlert(
-            'ended',
-            'Distribution has ended',
-            "{$bd->event->name} in your barangay is now closed. Check History to see if aid was recorded for your household.",
-            '/history',
-          ),
+                'ended',
+                'Distribution has ended',
+                "{$bd->event->name} in your barangay is now closed. Check History to see if aid was recorded for your household.",
+                '/history',
+            ),
         );
     }
 
@@ -82,13 +82,13 @@ class ResidentNotifier
             : new ResidentAlert('rejected', 'Household not approved',
                 ($h->rejection_reason ?: 'Please check your details.').' You can correct and resubmit.', '/home');
 
-        $this->send(Household::whereKey($h->id), $alert);
+        $this->send(Household::query()->whereKey($h->id), $alert);
     }
 
     /** A member of this household was registered in another household and the barangay approved the move. */
     public function memberMoved(Household $from, string $name): void
     {
-        $this->send(Household::whereKey($from->id), new ResidentAlert('update_approved', 'Household member moved',
+        $this->send(Household::query()->whereKey($from->id), new ResidentAlert('update_approved', 'Household member moved',
             "{$name} is now registered in another household, so they were removed from yours. "
             .'If this is a mistake, contact your barangay.', '/account'));
     }
@@ -102,7 +102,7 @@ class ResidentNotifier
             : new ResidentAlert('update_rejected', 'Update request not approved',
                 ($r->review_note ?: 'Please check your details.').' You can send a new request.', '/account');
 
-        $this->send(Household::whereKey($r->household_id), $alert);
+        $this->send(Household::query()->whereKey($r->household_id), $alert);
     }
 
     /** Aid was released to the household (also when an offline release syncs). */
@@ -112,7 +112,7 @@ class ResidentNotifier
         $what = $d->item->describeQuantity($d->quantity); // "1 Pack" or "₱1,000 cash"
 
         $this->send(
-            Household::whereKey($d->household_id),
+            Household::query()->whereKey($d->household_id),
             new ResidentAlert('released', 'Aid received', "{$what} of {$d->item->name}"
                 .($d->event ? " ({$d->event->name})" : '').' was recorded for your household.', '/history'),
         );
@@ -142,7 +142,7 @@ class ResidentNotifier
                 $for = $event->per_member
                     ? " ({$count} qualifying member".($count === 1 ? '' : 's').' in your household)'
                     : '';
-                $this->send(Household::whereKey($h->id), new ResidentAlert('eligible', 'You qualify for relief aid',
+                $this->send(Household::query()->whereKey($h->id), new ResidentAlert('eligible', 'You qualify for relief aid',
                     "{$event->name}: {$what} of {$event->item->name}{$for}. Your barangay will announce the schedule.", '/home'));
             }
         } catch (\Throwable $e) {
@@ -164,7 +164,7 @@ class ResidentNotifier
             // the ranking is a bonus; the confirmation still goes out
         }
 
-        $this->send(Household::whereKey($sos->household_id), new ResidentAlert('sos_received', 'SOS received',
+        $this->send(Household::query()->whereKey($sos->household_id), new ResidentAlert('sos_received', 'SOS received',
             "The LGU can see your household needs relief goods.{$position}", '/sos'));
     }
 
@@ -174,7 +174,7 @@ class ResidentNotifier
         if (! $householdIds) {
             return;
         }
-        $this->send(Household::whereIn('id', $householdIds), new ResidentAlert('sos_served', 'Relief is on the way',
+        $this->send(Household::query()->whereIn('id', $householdIds), new ResidentAlert('sos_served', 'Relief is on the way',
             "The LGU is sending relief goods to Barangay {$barangay}. Watch for your barangay's announcement.", '/sos'));
     }
 
@@ -201,7 +201,7 @@ class ResidentNotifier
         $households = $households->reject(fn ($h) => in_array($h->user_id, $already));
 
         if ($households->isNotEmpty()) {
-            $this->send(Household::whereIn('id', $households->pluck('id')), new ResidentAlert('reminder',
+            $this->send(Household::query()->whereIn('id', $households->pluck('id')), new ResidentAlert('reminder',
                 "You haven't claimed yet",
                 "{$bd->event->name} is being released at {$bd->venue}. Go before the barangay closes it and bring your QR code.",
                 '/home', $tag));
@@ -213,7 +213,7 @@ class ResidentNotifier
     /** Logged in on another phone: the QR changed, so older phones and screenshots stop working. */
     public function newLogin(Household $h, ?string $device): void
     {
-        $this->send(Household::whereKey($h->id), new ResidentAlert('security', 'New login on your account',
+        $this->send(Household::query()->whereKey($h->id), new ResidentAlert('security', 'New login on your account',
             'Your account was opened on '.($device ?: 'another phone').'. Your QR code changed, so the QR on any other phone no longer works. '
             .'If this was not you, change your password.', '/home'));
     }
@@ -221,7 +221,7 @@ class ResidentNotifier
     /** The barangay reset the household's QR (e.g. lost phone). */
     public function qrReset(Household $h): void
     {
-        $this->send(Household::whereKey($h->id), new ResidentAlert('security', 'Your QR code was reset',
+        $this->send(Household::query()->whereKey($h->id), new ResidentAlert('security', 'Your QR code was reset',
             'Your barangay reset your QR code. Log in again to get the new one; the old QR no longer works.', '/home'));
     }
 
