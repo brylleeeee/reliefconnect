@@ -41,6 +41,8 @@ class StaffAlert extends Notification
         return [
             'title' => $this->title,
             'body' => $this->body,
+            'sound' => 'default',
+            'channelId' => 'default',
             'data' => ['link' => $this->link, 'kind' => $this->kind],
         ];
     }

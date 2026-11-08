@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "100268802234",
+    "project_id": "reliefconnect-b7a2b",
+    "storage_bucket": "reliefconnect-b7a2b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:100268802234:android:bc6017c88b20b6fd964283",
+        "android_client_info": {
+          "package_name": "com.reliefconnect.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAwOF8c1KkjTrZut0amhjVLV4FfYKT5bpQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
