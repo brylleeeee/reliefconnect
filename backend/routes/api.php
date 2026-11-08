@@ -142,6 +142,8 @@ Route::middleware(['auth:sanctum', 'role:barangay_admin'])
 
         // Announcements: read the LGU's, announce to own residents
         Route::get('/announcements', [BarangayAnnouncementController::class, 'index']);
+        Route::get('/announcements/unread-count', [BarangayAnnouncementController::class, 'unreadCount']);
+        Route::post('/announcements/seen', [BarangayAnnouncementController::class, 'markSeen']);
         Route::post('/announcements', [BarangayAnnouncementController::class, 'store']);
         Route::put('/announcements/{announcement}', [BarangayAnnouncementController::class, 'update']);
         Route::delete('/announcements/{announcement}', [BarangayAnnouncementController::class, 'destroy']);

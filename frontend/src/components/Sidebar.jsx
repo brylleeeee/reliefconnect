@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutGrid, QrCode, Archive, FileText, Users, UserPlus, MapPin, ShieldPlus, LogOut, Scale,
   CalendarCheck, ClipboardCheck, Megaphone, History as HistoryIcon, TriangleAlert, UserCog, FilePen,
@@ -25,7 +25,7 @@ const LINKS = {
     { to: '/update-requests', label: 'Update Requests', icon: FilePen, badge: 'update_requests_pending' },
     { to: '/walk-in', label: 'Walk-in Registration', icon: UserPlus },
     { to: '/history', label: 'Distribution History', icon: HistoryIcon },
-    { to: '/announcements', label: 'Announcements', icon: Megaphone },
+    { to: '/announcements', label: 'Announcements', icon: Megaphone, badge: 'announcements_unread' },
     { to: '/staff', label: 'Staff Accounts', icon: UserCog },
   ],
 }
@@ -36,13 +36,27 @@ export default function Sidebar() {
   const initials = user?.name?.split(' ').map((w) => w[0]).slice(-2).join('') ?? '?'
   const isBarangay = user?.role === 'barangay_admin'
 
-  // Barangay: count of waiting update requests next to the menu item, refreshed live
+  // Barangay: counts next to the menu items (waiting update requests, new LGU announcements), refreshed live.
+  // While the Announcements page is open the announcements count is cleared on the server.
   const [counts, setCounts] = useState({})
   const tick = useLiveTick()
+  const { pathname } = useLocation()
+  const onAnnouncements = pathname.startsWith('/announcements')
+
   useEffect(() => {
     if (!isBarangay) return
-    api.get('/barangay/summary').then((r) => setCounts(r.data)).catch(() => {})
-  }, [isBarangay, tick])
+    const merge = (extra) => setCounts((c) => ({ ...c, ...extra }))
+
+    api.get('/barangay/summary').then((r) => merge(r.data)).catch(() => {})
+
+    if (onAnnouncements) {
+      api.post('/barangay/announcements/seen').then(() => merge({ announcements_unread: 0 })).catch(() => {})
+    } else {
+      api.get('/barangay/announcements/unread-count')
+        .then((r) => merge({ announcements_unread: r.data.unread }))
+        .catch(() => {})
+    }
+  }, [isBarangay, tick, onAnnouncements])
 
   return (
     <aside className="rc-sidebar">
@@ -65,7 +79,14 @@ export default function Sidebar() {
         {(LINKS[user?.role] ?? []).map(({ to, label, icon: Icon, end, badge }) => (
           <NavLink key={to} to={to} end={end} className="rc-nav-link">
             <Icon size={16} /> {label}
-            {badge && counts[badge] > 0 && <span className="rc-nav-badge" aria-label={`${counts[badge]} waiting`}>{counts[badge]}</span>}
+            {badge && counts[badge] > 0 && (
+              <span
+                className="rc-nav-badge"
+                aria-label={`${counts[badge]} ${badge === 'announcements_unread' ? 'new' : 'waiting'}`}
+              >
+                {counts[badge]}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

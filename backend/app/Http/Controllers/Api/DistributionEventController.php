@@ -393,11 +393,19 @@ class DistributionEventController extends Controller
             throw ValidationException::withMessages(['status' => 'This event is already closed.']);
         }
 
+        // Barangays that are running right now: grab them BEFORE the update below closes everything
+        $ongoing = $event->barangayDistributions()->where('status', 'ongoing')->get();
+
         DB::transaction(function () use ($event) {
             $event->update(['status' => 'closed', 'closed_at' => now()]);
             $event->barangayDistributions()->where('status', '!=', 'closed')
                 ->update(['status' => 'closed', 'closed_at' => now()]);
         });
+
+        // Tell residents in those barangays that distribution has ended
+        foreach ($ongoing as $bd) {
+            app(\App\Services\ResidentNotifier::class)->ended($bd->load('event.item'));
+        }
 
         return $event->fresh();
     }

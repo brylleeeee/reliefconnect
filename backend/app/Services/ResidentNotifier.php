@@ -57,6 +57,22 @@ class ResidentNotifier
         );
     }
 
+    /** Claiming closed in the barangay. */
+    public function ended(BarangayDistribution $bd): void
+    {
+       $bd->loadMissing('event.item');
+
+       $this->send(
+            $this->eligible($bd),
+            new ResidentAlert(
+            'ended',
+            'Distribution has ended',
+            "{$bd->event->name} in your barangay is now closed. Check History to see if aid was recorded for your household.",
+            '/history',
+          ),
+        );
+    }
+
     /** The barangay approved or rejected the resident's household. Walk-ins have no account yet, so they are skipped. */
     public function reviewed(Household $h): void
     {

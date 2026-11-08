@@ -5,10 +5,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import {
   Megaphone, CalendarClock, PlayCircle, BadgeCheck, CircleX, PackageCheck,
-  AlarmClock, Gift, Siren, Truck, ShieldAlert, FilePen, FileX,
+  AlarmClock, Gift, Siren, Truck, ShieldAlert, FilePen, FileX, Flag,
 } from 'lucide-react-native';
 import ScreenHeader from '../components/ScreenHeader';
 import { fetchNotifications, markNotificationsRead, AppNotification } from '../data/notifications';
+import { useBadges } from '../context/BadgeContext';
 import { errorText } from '../lib/api';
 import { colors, fonts } from '../constants/theme';
 
@@ -16,6 +17,7 @@ const ICONS = {
   announcement: { Icon: Megaphone, color: colors.blue },
   schedule: { Icon: CalendarClock, color: colors.primary },
   started: { Icon: PlayCircle, color: colors.primary },
+  ended: { Icon: Flag, color: colors.primary },
   approved: { Icon: BadgeCheck, color: colors.success },
   rejected: { Icon: CircleX, color: colors.danger },
   released: { Icon: PackageCheck, color: colors.success },
@@ -26,13 +28,14 @@ const ICONS = {
   security: { Icon: ShieldAlert, color: colors.danger },
   update_approved: { Icon: FilePen, color: colors.success },
   update_rejected: { Icon: FileX, color: colors.danger },
-   report_resolved: { Icon: BadgeCheck, color: colors.success },
+  report_resolved: { Icon: BadgeCheck, color: colors.success },
 } as const;
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 export default function Notifications() {
+  const { refresh: refreshBadges } = useBadges();
   const [items, setItems] = useState<AppNotification[] | null>(null);
   const [unread, setUnread] = useState(0);
   const [error, setError] = useState('');
@@ -41,13 +44,19 @@ export default function Notifications() {
   const load = useCallback(async () => {
     try {
       const res = await fetchNotifications();
-      setItems(res.notifications);
+      setItems(res.notifications); // unread cards stay highlighted while this screen is open
       setUnread(res.unread);
       setError('');
+      // Opening the screen counts as seeing them: mark all read on the server and clear the bell badge
+      if (res.unread > 0) {
+        markNotificationsRead()
+          .then(() => refreshBadges())
+          .catch(() => {});
+      }
     } catch (e) {
       setError(errorText(e));
     }
-  }, []);
+  }, [refreshBadges]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -61,7 +70,9 @@ export default function Notifications() {
   const open = async (n: AppNotification) => {
     if (!n.read) {
       setItems((list) => list?.map((x) => (x.id === n.id ? { ...x, read: true } : x)) ?? null);
-      markNotificationsRead([n.id]).then(setUnread).catch(() => {});
+      markNotificationsRead([n.id])
+        .then((count) => { setUnread(count); refreshBadges(); })
+        .catch(() => {});
     }
     router.push(n.link as Href);
   };
@@ -69,6 +80,7 @@ export default function Notifications() {
   const readAll = async () => {
     setItems((list) => list?.map((x) => ({ ...x, read: true })) ?? null);
     setUnread(await markNotificationsRead().catch(() => unread));
+    refreshBadges();
   };
 
   return (
@@ -85,7 +97,7 @@ export default function Notifications() {
             <Pressable onPress={readAll} hitSlop={8} style={styles.readAll}>
               <Text style={styles.readAllText}>Mark all as read</Text>
             </Pressable>
-          ) : null
+          ) : undefined
         }
         ListEmptyComponent={
           <Text style={styles.empty}>

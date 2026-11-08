@@ -8,6 +8,7 @@ import AppHeader from '../../components/AppHeader';
 import { fetchAnnouncements, Announcement } from '../../data/announcements';
 import { getReadIds, markRead } from '../../lib/announcementReads';
 import { useResident } from '../../context/ResidentContext';
+import { useBadges } from '../../context/BadgeContext';
 import { errorText } from '../../lib/api';
 import { colors, fonts } from '../../constants/theme';
 
@@ -39,6 +40,7 @@ function AnnouncementCard({ item, isNew }: { item: Announcement; isNew: boolean 
 
 export default function Announcements() {
   const { household } = useResident();
+  const { refresh: refreshBadges } = useBadges();
   const [items, setItems] = useState<Announcement[] | null>(null);
   const [newIds, setNewIds] = useState<string[]>([]);
   const [error, setError] = useState('');
@@ -52,11 +54,14 @@ export default function Announcements() {
       // highlight the unread ones this time, then remember them as read
       const unread = list.map((a) => String(a.id)).filter((id) => !read.includes(id));
       setNewIds(unread);
-      if (unread.length) markRead(unread);
+      if (unread.length) {
+        await markRead(unread);
+        refreshBadges(); // clear the Announcements badge
+      }
     } catch (e) {
       setError(errorText(e));
     }
-  }, []);
+  }, [refreshBadges]);
 
   // Reload whenever the tab is opened, so new advisories show up
   useFocusEffect(useCallback(() => { load(); }, [load]));

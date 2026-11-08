@@ -6,11 +6,13 @@ import { Megaphone, Building } from 'lucide-react-native';
 import PrimaryButton from './PrimaryButton';
 import { fetchAnnouncements, Announcement } from '../data/announcements';
 import { getReadIds, markRead } from '../lib/announcementReads';
+import { useBadges } from '../context/BadgeContext';
 import { colors, fonts } from '../constants/theme';
 
 let shownThisSession = false; // show at most once per app launch
 
 export default function UnreadAnnouncementsModal() {
+  const { refresh: refreshBadges } = useBadges();
   const [unread, setUnread] = useState<Announcement[]>([]);
   const [visible, setVisible] = useState(false);
 
@@ -34,6 +36,7 @@ export default function UnreadAnnouncementsModal() {
   const close = async (openList: boolean) => {
     setVisible(false);
     await markRead(unread.map((a) => String(a.id)));
+    refreshBadges(); // clear the Announcements badge right away
     if (openList) router.push('/announcements');
   };
 

@@ -1,22 +1,19 @@
 // src/components/AppHeader.tsx
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Handshake, Bell } from 'lucide-react-native';
-import { fetchUnreadCount } from '../data/notifications';
+import { useBadges } from '../context/BadgeContext';
 import { colors, fonts } from '../constants/theme';
 
 type Props = { barangay?: string };
 
 export default function AppHeader({ barangay }: Props) {
-  // Bell with unread badge; refreshed whenever a resident screen opens.
+  // Bell with unread badge. The count is kept up to date by BadgeProvider (polling + push),
+  // and refreshed again whenever a resident screen gains focus.
   // Hidden if the count can't be loaded (e.g. not a resident account).
-  const [unread, setUnread] = useState<number | null>(null);
-  useFocusEffect(
-    useCallback(() => {
-      fetchUnreadCount().then(setUnread).catch(() => setUnread(null));
-    }, []),
-  );
+  const { notifications: unread, refresh } = useBadges();
+  useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
 
   return (
     <View style={styles.header}>

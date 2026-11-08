@@ -37,6 +37,28 @@ class AnnouncementController extends Controller
         return response()->json(['from_lgu' => $fromLgu, 'mine' => $mine]);
     }
 
+    /** Sidebar badge: LGU announcements for this barangay published since the admin last opened the page. */
+    public function unreadCount(Request $request)
+    {
+        $barangayId = $this->barangayId($request);
+        $seenAt = $request->user()->announcements_seen_at;
+
+        $unread = Announcement::forBarangay($barangayId)
+            ->whereNotNull('published_at')
+            ->when($seenAt, fn ($q) => $q->where('published_at', '>', $seenAt))
+            ->count();
+
+        return response()->json(['unread' => $unread]);
+    }
+
+    /** Called when the admin opens the Announcements page: clears the sidebar badge. */
+    public function markSeen(Request $request)
+    {
+        $request->user()->forceFill(['announcements_seen_at' => now()])->save();
+
+        return response()->json(['unread' => 0]);
+    }
+
     public function store(Request $request)
     {
         $barangayId = $this->barangayId($request);
@@ -86,7 +108,7 @@ class AnnouncementController extends Controller
         }
         // Can only link an event that includes this barangay
         if (! empty($data['distribution_event_id'])) {
-            abort_unless(DistributionEvent::find($data['distribution_event_id'])?->forBarangay($barangayId),
+            abort_unless((bool) DistributionEvent::find($data['distribution_event_id'])?->forBarangay($barangayId),
                 422, 'That event does not include your barangay.');
         }
 

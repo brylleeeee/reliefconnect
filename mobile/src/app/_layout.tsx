@@ -12,6 +12,7 @@ import {
   Inter_800ExtraBold,
 } from '@expo-google-fonts/inter';
 import { ResidentProvider } from '../context/ResidentContext';
+import { BadgeProvider } from '../context/BadgeContext';
 import '../lib/push'; // sets how notifications show while the app is open
 
 export default function RootLayout() {
@@ -36,8 +37,10 @@ export default function RootLayout() {
 
   return (
     <ResidentProvider>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false }} />
+      <BadgeProvider>
+        <StatusBar style="dark" />
+        <Stack screenOptions={{ headerShown: false }} />
+      </BadgeProvider>
     </ResidentProvider>
   );
 }

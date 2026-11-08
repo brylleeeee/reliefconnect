@@ -63,7 +63,7 @@ class DistributionController extends Controller
         $changed = $bd->status === 'scheduled';
         $bd->update($data + ['status' => 'scheduled', 'updated_by' => $request->user()->id]);
 
-        app(\App\Services\ResidentNotifier::class)->scheduled($bd->fresh('event.item'), $changed); // bell in the resident app
+        //app(\App\Services\ResidentNotifier::class)->scheduled($bd->fresh('event.item'), $changed); // bell in the resident app
         app(\App\Services\StaffNotifier::class)->scheduled($bd->fresh('event.item'), $changed); // bell in the staff app
 
         return $this->present($bd->fresh('event.item'));
@@ -98,6 +98,8 @@ class DistributionController extends Controller
         }
 
         $bd->update(['status' => 'closed', 'closed_at' => now(), 'updated_by' => $request->user()->id]);
+        $bd->update(['status' => 'closed', 'closed_at' => now(), 'updated_by' => $request->user()->id]);
+        app(\App\Services\ResidentNotifier::class)->ended($bd->fresh('event.item')); // bell in the resident app
 
         return $this->present($bd->fresh('event.item'));
     }
