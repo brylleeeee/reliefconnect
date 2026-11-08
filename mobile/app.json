@@ -38,7 +38,7 @@
       ],
       "expo-font",
       "expo-secure-store",
-            [
+      [
         "expo-notifications",
         {
           "color": "#2E7D6B"
@@ -66,6 +66,7 @@
       "eas": {
         "projectId": "8ff1b536-ae13-4c7b-89fa-3aafe271c869"
       }
-    }
+    },
+    "owner": "relief-connect-team"
   }
 }
