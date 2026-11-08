@@ -1,4 +1,5 @@
-// src/app/report-problem.tsx  —  resident: report a problem to the barangay (e.g. incomplete aid)
+// src/app/report-problem.tsx  —  resident: report a problem to the barangay (e.g. incomplete aid).
+// Sent to the barangay admin's website; if there is no internet, it can be sent by SMS instead.
 import { useCallback, useState } from 'react';
 import {
   View, Text, TextInput, Pressable, ScrollView, Alert, Linking, Platform,
@@ -10,7 +11,8 @@ import { Phone } from 'lucide-react-native';
 import ScreenHeader from '../components/ScreenHeader';
 import PrimaryButton from '../components/PrimaryButton';
 import ReportCard from '../components/ReportCard';
-import { errorText } from '../lib/api';
+import { ApiError, errorText } from '../lib/api';
+import { useResident } from '../context/ResidentContext';
 import { fetchReports, sendReport, RESIDENT_CATEGORIES, SupportReport } from '../data/supportReports';
 import { SUPPORT_PHONE, SUPPORT_NAME } from '../constants/support';
 import { colors, fonts } from '../constants/theme';
@@ -18,6 +20,7 @@ import { colors, fonts } from '../constants/theme';
 type Category = (typeof RESIDENT_CATEGORIES)[number];
 
 export default function ReportProblem() {
+  const { household } = useResident();
   const [category, setCategory] = useState<Category>('Incomplete or missing aid');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -35,6 +38,34 @@ export default function ReportProblem() {
 
   useFocusEffect(useCallback(() => { loadReports(); }, [loadReports]));
 
+  // Built at the moment of sending, so the barangay knows who is reporting even without the app
+  const contextLines = () =>
+    [
+      `Resident: ${household?.headName ?? 'Unknown'}`,
+      household?.referenceNumber ? `Reference No.: ${household.referenceNumber}` : null,
+      household ? `Address: ${[household.purok, household.address].filter(Boolean).join(', ')}, Brgy. ${household.barangay}` : null,
+      `Time: ${new Date().toLocaleString('en-PH')}`,
+    ].filter(Boolean).join('\n');
+
+  // Backup when there is no internet: opens the SMS app with the report ready
+  const sendSms = async () => {
+    const body = `[ReliefConnect ${category}]\n${message.trim()}\n\n${contextLines()}`;
+    // Android uses ?body=, iOS uses &body=
+    const url = `sms:${SUPPORT_PHONE}${Platform.OS === 'ios' ? '&' : '?'}body=${encodeURIComponent(body)}`;
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Could not open SMS', `Please text ${SUPPORT_PHONE} directly.`);
+    }
+  };
+
+  const smsInstead = () => {
+    if (!message.trim()) {
+      return Alert.alert('Describe the problem', 'Tell your barangay what happened before sending.');
+    }
+    sendSms();
+  };
+
   const submit = async () => {
     if (!message.trim()) {
       return Alert.alert('Describe the problem', 'Tell your barangay what happened so they can help.');
@@ -46,7 +77,15 @@ export default function ReportProblem() {
       Alert.alert('Report sent', 'Your barangay will review it. You will be notified when it is resolved.');
       loadReports();
     } catch (e) {
-      Alert.alert('Report not sent', errorText(e));
+      if (e instanceof ApiError && e.status === 0) {
+        // No connection: offer SMS instead
+        Alert.alert('No connection', 'The report could not reach the server. Send it by SMS instead?', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Send via SMS', onPress: sendSms },
+        ]);
+      } else {
+        Alert.alert('Report not sent', errorText(e));
+      }
     } finally {
       setSending(false);
     }
@@ -107,8 +146,10 @@ export default function ReportProblem() {
           />
 
           <PrimaryButton title={sending ? 'Sending…' : 'Send Report'} onPress={submit} disabled={sending} />
+          <PrimaryButton title="Send via SMS instead" variant="outline" onPress={smsInstead} disabled={sending} />
           <Text style={styles.note}>
             Your name and household are attached automatically, so your barangay knows who to follow up with.
+            No internet? SMS opens your messaging app with the report ready to send.
           </Text>
 
           {/* the resident's past reports */}
