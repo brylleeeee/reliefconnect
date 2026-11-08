@@ -135,6 +135,7 @@ export default function Account() {
               onPress={() => router.push('/update-household')}
             />
           )}
+          <ActionRow label="Change Password" onPress={() => router.push('/change-password')} />
           <ActionRow label="Report a Problem" onPress={() => router.push('/report-problem')} />
           <ActionRow label="Notification Preferences" onPress={() => comingSoon('Notification Preferences')} />
         </View>
