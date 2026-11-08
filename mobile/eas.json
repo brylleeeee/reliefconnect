@@ -9,7 +9,7 @@
     "preview": {
       "distribution": "internal",
       "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_URL": "http://CHANGE-ME-LAPTOP-IP:8000/api" }
+      "env": { "EXPO_PUBLIC_API_URL": "http://192.168.100.37:8000/api" }
     },
     "production": { "autoIncrement": true }
   }

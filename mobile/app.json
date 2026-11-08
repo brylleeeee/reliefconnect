@@ -38,16 +38,34 @@
       ],
       "expo-font",
       "expo-secure-store",
-      [
+            [
         "expo-notifications",
         {
           "color": "#2E7D6B"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "8ff1b536-ae13-4c7b-89fa-3aafe271c869"
+      }
     }
   }
 }
