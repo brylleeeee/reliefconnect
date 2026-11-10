@@ -102,7 +102,7 @@ export default function SosPrioritization() {
     ? 'Ranked by AI from the residents\' SOS messages.'
     : d.engine === 'mixed'
       ? 'Ranked by AI and the rule-based engine from the residents\' SOS messages.'
-      : 'Ranked by ReliefConnect\'s rule-based engine from the residents\' SOS messages. AI scoring will work once an AI API key is added.'
+      : 'Ranked by AI and ReliefConnect\'s rule-based engine from the residents\' SOS messages.'
 
   const waitData = ranking.map((r) => ({ name: r.name, hours: Math.round((r.waiting_minutes / 60) * 10) / 10 }))
   const typeData = (d.charts?.emergency_types?.labels ?? []).map((t, i) => ({

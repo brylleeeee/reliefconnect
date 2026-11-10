@@ -20,10 +20,42 @@ use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
-    private array $first = ['Juan', 'Maria', 'Jose', 'Ana', 'Pedro', 'Rosa', 'Carlos', 'Liza', 'Mario', 'Elena',
-        'Ramon', 'Teresa', 'Andres', 'Luz', 'Emilio', 'Corazon', 'Danilo', 'Marites', 'Rogelio', 'Imelda'];
-    private array $last = ['Dela Cruz', 'Santos', 'Reyes', 'Bautista', 'Garcia', 'Mendoza', 'Aquino', 'Ramos',
-        'Castillo', 'Flores', 'Villanueva', 'Soriano', 'Tamayo', 'Fernandez', 'Pascual', 'Gonzales'];
+    private array $maleFirst = [
+        'Juan', 'Jose', 'Pedro', 'Carlos', 'Mario', 'Ramon', 'Andres', 'Emilio', 'Danilo', 'Rogelio',
+        'Antonio', 'Manuel', 'Ricardo', 'Eduardo', 'Roberto', 'Fernando', 'Alberto', 'Rolando', 'Romeo', 'Rodrigo',
+        'Benjamin', 'Jericho', 'Mark', 'John', 'Joseph', 'Michael', 'Christian', 'Kevin', 'Jay', 'Ryan',
+        'Arnel', 'Jun', 'Noel', 'Rey', 'Allan', 'Dennis', 'Randy', 'Jerome', 'Rommel', 'Edgardo',
+        'Leonardo', 'Alfredo', 'Domingo', 'Felix', 'Gregorio', 'Isidro', 'Lorenzo', 'Nestor', 'Oscar', 'Ernesto',
+        'Reynaldo', 'Armando', 'Virgilio', 'Wilfredo', 'Cesar', 'Dante', 'Eliseo', 'Gerardo', 'Hilario', 'Jaime',
+        'Joel', 'Jomar', 'Ronnie', 'Marlon', 'Glenn', 'Bernard', 'Jessie', 'Eric', 'Rex', 'Lito',
+        'Alvin', 'Cris', 'Erwin', 'Froilan', 'Gilbert', 'Harold', 'Ian', 'Jefferson', 'Kenneth', 'Louie',
+    ];
+    private array $femaleFirst = [
+        'Maria', 'Ana', 'Rosa', 'Liza', 'Elena', 'Teresa', 'Luz', 'Corazon', 'Marites', 'Imelda',
+        'Josefina', 'Remedios', 'Rosario', 'Lourdes', 'Gloria', 'Cecilia', 'Erlinda', 'Norma', 'Evelyn', 'Marilou',
+        'Jocelyn', 'Rowena', 'Arlene', 'Charito', 'Divina', 'Estrella', 'Felicidad', 'Genevieve', 'Helen', 'Irene',
+        'Jennifer', 'Katherine', 'Lorna', 'Mercedes', 'Nenita', 'Pilar', 'Rhea', 'Sheila', 'Trinidad', 'Vilma',
+        'Angelica', 'Bernadette', 'Cherry', 'Dolores', 'Edna', 'Flordeliza', 'Grace', 'Hazel', 'Jasmine', 'Joy',
+        'Michelle', 'Nancy', 'Precious', 'Queenie', 'Rochelle', 'Sharon', 'Tessie', 'Violeta', 'Wilma', 'Zenaida',
+        'Aileen', 'Beth', 'Carmela', 'Delia', 'Emma', 'Fe', 'Gemma', 'Honey', 'Ivy', 'Janice',
+        'Karen', 'Leah', 'Maricel', 'Nora', 'Olivia', 'Perla', 'Rina', 'Susan', 'Thelma', 'Yolanda',
+    ];
+    private array $surnames = [
+        'Dela Cruz', 'Santos', 'Reyes', 'Bautista', 'Garcia', 'Mendoza', 'Aquino', 'Ramos', 'Castillo', 'Flores',
+        'Villanueva', 'Soriano', 'Tamayo', 'Fernandez', 'Pascual', 'Gonzales', 'Cayabyab', 'Manuel', 'Mejia', 'Mangaoang',
+        'Sison', 'Rosario', 'Estrada', 'Quiambao', 'Caasi', 'Macaraeg', 'Dumlao', 'Padilla', 'Abalos', 'Ancheta',
+        'Bugayong', 'Cabrera', 'Ferrer', 'Viray', 'Pascua', 'Maramba', 'Gabriel', 'Tabora', 'Lomibao', 'Sabado',
+        'Palisoc', 'Ventenilla', 'Gutierrez', 'Austria', 'Navarro', 'Cruz', 'Pineda', 'Lopez', 'Ocampo', 'Valdez',
+        'Zamora', 'Domingo', 'Ramirez', 'Tolentino', 'Nacino', 'Oliva', 'Rabago', 'Serrano', 'Cacayurin', 'Dulay',
+        'Esteban', 'Fabia', 'Guiang', 'Hermosura', 'Agbayani', 'Alcantara', 'Bernardo', 'Corpuz', 'De Guzman', 'Evangelista',
+        'Galvez', 'Hernandez', 'Ibarra', 'Jimenez', 'Lacson', 'Macalalad', 'Natividad', 'Ordonez', 'Pacheco', 'Quintos',
+        'Rivera', 'Salazar', 'Torres', 'Umali', 'Vergara', 'Yambao', 'Zaragoza', 'Magno', 'Sarmiento', 'Tuliao',
+    ];
+
+    private array $usedNames = [];
+    private array $usedPhones = ['09171234567' => true]; // reserved for the demo resident
+    private array $phonePrefixes = ['0905', '0906', '0915', '0916', '0917', '0926', '0927', '0935', '0936', '0945',
+        '0953', '0954', '0955', '0956', '0961', '0963', '0966', '0975', '0977', '0995', '0997'];
 
     public function run(): void
     {
@@ -40,17 +72,17 @@ class DatabaseSeeder extends Seeder
         // LGU (municipal) admin: not tied to one barangay
         $admin = User::create([
             'name' => 'Hon. R. Santos',
-            'email' => 'admin@urbiztondo.test',
+            'email' => 'admin@urbiztondo.com',
             'password' => 'password',
             'role' => User::ROLE_MUNICIPAL_ADMIN,
             'position' => 'Disaster Operations Chief',
         ]);
 
-        // One Barangay Admin per barangay, e.g. batangcaoa@urbiztondo.test, pasibi-east@urbiztondo.test
+        // One Barangay Admin per barangay, e.g. batangcaoa@urbiztondo.com, pasibi-east@urbiztondo.com
         foreach ($barangays as $b) {
             User::create([
                 'name' => "Brgy. {$b->name} Secretary",
-                'email' => Str::slug($b->name).'@urbiztondo.test',
+                'email' => Str::slug($b->name).'@urbiztondo.com',
                 'password' => 'password',
                 'role' => User::ROLE_BARANGAY_ADMIN,
                 'position' => 'Barangay Secretary',
@@ -60,7 +92,7 @@ class DatabaseSeeder extends Seeder
 
         $distributor = User::create([
             'name' => 'Maria Santos',
-            'email' => 'staff@urbiztondo.test',
+            'email' => 'staff@urbiztondo.com',
             'username' => 'staff', // the mobile staff app logs in by username
             'password' => 'password',
             'role' => User::ROLE_DISTRIBUTION,
@@ -89,12 +121,13 @@ class DatabaseSeeder extends Seeder
                     'status' => 'pending',
                     'registration_type' => rand(1, 100) <= 30 ? 'walk_in' : 'online',
                 ]);
+                $members = $this->randomMembers();
                 $service->save($household, [
                     'purok' => 'Purok '.rand(1, 6),
                     'address' => 'Sitio '.['Centro', 'Riverside', 'Maligaya', 'Bagong Silang', 'Looban'][rand(0, 4)],
-                    'contact_number' => '09'.rand(100000000, 999999999),
-                    'is_solo_parent' => rand(1, 100) <= 10,
-                    'members' => $this->randomMembers(),
+                    'contact_number' => $this->uniquePhone(),
+                    'is_solo_parent' => $this->isSoloParent($members),
+                    'members' => $members,
                 ], checkDuplicates: false);
 
                 if (! $pending) {
@@ -133,6 +166,10 @@ class DatabaseSeeder extends Seeder
         $this->seedSeniorEvent($sample, $admin, $distributor);
         $this->seedSos($sample);
 
+        // Bulk resident accounts for beta testers, spread across all 21 barangays.
+        // Runs last so the event quotas, claims and SOS data above stay as designed.
+        $this->seedResidents($barangays, $admin, 600);
+
         foreach ([
             ['Nutritional Relief Pack Distribution', 'Priority collection for senior citizens and pregnant women. Please bring your approved digital Relief QR code.', now()->setTime(8, 0)],
             ['Class Suspensions & Flood Advisory', 'Due to southwest monsoon rains, classes in all levels are suspended. Emergency rescue boat standby at Purok 4.', now()->subDay()],
@@ -146,9 +183,50 @@ class DatabaseSeeder extends Seeder
     }
 
     /**
-     * An event only for households with a senior citizen, given per senior:
-     * a household with two seniors receives two kits.
+     * Tops the resident accounts up to $target, spread across all barangays.
+     * Each resident gets an approved household, so the mobile app has data to show.
+     * Login: the resident's phone number / password
      */
+    private function seedResidents($barangays, User $admin, int $target): void
+    {
+        $service = app(HouseholdService::class);
+        $needed = $target - User::where('role', User::ROLE_RESIDENT)->count();
+
+        for ($n = 0; $n < $needed; $n++) {
+            $b = $barangays[$n % $barangays->count()];
+            $phone = $this->uniquePhone();
+            $members = $this->randomMembers();
+
+            $household = new Household([
+                'barangay_id' => $b->id,
+                'status' => 'pending',
+                'registration_type' => rand(1, 100) <= 30 ? 'walk_in' : 'online',
+            ]);
+            $service->save($household, [
+                'purok' => 'Purok '.rand(1, 6),
+                'address' => 'Sitio '.['Centro', 'Riverside', 'Maligaya', 'Bagong Silang', 'Looban'][rand(0, 4)],
+                'contact_number' => $phone,
+                'is_solo_parent' => $this->isSoloParent($members),
+                'members' => $members,
+            ], checkDuplicates: false);
+
+            $service->approve($household, $admin);
+
+            $resident = User::create([
+                'name' => $household->household_head,
+                'phone' => $phone,
+                'password' => 'password',
+                'role' => User::ROLE_RESIDENT,
+                'barangay_id' => $b->id,
+            ]);
+
+            $household->forceFill([
+                'user_id' => $resident->id,
+                'approved_at' => now()->subDays(rand(1, 90)),
+            ])->save();
+        }
+    }
+
     /**
      * Sample SOS during a flood, with messages, scored by the built-in rules (no AI key needed),
      * so SOS Prioritization and Aid Prioritization show a realistic priority order.
@@ -208,6 +286,10 @@ class DatabaseSeeder extends Seeder
         }
     }
 
+    /**
+     * An event only for households with a senior citizen, given per senior:
+     * a household with two seniors receives two kits.
+     */
     private function seedSeniorEvent($barangays, User $admin, User $distributor): void
     {
         $kits = ReliefItem::create([
@@ -419,28 +501,91 @@ class DatabaseSeeder extends Seeder
         }
     }
 
+    /** A Philippine mobile number that has never been used before in this seeding run. */
+    private function uniquePhone(): string
+    {
+        do {
+            $phone = $this->phonePrefixes[array_rand($this->phonePrefixes)].sprintf('%07d', rand(0, 9999999));
+        } while (isset($this->usedPhones[$phone]));
+
+        return $this->usedPhones[$phone] = $phone;
+    }
+
+    /** A full name that has never been used before in this seeding run. */
+    private function uniqueName(string $sex, string $surname): string
+    {
+        $pool = $sex === 'M' ? $this->maleFirst : $this->femaleFirst;
+
+        for ($try = 0; ; $try++) {
+            $given = $pool[array_rand($pool)];
+            if (rand(1, 100) <= 35) { // second given name, common in the Philippines
+                $second = $pool[array_rand($pool)];
+                if ($second !== $given) {
+                    $given .= ' '.$second;
+                }
+            }
+            $full = $try > 50
+                ? $given.' '.chr(rand(65, 90)).'. '.$surname // safety net, practically never reached
+                : "{$given} {$surname}";
+
+            $key = Str::lower($full);
+            if (! isset($this->usedNames[$key])) {
+                $this->usedNames[$key] = true;
+
+                return $full;
+            }
+        }
+    }
+
+    private function person(string $rel, int $age, string $sex, string $surname): array
+    {
+        return [
+            'full_name' => $this->uniqueName($sex, $surname),
+            'relationship' => $rel,
+            'birthdate' => now()->subYears($age)->subDays(rand(0, 364))->toDateString(),
+            'sex' => $sex,
+            'is_pwd' => rand(1, 100) <= 7,
+            'is_pregnant' => $sex === 'F' && $age >= 18 && $age <= 42 && in_array($rel, ['Head', 'Spouse']) && rand(1, 100) <= 8,
+        ];
+    }
+
     private function randomMembers(): array
     {
-        $surname = $this->last[array_rand($this->last)];
-        $person = fn (string $rel, int $minAge, int $maxAge, ?string $sex = null) => [
-            'full_name' => $this->first[array_rand($this->first)].' '.$surname,
-            'relationship' => $rel,
-            'birthdate' => now()->subYears(rand($minAge, $maxAge))->subDays(rand(0, 364))->toDateString(),
-            'sex' => $sex ?? (rand(0, 1) ? 'M' : 'F'),
-            'is_pwd' => rand(1, 100) <= 7,
-            'is_pregnant' => false,
-        ];
+        $surname = $this->surnames[array_rand($this->surnames)];
+        $headAge = rand(25, 78);
+        $headSex = rand(1, 100) <= 40 ? 'F' : 'M';
 
-        $members = [$person('Head', 25, 78)];
-        if (rand(1, 100) <= 75) {
-            $spouse = $person('Spouse', 22, 70, $members[0]['sex'] === 'M' ? 'F' : 'M');
-            $spouse['is_pregnant'] = $spouse['sex'] === 'F' && rand(1, 100) <= 10;
-            $members[] = $spouse;
+        $members = [$this->person('Head', $headAge, $headSex, $surname)];
+        $hasSpouse = rand(1, 100) <= 75;
+
+        if ($hasSpouse) {
+            $spouseAge = max(20, min(85, $headAge + rand(-7, 7)));
+            $members[] = $this->person('Spouse', $spouseAge, $headSex === 'M' ? 'F' : 'M', $surname);
         }
-        for ($i = rand(0, 4); $i > 0; $i--) $members[] = $person('Child', 2, 20);
-        if (rand(1, 100) <= 25) $members[] = $person('Child', 0, 1);
-        if (rand(1, 100) <= 25) $members[] = $person('Parent', 62, 88);
+
+        // Children can't be older than the head minus 18, so a 25-year-old head only has young kids
+        $maxChildAge = min(20, $headAge - 18);
+        $maxChildren = $headAge < 30 ? 2 : 4;
+        for ($i = rand(0, $maxChildren); $i > 0; $i--) {
+            $members[] = $this->person('Child', rand(0, $maxChildAge), rand(0, 1) ? 'M' : 'F', $surname);
+        }
+
+        // A living parent, always 20 to 32 years older than the head
+        $parentAge = $headAge + rand(20, 32);
+        if ($parentAge <= 92 && rand(1, 100) <= 25) {
+            $parentSex = rand(0, 1) ? 'M' : 'F';
+            $parentSurname = ($headSex === 'F' && $hasSpouse) ? $this->surnames[array_rand($this->surnames)] : $surname;
+            $members[] = $this->person('Parent', $parentAge, $parentSex, $parentSurname);
+        }
 
         return $members;
+    }
+
+    /** Solo parent = no spouse, has at least one child, and the head chose to register as one. */
+    private function isSoloParent(array $members): bool
+    {
+        $rels = array_column($members, 'relationship');
+
+        return ! in_array('Spouse', $rels) && in_array('Child', $rels) && rand(1, 100) <= 60;
     }
 }

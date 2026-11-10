@@ -12,6 +12,16 @@ import { AssistTag, PriorityBadge, StatusBadge } from '../../components/Badges'
 import { fmtDate, fmtDateTime, fmtTime, qtyUnit, recipients, RECIPIENT_COLUMNS, toLocalInput } from '../../components/format'
 import useSummary from './useSummary'
 
+// Closed (by this barangay or by the LGU) = nothing left to schedule or run
+const isActive = (r) => r.status !== 'closed' && r.event_status !== 'closed'
+
+const STATUS_LABEL = {
+  unscheduled: 'Not scheduled',
+  scheduled: 'Scheduled',
+  ongoing: 'Ongoing',
+  closed: 'Closed',
+}
+
 export default function Distributions() {
   const [summary] = useSummary()
   const [rows, setRows] = useState(null)       // this barangay's part of each event
@@ -31,7 +41,9 @@ export default function Distributions() {
   const loadRows = () => api.get('/barangay/distributions')
     .then((r) => {
       setRows(r.data)
-      setEventId((cur) => cur || (r.data.length ? String(r.data[0].event_id) : ''))
+      // Default to the first event that is still open (not closed)
+      const open = r.data.filter(isActive)
+      setEventId((cur) => cur || (open.length ? String(open[0].event_id) : ''))
     })
     .catch((err) => setError(errorMessage(err)))
   const loadSosPriority = () => api.get('/barangay/sos-priority').then((r) => setSosPriority(r.data)).catch(() => {})
@@ -48,6 +60,11 @@ export default function Distributions() {
 
   const row = rows?.find((r) => String(r.event_id) === eventId)
   const ongoing = row?.status === 'ongoing' && row?.event_status === 'open'
+
+  // Dropdown list: only events that are not closed. The selected event is kept in the list
+  // so it doesn't vanish right after the barangay closes it (the page keeps showing its results).
+  const options = rows?.filter((r) => isActive(r) || String(r.event_id) === eventId) ?? []
+  const hasActive = rows?.some(isActive)
 
   // Live: refresh the schedule, counts and claims in place (selected event, filters and page are kept)
   const tick = useLiveTick()
@@ -140,6 +157,12 @@ export default function Distributions() {
         </section>
       )}
 
+      {rows?.length > 0 && !hasActive && !row && (
+        <section className="rc-card text-center text-secondary py-5">
+          No open distribution events right now. Closed events are kept in Distribution History.
+        </section>
+      )}
+
       {row && (
         <>
           <section className="rc-card mb-3">
@@ -148,7 +171,11 @@ export default function Distributions() {
                 <label className="rc-label" htmlFor="event-pick">Distribution event</label>
                 <select id="event-pick" className="form-select mb-2" value={eventId}
                         onChange={(e) => { setPage(1); setData(null); setNotice(''); setEventId(e.target.value) }}>
-                  {rows.map((r) => <option key={r.event_id} value={r.event_id}>{r.name}</option>)}
+                  {options.map((r) => (
+                    <option key={r.event_id} value={r.event_id}>
+                      {r.name} ({STATUS_LABEL[r.status]})
+                    </option>
+                  ))}
                 </select>
                 <div className="small">
                   <div className="fw-semibold">{qtyUnit(row.quantity_per_household, row.item.unit)} {row.item.unit === 'PHP' ? 'from the' : 'of'} {row.item.name} per {row.per_member ? row.recipient_label : 'household'}</div>
