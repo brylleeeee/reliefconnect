@@ -111,9 +111,12 @@ class HouseholdController extends Controller
     {
         $this->authorizeHousehold($request, $household);
         abort_unless((int) $document->household_id === (int) $household->id, 404);
-        abort_unless(Storage::disk('local')->exists($document->path), 404, 'The file is missing from storage.');
 
-        return Storage::disk('local')->response($document->path, $document->original_name);
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+        $disk = Storage::disk('local');
+        abort_unless($disk->exists($document->path), 404, 'The file is missing from storage.');
+
+        return $disk->response($document->path, $document->original_name);
     }
 
     /**
