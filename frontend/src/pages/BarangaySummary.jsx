@@ -9,6 +9,7 @@ import { periodLabel } from '../components/AnalyticsFilters'
 import useLiveTick from '../components/useLiveTick'
 import { peso } from '../components/format'
 import { C } from '../chartColors'
+import Select from '../components/Select'
 
 const pct = (n, total) => (total ? Math.round((n / total) * 100) : 0)
 const PER = { day: 'day', week: 'week', month: 'month' }
@@ -71,10 +72,10 @@ export default function BarangaySummary() {
         title={b ? `${b.name} summary` : 'Barangay summary'}
         subtitle={d ? `Relief distribution in this barangay, ${period}` : 'Loading…'}
         actions={d && (
-          <select className="form-select" aria-label="Barangay" value={id} style={{ minWidth: 200 }}
+          <Select className="form-select" aria-label="Barangay" value={id} style={{ minWidth: 200 }}
                   onChange={(e) => navigate(`/barangays/${e.target.value}${keepPeriod}`)}>
             {d.options.barangays.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-          </select>
+          </Select>
         )}
       />
 

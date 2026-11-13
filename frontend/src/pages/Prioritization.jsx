@@ -7,6 +7,7 @@ import Pagination, { pageOf } from '../components/Pagination'
 import PageHeader from '../components/PageHeader'
 import useLiveTick from '../components/useLiveTick'
 import { C, SOS_LEVEL } from '../chartColors'
+import Select from '../components/Select'
 
 const FILTERS = [
   { key: 'all', label: 'All barangays' },
@@ -103,9 +104,9 @@ export default function Prioritization() {
       <form className="rc-card mb-3 d-flex flex-wrap gap-3 align-items-end" onSubmit={recalc}>
         <div style={{ minWidth: 260 }}>
           <label className="rc-label" htmlFor="item">Relief item to allocate</label>
-          <select id="item" className="form-select" value={itemId} onChange={(e) => changeItem(e.target.value)}>
+          <Select id="item" className="form-select" value={itemId} onChange={(e) => changeItem(e.target.value)}>
             {data.items.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-          </select>
+          </Select>
         </div>
         <div style={{ width: 160 }}>
           <label className="rc-label" htmlFor="packs">Quantity available</label>
@@ -200,11 +201,11 @@ export default function Prioritization() {
             </button>
           ))}
         </div>
-        <select className="form-select form-select-sm ms-auto" style={{ width: 'auto' }} aria-label="Sort barangays"
+        <Select className="form-select form-select-sm ms-auto" style={{ width: 'auto' }} aria-label="Sort barangays"
                 value={sort} onChange={(e) => setSort(e.target.value)}>
           <option value="priority">Sort: priority order</option>
           <option value="name">Sort: barangay A–Z</option>
-        </select>
+        </Select>
       </div>
 
       <section className="rc-card mb-3">

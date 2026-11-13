@@ -11,6 +11,7 @@ import useConfirm from '../../components/useConfirm'
 import { AssistTag, PriorityBadge, StatusBadge } from '../../components/Badges'
 import { fmtDate, fmtDateTime, fmtTime, qtyUnit, recipients, RECIPIENT_COLUMNS, toLocalInput } from '../../components/format'
 import useSummary from './useSummary'
+import Select from '../../components/Select'
 
 // Closed (by this barangay or by the LGU) = nothing left to schedule or run
 const isActive = (r) => r.status !== 'closed' && r.event_status !== 'closed'
@@ -169,14 +170,14 @@ export default function Distributions() {
             <div className="row g-3">
               <div className="col-lg-5">
                 <label className="rc-label" htmlFor="event-pick">Distribution event</label>
-                <select id="event-pick" className="form-select mb-2" value={eventId}
+                <Select id="event-pick" className="form-select mb-2" value={eventId}
                         onChange={(e) => { setPage(1); setData(null); setNotice(''); setEventId(e.target.value) }}>
                   {options.map((r) => (
                     <option key={r.event_id} value={r.event_id}>
                       {r.name} ({STATUS_LABEL[r.status]})
                     </option>
                   ))}
-                </select>
+                </Select>
                 <div className="small">
                   <div className="fw-semibold">{qtyUnit(row.quantity_per_household, row.item.unit)} {row.item.unit === 'PHP' ? 'from the' : 'of'} {row.item.name} per {row.per_member ? row.recipient_label : 'household'}</div>
                   {row.eligibility !== 'all' && <div><span className="rc-tag">For: {row.eligibility_label}</span></div>}
@@ -300,30 +301,30 @@ export default function Distributions() {
                 </div>
               </div>
               <div className="col-md-3">
-                <select className="form-select" aria-label="Claim status" value={filters.claim}
+                <Select className="form-select" aria-label="Claim status" value={filters.claim}
                         onChange={(e) => setFilter('claim', e.target.value)}>
                   <option value="unclaimed">{phaseLabel}</option>
                   <option value="claimed">Claimed</option>
                   <option value="">All households</option>
-                </select>
+                </Select>
               </div>
               <div className="col-md-2">
-                <select className="form-select" aria-label="SOS" value={filters.sos} onChange={(e) => setFilter('sos', e.target.value)}>
+                <Select className="form-select" aria-label="SOS" value={filters.sos} onChange={(e) => setFilter('sos', e.target.value)}>
                   <option value="">All households</option>
                   <option value="1">Sent SOS only</option>
-                </select>
+                </Select>
               </div>
               <div className="col-md-2">
-                <select className="form-select" aria-label="Purok" value={filters.purok} onChange={(e) => setFilter('purok', e.target.value)}>
+                <Select className="form-select" aria-label="Purok" value={filters.purok} onChange={(e) => setFilter('purok', e.target.value)}>
                   <option value="">All puroks</option>
                   {summary?.puroks.map((p) => <option key={p}>{p}</option>)}
-                </select>
+                </Select>
               </div>
               <div className="col-md-2">
-                <select className="form-select" aria-label="Priority" value={filters.priority} onChange={(e) => setFilter('priority', e.target.value)}>
+                <Select className="form-select" aria-label="Priority" value={filters.priority} onChange={(e) => setFilter('priority', e.target.value)}>
                   <option value="">All priorities</option>
                   <option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
-                </select>
+                </Select>
               </div>
             </div>
 

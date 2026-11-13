@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Trash2 } from 'lucide-react'
+import { Eye, Pencil, Search } from 'lucide-react'
 import api, { errorMessage } from '../../api/client'
 import useLiveTick from '../../components/useLiveTick'
 import PageHeader from '../../components/PageHeader'
 import Modal from '../../components/Modal'
 import Pagination from '../../components/Pagination'
+import RowMenu from '../../components/RowMenu'
 import HouseholdDetail from '../../components/HouseholdDetail'
-import useConfirm from '../../components/useConfirm'
 import { AssistTag, PriorityBadge, StatusBadge } from '../../components/Badges'
 import useSummary from './useSummary'
+import Select from '../../components/Select'
 
 export default function Households() {
   const navigate = useNavigate()
@@ -19,9 +20,7 @@ export default function Households() {
   const [page, setPage] = useState(1)
   const [list, setList] = useState(null)
   const [viewing, setViewing] = useState(null)
-  const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
-  const [confirm, confirmDialog] = useConfirm()
 
   const load = () => {
     const params = Object.fromEntries(Object.entries({ ...filters, page }).filter(([, v]) => v))
@@ -30,19 +29,6 @@ export default function Households() {
   useEffect(() => { load() }, [filters, page])
   const tick = useLiveTick() // live: refresh the masterlist in place
   useEffect(() => { if (tick) load() }, [tick])
-
-  /** Only for households that never claimed (e.g. a duplicate or mistaken entry). */
-  const remove = async (h) => {
-    const ok = await confirm({
-      title: 'Delete household?', confirmLabel: 'Delete household', danger: true,
-      message: `${h.household_head}${h.reference_number ? ` (${h.reference_number})` : ''} and all its members will be removed from the masterlist. This cannot be undone.`,
-    })
-    if (!ok) return
-    try {
-      await api.delete(`/barangay/households/${h.id}`)
-      setError(''); setNotice(`Deleted ${h.household_head}'s household.`); setViewing(null); load()
-    } catch (err) { setNotice(''); setError(errorMessage(err)) }
-  }
 
   // Wait for the user to stop typing before searching
   useEffect(() => {
@@ -57,7 +43,6 @@ export default function Households() {
     <>
       <PageHeader title="Household Records" subtitle={`Masterlist of Barangay ${summary?.barangay ?? ''}`} />
 
-      {notice && <div className="alert alert-success py-2 small">{notice}</div>}
       {error && <div className="alert alert-danger py-2 small">{error}</div>}
 
       <section className="rc-card">
@@ -70,22 +55,22 @@ export default function Households() {
             </div>
           </div>
           <div className="col-md-2">
-            <select className="form-select" aria-label="Status" value={filters.status} onChange={(e) => setFilter('status', e.target.value)}>
+            <Select className="form-select" aria-label="Status" value={filters.status} onChange={(e) => setFilter('status', e.target.value)}>
               <option value="">All statuses</option><option value="approved">Approved</option>
               <option value="pending">Pending</option><option value="rejected">Rejected</option>
-            </select>
+            </Select>
           </div>
           <div className="col-md-2">
-            <select className="form-select" aria-label="Purok" value={filters.purok} onChange={(e) => setFilter('purok', e.target.value)}>
+            <Select className="form-select" aria-label="Purok" value={filters.purok} onChange={(e) => setFilter('purok', e.target.value)}>
               <option value="">All puroks</option>
               {summary?.puroks.map((p) => <option key={p}>{p}</option>)}
-            </select>
+            </Select>
           </div>
           <div className="col-md-3">
-            <select className="form-select" aria-label="Priority" value={filters.priority} onChange={(e) => setFilter('priority', e.target.value)}>
+            <Select className="form-select" aria-label="Priority" value={filters.priority} onChange={(e) => setFilter('priority', e.target.value)}>
               <option value="">All priority levels</option><option value="high">High</option>
               <option value="medium">Medium</option><option value="low">Low</option>
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -106,14 +91,10 @@ export default function Households() {
                   <td><PriorityBadge level={h.priority_level} score={h.priority_score} /><AssistTag show={h.needs_assistance} /></td>
                   <td><StatusBadge status={h.status} /></td>
                   <td className="text-end text-nowrap">
-                    <button className="btn btn-sm btn-rc-outline me-1" onClick={() => open(h.id)}>View</button>
-                    <button className="btn btn-sm btn-rc-outline me-1" onClick={() => navigate(`/households/${h.id}/edit`)}>Edit</button>
-                    <button className="btn-icon danger d-inline-grid align-middle" onClick={() => remove(h)}
-                            disabled={h.claims_count > 0}
-                            title={h.claims_count > 0 ? "Can't delete: this household already received aid" : 'Delete household'}
-                            aria-label={`Delete ${h.household_head}'s household`}>
-                      <Trash2 size={14} />
-                    </button>
+                    <RowMenu label={`Actions for ${h.household_head}'s household`} items={[
+                      { label: 'View', icon: Eye, hint: 'Household details', onClick: () => open(h.id) },
+                      { label: 'Edit', icon: Pencil, hint: 'Update household info', onClick: () => navigate(`/households/${h.id}/edit`) },
+                    ]} />
                   </td>
                 </tr>
               ))}
@@ -135,7 +116,6 @@ export default function Households() {
         </Modal>
       )}
 
-      {confirmDialog}
     </>
   )
 }

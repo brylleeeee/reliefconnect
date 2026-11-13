@@ -1,0 +1,62 @@
+/* ---------- Select (styled replacement for native <select>) ---------- */
+.rc-select { position: relative; min-width: 0; }
+/* In a flex row, take the natural width (the longest option) and don't get squeezed, like a native select.
+   In a normal block or grid column, flex has no effect and the field fills the column. */
+.rc-select { flex: 0 0 auto; }
+.rc-select-native { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
+.rc-select-btn {
+  width: 100%; display: flex; align-items: center; gap: 8px; height: var(--rc-field-h, 40px); padding: 0 14px; overflow: hidden;
+  background: var(--rc-field-bg, #fff); border: 1px solid var(--rc-field-border, #d5dde3); border-radius: var(--rc-field-radius, 10px);
+  box-shadow: var(--rc-field-shadow, none); color: var(--rc-text);
+  font-size: 14px; text-align: left; cursor: pointer; transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.rc-select-sm .rc-select-btn { height: var(--rc-field-h-sm, 34px); padding: 0 12px; font-size: 13px; border-radius: 8px; }
+.rc-select-btn:hover:not(:disabled) { border-color: var(--rc-field-hover, #aebdc8); }
+.rc-select-btn:focus-visible, .rc-select-btn[aria-expanded="true"] {
+  outline: none; background: #fff; border-color: var(--rc-green);
+  box-shadow: var(--rc-ring, 0 0 0 4px rgba(46, 125, 103, .14));
+}
+.rc-select-btn:disabled { background: #f1f4f6; border-style: dashed; box-shadow: none; color: var(--rc-muted); cursor: not-allowed; }
+.rc-select-value { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+.rc-select-current, .rc-select-sizer { grid-area: 1 / 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-select-sizer { visibility: hidden; height: 0; }
+.rc-select-current.is-empty { color: var(--rc-muted); }
+.rc-select-current.is-action { display: flex; align-items: center; gap: 6px; color: var(--rc-green); font-weight: 600; }
+.rc-select-chevron { flex: none; color: var(--rc-muted); transition: transform .18s, color .15s; }
+.rc-select-btn[aria-expanded="true"] .rc-select-chevron { transform: rotate(180deg); color: var(--rc-green); }
+
+.rc-select-panel {
+  position: fixed; z-index: 1090; background: #fff; border: 1px solid var(--rc-border); border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, .14), 0 2px 6px rgba(16, 24, 40, .06); overflow: hidden;
+  animation: rc-select-in .12s ease-out; border-radius: 12px;
+}
+@keyframes rc-select-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.rc-select-search { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--rc-border); color: var(--rc-muted); }
+.rc-select-search input { flex: 1; min-width: 0; border: 0; outline: none; font-size: 13px; color: var(--rc-text); background: transparent; }
+.rc-select-list { list-style: none; margin: 0; padding: 4px; max-height: 280px; overflow-y: auto; }
+.rc-select-group {
+  padding: 8px 10px 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--rc-muted);
+}
+.rc-select-option {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 7px; font-size: 13.5px; cursor: pointer;
+  color: var(--rc-text);
+}
+.rc-select-option.in-group { padding-left: 16px; }
+.rc-select-option.is-active { background: #f2f8f5; }
+.rc-select-option.is-selected { color: var(--rc-green); font-weight: 600; background: var(--rc-green-pale); }
+.rc-select-option.is-disabled { color: var(--rc-muted); cursor: default; background: transparent; }
+.rc-select-option-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-select-check { flex: none; color: var(--rc-green); }
+.rc-select-actions { list-style: none; margin: 0; padding: 4px; border-top: 1px solid var(--rc-border); background: #fafcfb; }
+.rc-select-action {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 7px; cursor: pointer;
+  font-size: 13.5px; font-weight: 600; color: var(--rc-green);
+}
+.rc-select-action-icon {
+  width: 20px; height: 20px; flex: none; display: grid; place-items: center; border-radius: 6px;
+  background: var(--rc-green-pale); color: var(--rc-green);
+}
+.rc-select-action.is-active { background: var(--rc-green-pale); }
+.rc-select-action.is-active .rc-select-action-icon { background: var(--rc-green); color: #fff; }
+.rc-select-empty { padding: 10px; font-size: 13px; color: var(--rc-muted); text-align: center; }
+@media (prefers-reduced-motion: reduce) { .rc-select-panel { animation: none; } .rc-select-chevron { transition: none; } }

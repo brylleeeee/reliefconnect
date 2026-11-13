@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { errorMessage } from '../api/client'
+import Select from './Select'
 
 const RELATIONSHIPS = ['Spouse', 'Child', 'Parent', 'Sibling', 'Grandchild', 'Relative', 'Other']
 const blankMember = (relationship = 'Child') => ({
@@ -107,20 +108,20 @@ export default function HouseholdForm({ household, puroks = [], submitLabel, onS
                   <td>
                     {i === 0
                       ? <span className="fw-semibold small">Head</span>
-                      : <select className="form-select form-select-sm" aria-label="Relationship" value={m.relationship}
+                      : <Select className="form-select form-select-sm" aria-label="Relationship" value={m.relationship}
                                 onChange={(e) => setMember(i, 'relationship', e.target.value)}>
                           {RELATIONSHIPS.map((r) => <option key={r}>{r}</option>)}
-                        </select>}
+                        </Select>}
                   </td>
                   <td>
                     <input type="date" className="form-control form-control-sm" required max={today} aria-label="Birthdate"
                            value={m.birthdate} onChange={(e) => setMember(i, 'birthdate', e.target.value)} />
                   </td>
                   <td>
-                    <select className="form-select form-select-sm" required aria-label="Sex" value={m.sex}
+                    <Select className="form-select form-select-sm" required aria-label="Sex" value={m.sex}
                             onChange={(e) => setMember(i, 'sex', e.target.value)}>
                       <option value="">–</option><option value="M">M</option><option value="F">F</option>
-                    </select>
+                    </Select>
                   </td>
                   <td className="text-center">
                     <input type="checkbox" className="form-check-input" aria-label="Person with disability"

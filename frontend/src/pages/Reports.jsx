@@ -4,6 +4,7 @@ import api, { downloadFile, errorMessage } from '../api/client'
 import PageHeader from '../components/PageHeader'
 import { exportExcel } from '../lib/exportExcel'
 import useLiveTick from '../components/useLiveTick'
+import Select from '../components/Select'
 
 const REPORTS = [
   { type: 'distribution', title: 'Distribution', icon: ClipboardList, byEvent: true,
@@ -110,10 +111,10 @@ export default function Reports() {
               {meta.byEvent && (
                 <div className="col-sm-6">
                   <label className="rc-label" htmlFor="rep-event">Distribution event</label>
-                  <select id="rep-event" className="form-select" value={eventId} onChange={(e) => setEventId(e.target.value)}>
+                  <Select id="rep-event" className="form-select" value={eventId} onChange={(e) => setEventId(e.target.value)}>
                     <option value="">All events</option>
                     {eventsForType.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-                  </select>
+                  </Select>
                 </div>
               )}
             </div>

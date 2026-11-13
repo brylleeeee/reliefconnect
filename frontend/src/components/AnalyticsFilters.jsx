@@ -1,4 +1,5 @@
 import { RotateCcw } from 'lucide-react'
+import Select from './Select'
 
 /** Local YYYY-MM-DD (toISOString would shift to UTC and can land on the wrong day). */
 export const ymd = (d) => d.toLocaleDateString('en-CA')
@@ -79,16 +80,16 @@ export default function AnalyticsFilters({ value, onChange, options }) {
 
         <div className="col-6 col-md-3 col-xl-2">
           <label className="rc-label" htmlFor="af-brgy">Barangay</label>
-          <select id="af-brgy" className="form-select form-select-sm" value={value.barangay_id}
+          <Select id="af-brgy" className="form-select form-select-sm" value={value.barangay_id}
                   onChange={(e) => set({ barangay_id: e.target.value })}>
             <option value="">All barangays</option>
             {options?.barangays.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+          </Select>
         </div>
 
         <div className="col-6 col-md-3 col-xl-2">
           <label className="rc-label" htmlFor="af-item">Relief item</label>
-          <select id="af-item" className="form-select form-select-sm" value={value.relief_item_id}
+          <Select id="af-item" className="form-select form-select-sm" value={value.relief_item_id}
                   onChange={(e) => set({ relief_item_id: e.target.value })}>
             <option value="">All items</option>
             {goods.length > 0 && (
@@ -101,7 +102,7 @@ export default function AnalyticsFilters({ value, onChange, options }) {
                 {cash.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
               </optgroup>
             )}
-          </select>
+          </Select>
         </div>
 
         {!isDefault && (

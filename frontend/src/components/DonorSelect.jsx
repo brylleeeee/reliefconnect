@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import api, { errorMessage } from '../api/client'
+import Select from './Select'
 
 const ADD = '__add__'
 
@@ -28,15 +29,15 @@ export default function DonorSelect({ id, donors, value, onChange, onDonorAdded 
 
   return (
     <>
-      <select id={id} className="form-select" value={adding ? ADD : value}
+      <Select id={id} className="form-select" value={adding ? ADD : value}
               onChange={(e) => {
                 if (e.target.value === ADD) { setAdding(true); return }
                 setAdding(false); onChange(e.target.value)
               }}>
         <option value="">Not recorded</option>
         {donors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-        <option value={ADD}>+ Add new donor…</option>
-      </select>
+        <option value={ADD} data-action>+ Add new donor…</option>
+      </Select>
       {adding && (
         <div className="d-flex gap-2 mt-2">
           <input className="form-control form-control-sm flex-grow-1" style={{ minWidth: 0 }} placeholder="Donor name, e.g. Jollibee Foundation" autoFocus

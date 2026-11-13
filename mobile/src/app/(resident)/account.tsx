@@ -4,6 +4,7 @@ import { View, Text, Pressable, ScrollView, Alert, StyleSheet } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Redirect, useFocusEffect } from 'expo-router';
 import AppHeader from '../../components/AppHeader';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import { useResident } from '../../context/ResidentContext';
 import { logout } from '../../lib/auth';
 import { fetchUpdateRequest, UpdateStatus } from '../../data/updateRequest';
@@ -55,6 +56,7 @@ const UPDATE_HINT: Partial<Record<UpdateStatus, { text: string; color: string }>
 export default function Account() {
   const { household, setHousehold, setUser } = useResident();
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+  const [confirmLogout, setConfirmLogout] = useState(false); // themed "Are you sure?" dialog
 
   // Status of the latest update request, refreshed whenever the tab is opened
   useFocusEffect(useCallback(() => {
@@ -69,23 +71,27 @@ export default function Account() {
 
   const comingSoon = (feature: string) => Alert.alert(feature, 'This feature is coming soon.');
 
-  const handleLogout = () =>
-    Alert.alert('Log Out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log Out',
-        style: 'destructive',
-        onPress: async () => {
-          await logout(); // revokes the token on the server and removes it from the phone
-          router.replace('/');
-          setHousehold(null);
-          setUser(null);
-        },
-      },
-    ]);
+  const handleLogout = () => setConfirmLogout(true);
+
+  const doLogout = async () => {
+    await logout(); // revokes the token on the server and removes it from the phone
+    setConfirmLogout(false);
+    router.replace('/');
+    setHousehold(null);
+    setUser(null);
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <ConfirmDialog
+        visible={confirmLogout}
+        title="Log out?"
+        message="You'll need to sign in again to see your QR code and announcements."
+        confirmLabel="Log Out"
+        danger
+        onCancel={() => setConfirmLogout(false)}
+        onConfirm={doLogout}
+      />
       <AppHeader barangay={household.barangay} />
 
       <ScrollView contentContainerStyle={styles.content}>

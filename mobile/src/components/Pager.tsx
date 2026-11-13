@@ -1,4 +1,4 @@
-// src/components/Pager.tsx  —  Previous / page x of y / Next, under a paged list
+// src/components/Pager.tsx  —  Previous / Page x of y / Next, under a paged list
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { colors, fonts } from '../constants/theme';
@@ -24,8 +24,8 @@ export default function Pager({ meta, onPage }: { meta: PageMeta; onPage: (page:
         <Text style={styles.btnText}>Previous</Text>
       </Pressable>
 
-      <Text style={styles.info}>
-        {meta.from}–{meta.to} of {meta.total}
+      <Text style={styles.info} accessibilityLabel={`Page ${meta.page} of ${meta.last}`}>
+        Page {meta.page} of {meta.last}
       </Text>
 
       <Pressable
@@ -53,5 +53,5 @@ const styles = StyleSheet.create({
   btnText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.primary },
   disabled: { opacity: 0.35 },
   pressed: { backgroundColor: colors.primaryTint },
-  info: { fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary },
+  info: { flex: 1, textAlign: 'center', fontFamily: fonts.medium, fontSize: 12, color: colors.muted },
 });

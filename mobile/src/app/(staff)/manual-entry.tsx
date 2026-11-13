@@ -1,8 +1,8 @@
 // src/app/(staff)/manual-entry.tsx  —  type a household's reference number (when the QR can't be scanned)
-import { useState } from 'react';
-import { View, Text, KeyboardAvoidingView, Platform, Alert, StyleSheet } from 'react-native';
+import { useCallback, useRef, useState, type ComponentRef } from 'react';
+import { View, Text, KeyboardAvoidingView, Platform, Alert, TextInput, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import ScreenHeader from '../../components/ScreenHeader';
 import FormInput from '../../components/FormInput';
 import PrimaryButton from '../../components/PrimaryButton';
@@ -12,6 +12,14 @@ import { colors, fonts } from '../../constants/theme';
 export default function ManualEntry() {
   const { selected } = useStaff();
   const [reference, setReference] = useState('');
+  const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
+
+  // Coming back from Verification ("Enter Another"): start with an empty box, ready to type
+  useFocusEffect(useCallback(() => {
+    setReference('');
+    const t = setTimeout(() => inputRef.current?.focus(), 250); // after the back transition
+    return () => clearTimeout(t);
+  }, []));
 
   const handleCheck = () => {
     const value = reference.trim().toUpperCase();
@@ -29,13 +37,13 @@ export default function ManualEntry() {
             resident's Our QR tab or their printed walk-in slip.
           </Text>
           <FormInput
+            ref={inputRef}
             label="Household Reference Number"
             placeholder="e.g. URB-2026-000123"
             value={reference}
             onChangeText={(v) => setReference(v.toUpperCase())}
             autoCapitalize="characters"
             autoCorrect={false}
-            autoFocus
             returnKeyType="search"
             onSubmitEditing={handleCheck}
           />

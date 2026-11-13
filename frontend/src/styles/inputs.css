@@ -1,0 +1,97 @@
+/* ---------- Inputs: one modern look across the LGU and barangay admin web ----------
+   Matches the styled dropdowns (select.css): soft grey field, rounded corners, white + green ring on focus.
+   Loaded after app.css (see main.jsx), so these rules win over the older .form-control lines there. */
+
+:root {
+  --rc-field-bg: #fff;
+  --rc-field-border: #d5dde3;
+  --rc-field-hover: #aebdc8;
+  --rc-field-h: 40px;
+  --rc-field-h-sm: 34px;
+  --rc-field-radius: 10px;
+  --rc-field-shadow: 0 1px 2px rgba(16, 24, 40, .05);
+  /* focus: green border, a green accent bar on the left edge and a soft halo */
+  --rc-ring: inset 3px 0 0 var(--rc-green), 0 0 0 4px rgba(46, 125, 103, .14);
+  --rc-ring-danger: inset 3px 0 0 var(--rc-danger), 0 0 0 4px rgba(214, 69, 69, .14);
+}
+
+/* Text-like fields: text, email, password, number, date, time, search, textarea */
+.form-control {
+  height: var(--rc-field-h); padding: 0 14px; font-size: 14px; line-height: 1.4; color: var(--rc-text);
+  background-color: var(--rc-field-bg); border: 1px solid var(--rc-field-border); border-radius: var(--rc-field-radius);
+  box-shadow: var(--rc-field-shadow); transition: border-color .15s, box-shadow .15s, background-color .15s;
+}
+.form-control-sm { height: var(--rc-field-h-sm); padding: 0 12px; font-size: 13px; border-radius: 8px; }
+textarea.form-control { height: auto; min-height: 96px; padding: 10px 14px; line-height: 1.55; resize: vertical; }
+textarea.form-control-sm { min-height: 72px; padding: 8px 12px; }
+
+.form-control::placeholder { color: #9aa5b1; opacity: 1; }
+.form-control:hover:not(:disabled):not([readonly]) { border-color: var(--rc-field-hover); }
+.form-control:focus { color: var(--rc-text); background-color: #fff; border-color: var(--rc-green); box-shadow: var(--rc-ring); outline: none; }
+.form-control:disabled, .form-control[readonly] {
+  background-color: #f1f4f6; border-style: dashed; color: var(--rc-muted); box-shadow: none; cursor: not-allowed;
+}
+.form-control[readonly]:focus { box-shadow: none; border-color: var(--rc-field-border); }
+
+/* Errors: Bootstrap's .is-invalid, plus native validation once the user has interacted with the field */
+.form-control.is-invalid, .form-control:user-invalid { border-color: var(--rc-danger); background-color: #fffafa; background-image: none; padding-right: 14px; }
+.form-control.is-invalid:focus, .form-control:user-invalid:focus { box-shadow: var(--rc-ring-danger); }
+.invalid-feedback { font-size: 11.5px; color: var(--rc-danger); }
+
+/* Date and time: green calendar/clock icon instead of the grey default */
+.form-control[type="date"], .form-control[type="time"], .form-control[type="datetime-local"] { padding-right: 10px; }
+.form-control::-webkit-calendar-picker-indicator {
+  cursor: pointer; opacity: .55; border-radius: 4px; padding: 2px; transition: opacity .15s, background-color .15s;
+  filter: invert(37%) sepia(18%) saturate(1200%) hue-rotate(115deg) brightness(90%); /* ≈ the system green */
+}
+.form-control::-webkit-calendar-picker-indicator:hover { opacity: 1; background-color: var(--rc-green-pale); }
+
+/* Number: quieter spin buttons */
+.form-control[type="number"]::-webkit-inner-spin-button { opacity: .35; }
+.form-control[type="number"]:hover::-webkit-inner-spin-button { opacity: .8; }
+
+/* File inputs (if any): green "Choose file" button */
+.form-control[type="file"] { padding: 0; line-height: calc(var(--rc-field-h) - 2px); overflow: hidden; }
+.form-control[type="file"]::file-selector-button {
+  height: 100%; margin: 0 10px 0 0; padding: 0 12px; border: 0; border-right: 1px solid var(--rc-field-border);
+  background: var(--rc-green-pale); color: var(--rc-green); font-weight: 600; font-size: 12.5px; cursor: pointer;
+}
+.form-control[type="file"]:hover::file-selector-button { background: #d6ebe3; }
+
+/* Fields with an icon inside (search boxes) */
+.rc-search input.form-control { padding-left: 40px; }
+.rc-search svg { left: 14px; transition: color .15s; z-index: 1; pointer-events: none; }
+.rc-search:focus-within svg { color: var(--rc-green); }
+
+/* Input groups (e.g. password + "generate" button): one joined field with a matching button */
+.input-group > .form-control { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.input-group > .form-control:focus { z-index: 3; }
+.input-group > .btn {
+  height: var(--rc-field-h); display: inline-flex; align-items: center; padding: 0 14px;
+  border: 1px solid var(--rc-field-border); background: var(--rc-green-pale); color: var(--rc-green);
+  border-radius: 0 var(--rc-field-radius) var(--rc-field-radius) 0;
+}
+.input-group > .btn:hover { background: var(--rc-green); border-color: var(--rc-green); color: #fff; }
+.input-group > .btn:focus-visible { box-shadow: 0 0 0 4px rgba(46, 125, 103, .14); border-color: var(--rc-green); z-index: 3; }
+.input-group-text { background: #eef1f4; border-color: var(--rc-field-border); color: var(--rc-muted); font-size: 12.5px; }
+
+/* Checkboxes and radios: Bootstrap's .form-check-input in the system green */
+.form-check-input {
+  width: 18px; height: 18px; margin-top: .1em; border: 1.5px solid #b8c4ce; background-color: #fff; cursor: pointer;
+  transition: background-color .15s, border-color .15s, box-shadow .15s;
+}
+.form-check-input[type="checkbox"] { border-radius: 5px; }
+.form-check-input:hover:not(:disabled) { border-color: var(--rc-green); }
+.form-check-input:checked { background-color: var(--rc-green); border-color: var(--rc-green); }
+.form-check-input:focus { border-color: var(--rc-green); box-shadow: 0 0 0 4px rgba(46, 125, 103, .14); }
+.form-check-input:disabled { opacity: .4; cursor: not-allowed; }
+.form-check-label { cursor: pointer; font-size: 13.5px; padding-left: 2px; }
+.form-switch .form-check-input:checked { background-color: var(--rc-green); }
+
+/* Plain checkboxes/radios without a Bootstrap class */
+input[type="checkbox"]:not(.form-check-input), input[type="radio"]:not(.form-check-input) {
+  accent-color: var(--rc-green); width: 17px; height: 17px; cursor: pointer; vertical-align: -3px;
+}
+
+/* Labels sit a little further from their field */
+.rc-label { font-size: 11px; font-weight: 700; color: #3e4c59; margin-bottom: 7px; letter-spacing: .05em; }

@@ -7,6 +7,8 @@ import NetInfo from '@react-native-community/netinfo';
 import { Bell, QrCode, Keyboard, ChevronRight, ClipboardList, Headset, CloudUpload, TriangleAlert } from 'lucide-react-native';
 import { useStaff } from '../../context/StaffContext';
 import Pager from '../../components/Pager';
+import ProfileSheet from '../../components/ProfileSheet';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import { usePaged } from '../../lib/usePaged';
 import { logout } from '../../lib/auth';
 import { errorText, qtyUnit } from '../../lib/api';
@@ -103,6 +105,7 @@ export default function Dashboard() {
     return unsubscribe;
   }, []);
 
+  const [confirmLogout, setConfirmLogout] = useState(false); // themed "Are you sure?" dialog
   const handleLogout = async () => {
     // Logging out deletes offline data, so unsent releases must be synced first
     const unsent = (await getQueue()).length;
@@ -110,35 +113,46 @@ export default function Dashboard() {
       return Alert.alert('Sync first',
         `${unsent} offline release${unsent === 1 ? ' is' : 's are'} not sent yet. Connect to the internet and wait for them to sync before logging out.`);
     }
-    Alert.alert('Log Out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log Out',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          router.replace('/');
-        },
-      },
-    ]);
+    setConfirmLogout(true);
   };
 
-  // Tap your name: change password or log out
-  const profileMenu = () =>
-    Alert.alert(name, 'Distribution Staff', [
-      { text: 'Change Password', onPress: () => router.push('/change-password') },
-      { text: 'Log Out', style: 'destructive', onPress: handleLogout },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+  const doLogout = async () => {
+    await logout();
+    setConfirmLogout(false);
+    router.replace('/');
+  };
+
+  // Tap your name: bottom sheet with Change Password and Log Out
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileMenu = () => setProfileOpen(true);
 
   // Distributions running right now, 3 per page
   const eventPages = usePaged(events, 3);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ProfileSheet
+        visible={profileOpen}
+        name={name}
+        role="Distribution Staff"
+        initials={getInitials(name)}
+        onClose={() => setProfileOpen(false)}
+        onChangePassword={() => router.push('/change-password')}
+        onLogout={handleLogout}
+      />
+      <ConfirmDialog
+        visible={confirmLogout}
+        title="Log out?"
+        message="You'll need to sign in again to scan and record claims."
+        confirmLabel="Log Out"
+        danger
+        onCancel={() => setConfirmLogout(false)}
+        onConfirm={doLogout}
+      />
+
       {/* header */}
       <View style={styles.header}>
-        <Pressable style={styles.profile} onPress={profileMenu}>
+        <Pressable style={styles.profile} onPress={profileMenu} accessibilityRole="button" accessibilityLabel="Open profile menu">
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{getInitials(name)}</Text>
           </View>

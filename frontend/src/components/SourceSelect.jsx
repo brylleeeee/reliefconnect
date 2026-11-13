@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import api, { errorMessage } from '../api/client'
+import Select from './Select'
 
 const ADD = '__add__'
 
@@ -29,7 +30,7 @@ export default function SourceSelect({ id, sources, types, value, onChange, onSo
 
   return (
     <>
-      <select id={id} className="form-select" value={adding ? ADD : value}
+      <Select id={id} className="form-select" value={adding ? ADD : value}
               onChange={(e) => {
                 if (e.target.value === ADD) { setAdding(true); return }
                 setAdding(false); onChange(e.target.value)
@@ -43,16 +44,16 @@ export default function SourceSelect({ id, sources, types, value, onChange, onSo
             </optgroup>
           )
         })}
-        <option value={ADD}>+ Add new source…</option>
-      </select>
+        <option value={ADD} data-action>+ Add new source…</option>
+      </Select>
 
       {adding && (
         <div className="rc-recipient-panel">
           <div className="small fw-semibold mb-1">New source</div>
-          <select className="form-select form-select-sm mb-2" aria-label="Source type" value={draft.type}
+          <Select className="form-select form-select-sm mb-2" aria-label="Source type" value={draft.type}
                   onChange={(e) => setDraft({ ...draft, type: e.target.value })}>
             {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
-          </select>
+          </Select>
           <div className="d-flex gap-2">
             <input className="form-control form-control-sm flex-grow-1" style={{ minWidth: 0 }} autoFocus
                    aria-label="New source name" maxLength={150} value={draft.name}

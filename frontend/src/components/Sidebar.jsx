@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
-  LayoutGrid, QrCode, Archive, FileText, Users, UserPlus, MapPin, ShieldPlus, LogOut, Scale,
+  LayoutGrid, QrCode, Archive, FileText, Users, UserPlus, MapPin, ShieldPlus, Scale,
   CalendarCheck, ClipboardCheck, MapPinned, Megaphone, History as HistoryIcon, TriangleAlert, UserCog, FilePen,
 } from 'lucide-react'
 import api from '../api/client'
@@ -108,9 +108,7 @@ export default function Sidebar() {
           </p>
           <div className="d-flex justify-content-end gap-2">
             <button className="btn btn-light" onClick={() => setConfirming(false)} autoFocus>Cancel</button>
-            <button className="btn btn-rc d-flex align-items-center gap-2" onClick={logout}>
-              <LogOut size={14} /> Log out
-            </button>
+            <button className="btn btn-rc" onClick={logout}>Log out</button>
           </div>
         </Modal>
       )}

@@ -1,4 +1,5 @@
 // src/components/FormInput.tsx
+import { forwardRef, type ComponentRef } from 'react';
 import { View, Text, TextInput, TextInputProps, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { colors, fonts } from '../constants/theme';
 
@@ -7,14 +8,17 @@ type Props = TextInputProps & {
   containerStyle?: StyleProp<ViewStyle>;
 };
 
-export default function FormInput({ label, style, containerStyle, ...rest }: Props) {
+// forwardRef so a screen can focus the box (e.g. Manual Entry after "Enter Another")
+const FormInput = forwardRef<ComponentRef<typeof TextInput>, Props>(function FormInput({ label, style, containerStyle, ...rest }, ref) {
   return (
     <View style={[styles.field, containerStyle]}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput placeholderTextColor={colors.muted} style={[styles.input, style]} {...rest} />
+      <TextInput ref={ref} placeholderTextColor={colors.muted} style={[styles.input, style]} {...rest} />
     </View>
   );
-}
+});
+
+export default FormInput;
 
 const styles = StyleSheet.create({
   field: { gap: 6 },

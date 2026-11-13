@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { UserCheck } from 'lucide-react'
 import api, { errorMessage } from '../api/client'
+import Select from './Select'
 
 const RELATIONSHIPS = ['Son', 'Daughter', 'Grandchild', 'Sibling', 'Niece/Nephew', 'Relative', 'Neighbor', 'Caregiver', 'Other']
 const EMPTY = { full_name: '', relationship: 'Son', birthdate: '', contact_number: '' }
@@ -78,9 +79,9 @@ export default function RepresentativePanel({ h, onChange }) {
           </div>
           <div className="col-md-6">
             <label className="rc-label" htmlFor="rep-rel">Relationship to the household</label>
-            <select id="rep-rel" className="form-select form-select-sm" value={form.relationship} onChange={set('relationship')}>
+            <Select id="rep-rel" className="form-select form-select-sm" value={form.relationship} onChange={set('relationship')}>
               {RELATIONSHIPS.map((r) => <option key={r}>{r}</option>)}
-            </select>
+            </Select>
           </div>
           <div className="col-md-6">
             <label className="rc-label" htmlFor="rep-bd">Birthdate (must be 18 or older)</label>

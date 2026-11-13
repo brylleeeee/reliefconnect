@@ -1,14 +1,15 @@
 // src/app/(staff)/verification.tsx  —  after a scan or typed reference: check the household, then release aid
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Image, Pressable, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Network from 'expo-network';
-import { CircleCheck, CircleX, MapPin, Camera, UserCheck } from 'lucide-react-native';
+import { CircleCheck, CircleX, MapPin, Camera, UserCheck, Package } from 'lucide-react-native';
 import ScreenHeader from '../../components/ScreenHeader';
 import PrimaryButton from '../../components/PrimaryButton';
+import ConfirmDialog, { confirmText } from '../../components/ConfirmDialog';
 import { useStaff } from '../../context/StaffContext';
 import { api, errorText, qtyUnit } from '../../lib/api';
 import { addScan, ScanEntry, ScanResult } from '../../lib/scanLog';
@@ -51,6 +52,8 @@ export default function Verification() {
   const [error, setError] = useState('');
   const [releasing, setReleasing] = useState(false);
   const [released, setReleased] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false); // "Confirm Release" dialog
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
 
   // proof of distribution (adviser)
   const [photo, setPhoto] = useState<string | null>(null);
@@ -147,7 +150,7 @@ export default function Verification() {
 
   /** Saves the release on the phone; it is sent to the server when back online. */
   const releaseOffline = async () => {
-    if (!selected || !result) return;
+    if (!selected || !result) return false;
     await queueClaim({
       eventId: selected.event_id,
       barangayId: selected.barangay_id,
@@ -158,7 +161,13 @@ export default function Verification() {
     });
     setOffline(true);
     setReleased(true);
+    return true;
   };
+
+  // After a release (or a failed one), glide back to the top so the inline result card is in view
+  useEffect(() => {
+    if (released || error) scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }, [released, error]);
 
   // Once the household is eligible, start capturing location and IP in the background
   useEffect(() => {
@@ -197,8 +206,13 @@ export default function Verification() {
     if (!shot.canceled) setPhoto(shot.assets[0].uri);
   };
 
-  const release = async () => {
-    if (!selected || !result) return;
+  // Who physically receives the items (shown in the confirmation dialog)
+  const receiverName = byRep && result?.representative ? result.representative.full_name : result?.household.household_head ?? '';
+  const qtyText = result ? qtyUnit(result.quantity, result.unit) : '';
+
+  /** Records the release. The inline card at the top then shows "Aid released", or "Cannot release aid" with the reason. */
+  const release = async (): Promise<boolean> => {
+    if (!selected || !result) return false;
     setReleasing(true);
     try {
       if (offline) {
@@ -229,10 +243,12 @@ export default function Verification() {
         accuracy: geo?.accuracy ?? null,
         ip,
       });
+      return true;
     } catch (e) {
-      // e.g. another staff phone recorded this household a moment earlier
-      setError(errorText(e));
+      // e.g. no internet, or another staff phone recorded this household a moment earlier
       log('blocked', result, errorText(e));
+      setError(errorText(e));
+      return false;
     } finally {
       setReleasing(false);
     }
@@ -247,19 +263,19 @@ export default function Verification() {
         : 'Take a photo of the beneficiary receiving the aid before releasing.');
       return;
     }
-    Alert.alert(
-      'Confirm release',
-      (byRep && result.representative
-        ? `Release ${qtyUnit(result.quantity, result.unit)} to ${result.representative.full_name} ` +
-          `(${result.representative.relationship}), representative of ${result.household.household_head}?\n\n` +
-          'Check the representative\'s valid ID. '
-        : `Release ${qtyUnit(result.quantity, result.unit)} to ${result.household.household_head}?\n\n`) +
-        'Make sure the physical relief items were checked and handed over.',
-      [{ text: 'Cancel', style: 'cancel' }, { text: 'Confirm Release', onPress: release }],
-    );
+    setConfirmOpen(true);
   };
 
-  const next = () => router.replace(method === 'reference_number' ? '/manual-entry' : '/scanner');
+  // The dialog shows a spinner while the request runs, then closes either way
+  const onConfirmRelease = async () => {
+    await release();
+    setConfirmOpen(false);
+  };
+
+  // Go back DOWN to the scanner / reference-number screen that opened this one instead of stacking a new
+  // copy on top. Stack stays Dashboard → Scanner → Verification however many claims are made, so one Back
+  // (or "Back to Dashboard") always reaches the dashboard. If that screen isn't below us, dismissTo opens it.
+  const next = () => router.dismissTo(method === 'reference_number' ? '/manual-entry' : '/scanner');
   const home = () => router.dismissTo('/dashboard');
 
   const h = result?.household;
@@ -278,7 +294,25 @@ export default function Verification() {
     <SafeAreaView style={styles.container}>
       <ScreenHeader title="Verify Household" subtitle={selected ? `Brgy. ${selected.barangay}` : undefined} />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ConfirmDialog
+        visible={confirmOpen}
+        icon={Package}
+        title="Confirm Release"
+        message={
+          <Text style={confirmText.message}>
+            Release <Text style={confirmText.bold}>{qtyText}</Text> to <Text style={confirmText.bold}>{receiverName}</Text>
+            {byRep && result?.representative
+              ? ` (${result.representative.relationship}), representative of ${result.household.household_head}? Check the representative's valid ID.`
+              : '?'}
+          </Text>
+        }
+        note="Make sure the physical relief items were checked and handed over."
+        confirmLabel="Confirm Release"
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={onConfirmRelease}
+      />
+
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
         {!result && !error && (
           <View style={styles.center}>
             <ActivityIndicator color={colors.primary} size="large" />
@@ -432,6 +466,7 @@ export default function Verification() {
         )}
         <PrimaryButton title="Back to Dashboard" variant="outline" onPress={home} />
       </View>
+
     </SafeAreaView>
   );
 }

@@ -7,6 +7,7 @@ import { C } from '../chartColors'
 import { StatusBadge } from './Badges'
 import { fmtDate, qtyUnit } from './format'
 import Pagination, { pageOf } from './Pagination'
+import Select from './Select'
 
 const COLORS = { Claimed: C.green, Pending: C.blue, Unclaimed: C.high }
 const BARANGAYS_PER_PAGE = 7 // bars per page in the "Households per barangay" chart
@@ -83,19 +84,19 @@ export default function EventAnalytics({ eventId: fixedEventId, barangayId: fixe
         {!fixedEventId && (
           <div className="col-md-6">
             <label className="rc-label" htmlFor="ea-event">Distribution event</label>
-            <select id="ea-event" className="form-select" value={eventId}
+            <Select id="ea-event" className="form-select" value={eventId}
                     onChange={(e) => { if (!fixedBarangayId) setBarangayId(''); setD(null); setEventId(e.target.value) }}>
               {events?.map((e) => <option key={e.id} value={e.id}>{e.name} ({e.status})</option>)}
-            </select>
+            </Select>
           </div>
         )}
         {!fixedBarangayId && (
           <div className="col-md-4">
             <label className="rc-label" htmlFor="ea-brgy">Barangay</label>
-            <select id="ea-brgy" className="form-select" value={barangayId} onChange={(e) => setBarangayId(e.target.value)}>
+            <Select id="ea-brgy" className="form-select" value={barangayId} onChange={(e) => setBarangayId(e.target.value)}>
               <option value="">All barangays</option>
               {d?.barangays.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
+            </Select>
           </div>
         )}
       </div>

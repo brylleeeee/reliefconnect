@@ -358,3 +358,33 @@ button.rc-user:focus-visible { outline: 2px solid var(--rc-green); outline-offse
 @media (prefers-reduced-motion: reduce) { .rc-spin { animation: none; } }
 
 .rc-tag-assist { background: #fff4e5; color: #8a4b00; }
+/* ---------- Three-dot row actions (RowMenu) ---------- */
+.rc-row-menu-btn { color: #52606d; cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+.rc-row-menu-btn:hover, .rc-row-menu-btn[aria-expanded="true"] { border-color: var(--rc-green); color: var(--rc-green); background: var(--rc-green-pale); }
+.rc-row-menu {
+  position: fixed; z-index: 1080; min-width: 220px; padding: 6px; background: #fff;
+  border: 1px solid var(--rc-border); border-top: 3px solid var(--rc-green); border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, .14), 0 2px 6px rgba(16, 24, 40, .06);
+  animation: rc-row-menu-in .14s ease-out;
+}
+@keyframes rc-row-menu-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
+.rc-row-menu-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border: 0; border-radius: 8px;
+  background: transparent; text-align: left; color: #1f2933; transition: background .12s;
+}
+.rc-row-menu-icon { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 8px; }
+.rc-row-menu-text { display: flex; flex-direction: column; line-height: 1.2; }
+.rc-row-menu-label { font-size: 13px; font-weight: 600; }
+.rc-row-menu-hint { font-size: 11px; color: var(--rc-muted); margin-top: 2px; }
+.rc-row-menu-sep { height: 1px; background: var(--rc-border); margin: 6px 4px; }
+
+.rc-row-menu-item.tone-green .rc-row-menu-icon { background: var(--rc-green-pale); color: var(--rc-green); }
+.rc-row-menu-item.tone-amber .rc-row-menu-icon { background: #fdf3dc; color: #b7791f; }
+.rc-row-menu-item.tone-red .rc-row-menu-icon { background: #fdecec; color: var(--rc-danger); }
+.rc-row-menu-item.tone-green:hover:not(:disabled), .rc-row-menu-item.tone-green:focus-visible { background: #f2f8f5; }
+.rc-row-menu-item.tone-amber:hover:not(:disabled), .rc-row-menu-item.tone-amber:focus-visible { background: #fffaf0; }
+.rc-row-menu-item.danger .rc-row-menu-label { color: var(--rc-danger); }
+.rc-row-menu-item.danger:hover:not(:disabled), .rc-row-menu-item.danger:focus-visible { background: #fdf2f2; }
+.rc-row-menu-item:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--rc-green-pale); }
+.rc-row-menu-item:disabled { opacity: .45; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { .rc-row-menu { animation: none; } }

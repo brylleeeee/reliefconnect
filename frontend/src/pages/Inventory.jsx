@@ -7,6 +7,7 @@ import Pagination, { usePaged } from '../components/Pagination'
 import SourceSelect from '../components/SourceSelect'
 import useLiveTick from '../components/useLiveTick'
 import { fmtDate, fmtDateTime, peso, qtyUnit } from '../components/format'
+import Select from '../components/Select'
 
 const TABS = [
   { key: 'goods', label: 'Relief goods', icon: Package },
@@ -183,11 +184,11 @@ export default function Inventory() {
           <form onSubmit={submitIncoming}>
             {error && <div className="alert alert-danger py-2 small">{error}</div>}
             <label className="rc-label" htmlFor="inc-item">{isCash ? 'Cash fund' : 'Relief item'}</label>
-            <select id="inc-item" className="form-select mb-3" value={incoming.relief_item_id}
+            <Select id="inc-item" className="form-select mb-3" value={incoming.relief_item_id}
                     onChange={(e) => setIncoming({ ...incoming, relief_item_id: e.target.value })}>
-              <option value="">{isCash ? 'New fund…' : 'New item…'}</option>
+              <option value="" data-action>{isCash ? 'Add new fund…' : 'Add new item…'}</option>
               {data.items.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-            </select>
+            </Select>
 
             {!incoming.relief_item_id && (
               <>
@@ -204,11 +205,11 @@ export default function Inventory() {
                     </div>
                     <div className="col-5">
                       <label className="rc-label" htmlFor="inc-unit">Unit</label>
-                      <select id="inc-unit" className="form-select" required value={incoming.unit}
+                      <Select id="inc-unit" className="form-select" required value={incoming.unit}
                               onChange={(e) => setIncoming({ ...incoming, unit: e.target.value })}>
                         <option value="" disabled>Choose…</option>
                         {data.units.map((u) => <option key={u} value={u}>{u}</option>)}
-                      </select>
+                      </Select>
                     </div>
                   </div>
                 )}
@@ -350,10 +351,10 @@ function SourcesTab({ data, onChanged }) {
             <p className="small text-secondary mb-0">Where relief goods and cash came from. The full list with dates is in Reports → Sources of Relief.</p>
           </div>
           <form className="d-flex gap-2" onSubmit={add}>
-            <select className="form-select form-select-sm" aria-label="Source type" value={form.type}
+            <Select className="form-select form-select-sm" aria-label="Source type" value={form.type}
                     onChange={(e) => setForm({ ...form, type: e.target.value })}>
               {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
-            </select>
+            </Select>
             <input className="form-control form-control-sm" placeholder="New source name" aria-label="New source name"
                    value={form.name} maxLength={150} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             <button className="btn btn-sm btn-rc text-nowrap" disabled={busy || !form.name.trim()}>+ Add new source</button>
@@ -389,9 +390,9 @@ function SourcesTab({ data, onChanged }) {
           <form onSubmit={saveEdit}>
             {error && <div className="alert alert-danger py-2 small">{error}</div>}
             <label className="rc-label" htmlFor="src-type">Type</label>
-            <select id="src-type" className="form-select mb-3" value={editing.type} onChange={(e) => setEditing({ ...editing, type: e.target.value })}>
+            <Select id="src-type" className="form-select mb-3" value={editing.type} onChange={(e) => setEditing({ ...editing, type: e.target.value })}>
               {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
-            </select>
+            </Select>
             <label className="rc-label" htmlFor="src-name">Name</label>
             <input id="src-name" className="form-control mb-4" required maxLength={150} value={editing.name}
                    onChange={(e) => setEditing({ ...editing, name: e.target.value })} />

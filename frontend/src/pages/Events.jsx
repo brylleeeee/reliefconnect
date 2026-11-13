@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { MapPin, Trash2, RefreshCw } from 'lucide-react'
+import { Eye, Lock, MapPin, RefreshCw, Trash2 } from 'lucide-react'
 import api, { errorMessage } from '../api/client'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
@@ -10,9 +10,11 @@ import { StatusBadge } from '../components/Badges'
 import { fmtDate, fmtDateTime, fmtTime, peso, qtyUnit, recipients as countOf } from '../components/format'
 import ClaimDetailModal from '../components/ClaimDetailModal'
 import useConfirm from '../components/useConfirm'
+import RowMenu from '../components/RowMenu'
 
 const EVENTS_PER_PAGE = 5
 import useLiveTick from '../components/useLiveTick'
+import Select from '../components/Select'
 
 const STAGE_LABELS = { ongoing: 'distributing', scheduled: 'scheduled', unscheduled: 'not scheduled', closed: 'done' }
 
@@ -113,12 +115,12 @@ export default function Events() {
         <div className="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
           <h2 className="rc-card-title mb-0">Events</h2>
           <div className="d-flex gap-2">
-            <select className="form-select form-select-sm" aria-label="Filter by status" value={status}
+            <Select className="form-select form-select-sm" aria-label="Filter by status" value={status}
                     onChange={(e) => { setPage(1); setStatus(e.target.value) }}>
               <option value="">All events</option>
               <option value="open">Open</option>
               <option value="closed">Closed</option>
-            </select>
+            </Select>
             <button className="btn btn-rc btn-sm text-nowrap" onClick={openCreate}>+ Create Event</button>
           </div>
         </div>
@@ -143,14 +145,12 @@ export default function Events() {
                     <Stages stages={e.stages} />
                   </td>
                   <td className="text-end text-nowrap">
-                    <button className="btn btn-sm btn-rc-outline me-1" onClick={() => setViewingId(e.id)}>View</button>
-                    {e.status === 'open' && (
-                      <button className="btn btn-sm btn-outline-danger me-1" onClick={() => act(e, 'close')}>Close</button>
-                    )}
-                    {e.status === 'open' && e.claimed === 0 && e.stages.ongoing === 0 && e.stages.closed === 0 && (
-                      <button className="btn-icon danger d-inline-grid align-middle" aria-label={`Delete ${e.name}`}
-                              onClick={() => act(e, 'delete')}><Trash2 size={14} /></button>
-                    )}
+                    <RowMenu label={`Actions for ${e.name}`} items={[
+                      { label: 'View', icon: Eye, hint: 'Details and claims', onClick: () => setViewingId(e.id) },
+                      e.status === 'open' && { label: 'Close', icon: Lock, tone: 'amber', hint: 'Stop for all barangays', onClick: () => act(e, 'close') },
+                      e.status === 'open' && e.claimed === 0 && e.stages.ongoing === 0 && e.stages.closed === 0
+                        && { label: 'Delete', icon: Trash2, hint: 'Remove this event', danger: true, onClick: () => act(e, 'delete') },
+                    ]} />
                   </td>
                 </tr>
               ))}
@@ -267,7 +267,7 @@ function CreateEventModal({ state, setState, busy, error, onClose, onSubmit }) {
         <div className="row g-2 mb-3">
           <div className="col-md-8">
             <label className="rc-label" htmlFor="ev-item">What will be given</label>
-            <select id="ev-item" className="form-select" required value={form.relief_item_id}
+            <Select id="ev-item" className="form-select" required value={form.relief_item_id}
                     onChange={(e) => setForm('relief_item_id', e.target.value)}>
               <optgroup label="Relief goods">
                 {options.items.filter((i) => i.type !== 'cash').map((i) => (
@@ -279,7 +279,7 @@ function CreateEventModal({ state, setState, busy, error, onClose, onSubmit }) {
                   <option key={i.id} value={i.id}>{i.name} ({peso(i.available)} available)</option>
                 ))}
               </optgroup>
-            </select>
+            </Select>
             {item?.reserved > 0 && (
               <div className="small text-secondary mt-1">
                 {amt(item.reserved)} of {amt(item.in_stock)} {isCash ? 'is' : 'are'} already set aside for other open events.
@@ -296,10 +296,10 @@ function CreateEventModal({ state, setState, busy, error, onClose, onSubmit }) {
         </div>
 
         <label className="rc-label" htmlFor="ev-who">Who can receive</label>
-        <select id="ev-who" className="form-select" value={form.eligibility}
+        <Select id="ev-who" className="form-select" value={form.eligibility}
                 onChange={(e) => setState({ ...state, form: { ...form, eligibility: e.target.value }, quotas: {} })}>
           {options.eligibility.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
-        </select>
+        </Select>
         <div className="small text-secondary mt-1 mb-3">
           {rule.per_member
             ? `Given per ${rule.recipient}: a household with 2 qualifying members receives twice the amount.`
@@ -494,11 +494,11 @@ function ClaimsList({ eventId, barangays, refreshKey }) {
           <div className="small text-secondary">Click a claim to see the household, members, and how it was released.</div>
         </div>
         <div className="d-flex gap-2">
-          <select className="form-select form-select-sm" aria-label="Filter by barangay" value={filters.barangay_id}
+          <Select className="form-select form-select-sm" aria-label="Filter by barangay" value={filters.barangay_id}
                   onChange={(e) => { setPage(1); setFilters({ ...filters, barangay_id: e.target.value }) }}>
             <option value="">All barangays</option>
             {barangays.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+          </Select>
           <input className="form-control form-control-sm" placeholder="Search name or reference no." aria-label="Search claims"
                  value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
