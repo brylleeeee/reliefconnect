@@ -1,0 +1,72 @@
+/* ---------- Login: municipality panel on the left, sign-in form on the right ---------- */
+.rc-auth { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); background: #fff; }
+
+/* Left panel */
+.rc-auth-hero {
+  position: relative; overflow: hidden; color: #fff;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 32px; padding: 32px 48px;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 255, 255, .10), transparent 42%),
+    radial-gradient(circle at 85% 90%, rgba(0, 0, 0, .18), transparent 48%),
+    linear-gradient(150deg, #2f8a70 0%, var(--rc-green) 45%, #1f5c4b 100%);
+}
+/* faint diagonal texture */
+.rc-auth-hero::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .06;
+  background-image: repeating-linear-gradient(135deg, #fff 0 1px, transparent 1px 14px);
+}
+.rc-auth-hero > * { position: relative; }
+
+.rc-auth-republic { display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; opacity: .9; }
+.rc-auth-flag { display: inline-flex; gap: 3px; }
+.rc-auth-flag i { display: block; width: 14px; height: 3px; border-radius: 2px; }
+.rc-auth-flag i:nth-child(1) { background: #3b6fd8; }
+.rc-auth-flag i:nth-child(2) { background: #e04a4a; }
+.rc-auth-flag i:nth-child(3) { background: #f5c518; }
+
+.rc-auth-identity { max-width: 440px; }
+.rc-auth-seal {
+  width: 104px; height: 104px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 22px;
+  background: #fff; color: var(--rc-green); box-shadow: 0 0 0 6px rgba(255, 255, 255, .16), 0 10px 30px rgba(0, 0, 0, .18);
+}
+.rc-auth-seal img { width: 92px; height: 92px; object-fit: contain; border-radius: 50%; }
+.rc-auth-province { margin: 0; font-size: 13px; opacity: .85; }
+.rc-auth-municipality { margin: 2px 0 0; font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.rc-auth-rule { display: block; width: 44px; height: 3px; border-radius: 2px; background: #f5c518; margin: 20px 0; }
+.rc-auth-app { margin: 0; font-size: 40px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
+.rc-auth-tagline { margin: 8px 0 0; font-size: 15px; opacity: .88; }
+.rc-auth-foot { margin: 0; font-size: 12px; opacity: .7; }
+
+/* Right panel */
+.rc-auth-panel { display: grid; place-items: center; padding: 40px 24px; background: #fff; }
+.rc-auth-form { width: 100%; max-width: 380px; }
+.rc-auth-eyebrow { margin: 0 0 6px; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--rc-green); }
+.rc-auth-title { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.02em; color: var(--rc-text); }
+.rc-auth-sub { margin: 6px 0 24px; font-size: 13px; color: var(--rc-muted); }
+
+.rc-auth-field { position: relative; margin-bottom: 16px; }
+.rc-auth-field .form-control { height: 44px; padding-left: 40px; }
+.rc-auth-field .form-control.has-toggle { padding-right: 44px; }
+.rc-auth-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #9aa5b1; pointer-events: none; }
+.rc-auth-field:focus-within .rc-auth-icon { color: var(--rc-green); }
+.rc-auth-toggle {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px;
+  display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: #7b8794;
+}
+.rc-auth-toggle:hover { background: var(--rc-green-pale); color: var(--rc-green); }
+.rc-auth-toggle:focus-visible { outline: 2px solid var(--rc-green); outline-offset: 1px; }
+
+.rc-auth-submit { width: 100%; height: 44px; margin-top: 8px; font-size: 14px; border-radius: 10px; box-shadow: 0 6px 16px rgba(46, 125, 103, .22); }
+.rc-auth-help { margin: 18px 0 0; font-size: 12px; color: var(--rc-muted); text-align: center; }
+
+/* Tablets and phones: the municipality panel becomes a compact header */
+@media (max-width: 900px) {
+  .rc-auth { grid-template-columns: 1fr; }
+  .rc-auth-hero { padding: 24px; gap: 20px; }
+  .rc-auth-identity { display: grid; grid-template-columns: auto 1fr; column-gap: 16px; align-items: center; }
+  .rc-auth-seal { width: 64px; height: 64px; margin: 0; grid-row: span 2; box-shadow: 0 0 0 4px rgba(255, 255, 255, .16); }
+  .rc-auth-seal img { width: 56px; height: 56px; }
+  .rc-auth-rule, .rc-auth-app, .rc-auth-tagline, .rc-auth-foot { display: none; }
+  .rc-auth-municipality { font-size: 17px; }
+  .rc-auth-panel { place-items: start center; padding-top: 32px; }
+}
