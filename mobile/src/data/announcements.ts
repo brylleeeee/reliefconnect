@@ -32,7 +32,8 @@ function formatTime(iso: string | null) {
 }
 
 export async function fetchAnnouncements(): Promise<Announcement[]> {
-  const res = await api<{ data: ApiAnnouncement[] }>('/resident/announcements');
+  // the newest 100; the Announcements screen shows them 10 per page
+  const res = await api<{ data: ApiAnnouncement[] }>('/resident/announcements?per_page=100');
   return res.data.map((a) => ({
     id: String(a.id),
     author: a.source_announcement_id ? 'LGU Urbiztondo' : `Barangay ${a.barangay?.name ?? ''}`.trim(),

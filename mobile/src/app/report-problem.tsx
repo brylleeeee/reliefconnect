@@ -11,6 +11,8 @@ import { Phone } from 'lucide-react-native';
 import ScreenHeader from '../components/ScreenHeader';
 import PrimaryButton from '../components/PrimaryButton';
 import ReportCard from '../components/ReportCard';
+import Pager from '../components/Pager';
+import { usePaged } from '../lib/usePaged';
 import { ApiError, errorText } from '../lib/api';
 import { useResident } from '../context/ResidentContext';
 import { fetchReports, sendReport, RESIDENT_CATEGORIES, SupportReport } from '../data/supportReports';
@@ -103,6 +105,9 @@ export default function ReportProblem() {
     ]);
   };
 
+  // Past reports sit under the form, 5 per page (no scroll jump, so the list stays in view)
+  const reportPages = usePaged(reports, 5);
+
   return (
     <SafeAreaView style={styles.container}>
       <ScreenHeader title="Report a Problem" subtitle="Tell your barangay what went wrong" />
@@ -157,7 +162,8 @@ export default function ReportProblem() {
           {listError ? <Text style={styles.hint}>{listError}</Text> : null}
           {reports === null && !listError && <Text style={styles.hint}>Loading…</Text>}
           {reports?.length === 0 && <Text style={styles.hint}>You haven't sent any reports yet.</Text>}
-          {reports?.map((r) => <ReportCard key={r.id} report={r} />)}
+          {reportPages.rows.map((r) => <ReportCard key={r.id} report={r} />)}
+          <Pager meta={reportPages.meta} onPage={reportPages.goTo} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -19,8 +19,12 @@ export default function QrReview() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
-  const load = () => api.get('/barangay/households', { params: { status: 'pending', sort: 'priority', page } })
-    .then((r) => setList(r.data))
+  const load = () => api.get('/barangay/households', { params: { status: 'pending', sort: 'priority', page, per_page: 5 } })
+    .then((r) => {
+      // Approving or rejecting the last one on a page leaves it empty: go back one page
+      if (r.data.data.length === 0 && page > 1) setPage(page - 1)
+      else setList(r.data)
+    })
   useEffect(() => { load() }, [page])
   // Live: new registrations from the resident app appear without refreshing
   const tick = useLiveTick()

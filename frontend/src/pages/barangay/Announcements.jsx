@@ -4,6 +4,7 @@ import api, { errorMessage } from '../../api/client'
 import useLiveTick from '../../components/useLiveTick'
 import PageHeader from '../../components/PageHeader'
 import AnnounceModal from '../../components/AnnounceModal'
+import Pagination, { usePaged } from '../../components/Pagination'
 import useConfirm from '../../components/useConfirm'
 import { fmtDateTime } from '../../components/format'
 import useSummary from './useSummary'
@@ -36,6 +37,8 @@ export default function Announcements() {
     catch (err) { setError(errorMessage(err)) }
   }
 
+  const lguPages = usePaged(data?.from_lgu, 5)
+  const minePages = usePaged(data?.mine, 5)
   const pending = data?.from_lgu.filter((a) => !a.relayed).length ?? 0
 
   return (
@@ -54,7 +57,7 @@ export default function Announcements() {
               {pending > 0 ? `${pending} not yet announced to your residents.` : 'All announced to your residents.'}
             </p>
             {data?.from_lgu.length === 0 && <p className="small text-secondary mb-0">No announcements from the LGU yet.</p>}
-            {data?.from_lgu.map((a) => (
+            {lguPages.rows.map((a) => (
               <div className="rc-advisory" key={a.id}>
                 <div className="flex-grow-1">
                   <div>
@@ -69,6 +72,7 @@ export default function Announcements() {
                   : <button className="btn btn-sm btn-rc text-nowrap" onClick={() => relay(a)}>Announce to residents</button>}
               </div>
             ))}
+            <Pagination meta={lguPages.meta} onPage={lguPages.setPage} />
           </section>
         </div>
 
@@ -82,7 +86,7 @@ export default function Announcements() {
               </button>
             </div>
             {data?.mine.length === 0 && <p className="small text-secondary mb-0">You haven't announced anything to residents yet.</p>}
-            {data?.mine.map((a) => (
+            {minePages.rows.map((a) => (
               <div className="rc-advisory" key={a.id}>
                 <div className="flex-grow-1">
                   <div>
@@ -99,6 +103,7 @@ export default function Announcements() {
                 <button className="btn-icon danger" aria-label={`Delete ${a.title}`} onClick={() => remove(a)}><Trash2 size={14} /></button>
               </div>
             ))}
+            <Pagination meta={minePages.meta} onPage={minePages.setPage} />
           </section>
         </div>
       </div>

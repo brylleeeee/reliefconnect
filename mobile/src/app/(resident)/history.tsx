@@ -1,5 +1,5 @@
 // src/app/(resident)/history.tsx  —  adviser: past claims, tap a date to see the items
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View, Text, FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -7,6 +7,8 @@ import {
   ChevronDown, ChevronUp, Package, Banknote, MapPin, QrCode, Keyboard,
 } from 'lucide-react-native';
 import AppHeader from '../../components/AppHeader';
+import Pager from '../../components/Pager';
+import { usePaged } from '../../lib/usePaged';
 import { useResident } from '../../context/ResidentContext';
 import { fetchHistory, itemQty, ClaimRecord } from '../../data/history';
 import { errorText } from '../../lib/api';
@@ -103,13 +105,17 @@ export default function History() {
 
   const list = claims ?? [];
   const totalCash = list.reduce((sum, c) => sum + (c.cashAmount ?? 0), 0);
+  const listRef = useRef<FlatList<ClaimRecord>>(null);
+  const paged = usePaged(list, 10, null, listRef);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <AppHeader barangay={household?.barangay} />
 
       <FlatList
-        data={list}
+        ref={listRef}
+        data={paged.rows}
+        ListFooterComponent={<Pager meta={paged.meta} onPage={paged.goTo} />}
         keyExtractor={(c) => c.id}
         contentContainerStyle={styles.feed}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}

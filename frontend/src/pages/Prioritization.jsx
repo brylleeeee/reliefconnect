@@ -3,6 +3,7 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { Info, Siren, Sparkles } from 'lucide-react'
 import api from '../api/client'
 import Modal from '../components/Modal'
+import Pagination, { pageOf } from '../components/Pagination'
 import PageHeader from '../components/PageHeader'
 import useLiveTick from '../components/useLiveTick'
 import { C, SOS_LEVEL } from '../chartColors'
@@ -45,6 +46,11 @@ export default function Prioritization() {
   const [mode, setMode] = useState('share')        // share by priority, or serve SOS barangays first
 
   const applied = useRef({}) // the item and quantity last calculated
+  // Pages: SOS "first up" list, the priority chart and the allocation table (back to page 1 on a new filter or sort)
+  const [firstPage, setFirstPage] = useState(1)
+  const [chartPage, setChartPage] = useState(1)
+  const [tablePage, setTablePage] = useState(1)
+  useEffect(() => { setChartPage(1); setTablePage(1) }, [filter, sort])
 
   const load = (params = {}) => {
     applied.current = params
@@ -84,6 +90,10 @@ export default function Prioritization() {
   const allocated = all.reduce((s, r) => s + r.allocation, 0)
   const sosTotal = all.reduce((s, r) => s + r.sos, 0)
   const unit = data.selected_item?.unit ?? 'packs'
+  const firstPaged = pageOf(firstUp, firstPage, 5)
+  const chartPaged = pageOf(rows, chartPage, 10)
+  const tablePaged = pageOf(rows, tablePage, 10)
+  const chartMax = Math.max(1, ...rows.map((r) => r.high + r.medium + r.low + r.sos)) // same scale on every page
 
   return (
     <>
@@ -132,8 +142,9 @@ export default function Prioritization() {
         {firstUp.length === 0 ? (
           <p className="small text-secondary mb-0">No active SOS. Allocation follows household priority only.</p>
         ) : (
+          <>
           <div className="rc-first-list">
-            {firstUp.map((r) => (
+            {firstPaged.rows.map((r) => (
               <div key={r.id} className={`rc-first ${r.sos_priority.level}`}>
                 <div className="rc-first-rank">#{r.sos_priority.rank}</div>
                 <div className="flex-grow-1 min-w-0">
@@ -153,6 +164,8 @@ export default function Prioritization() {
               </div>
             ))}
           </div>
+          <Pagination meta={firstPaged.meta} onPage={setFirstPage} />
+          </>
         )}
       </section>
 
@@ -204,12 +217,12 @@ export default function Prioritization() {
           </button>
         </div>
         {rows.length === 0 && <p className="small text-secondary mb-0">No barangays match this filter.</p>}
-        {/* About 28px per barangay, so all 21 barangays and their labels fit */}
-        {rows.length > 0 && <div style={{ height: Math.max(200, rows.length * 28 + 70) }}>
+        {/* About 28px per barangay; 10 barangays per page */}
+        {rows.length > 0 && <div style={{ height: Math.max(200, chartPaged.rows.length * 28 + 70) }}>
           <ResponsiveContainer>
-            <BarChart data={rows} layout="vertical" margin={{ left: 10, right: 20 }} barCategoryGap="25%">
+            <BarChart data={chartPaged.rows} layout="vertical" margin={{ left: 10, right: 20 }} barCategoryGap="25%">
               <CartesianGrid horizontal={false} stroke={C.grid} />
-              <XAxis type="number" tick={{ fontSize: 12 }} allowDecimals={false} />
+              <XAxis type="number" tick={{ fontSize: 12 }} allowDecimals={false} domain={[0, chartMax]} />
               <YAxis type="category" dataKey="name" width={96} tick={{ fontSize: 12 }} interval={0} />
               <Tooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -220,6 +233,7 @@ export default function Prioritization() {
             </BarChart>
           </ResponsiveContainer>
         </div>}
+        <Pagination meta={chartPaged.meta} onPage={setChartPage} />
       </section>
 
       <section className="rc-card">
@@ -235,7 +249,7 @@ export default function Prioritization() {
             </thead>
             <tbody>
               {rows.length === 0 && <tr><td colSpan={11} className="text-center muted py-3">No barangays match this filter.</td></tr>}
-              {rows.map((r) => (
+              {tablePaged.rows.map((r) => (
                 <tr key={r.id} className={r.sos_priority ? `rc-row-sos ${r.sos_priority.level}` : ''}>
                   <td className="text-nowrap">
                     {r.sos_priority
@@ -269,6 +283,7 @@ export default function Prioritization() {
             </tbody>
           </table>
         </div>
+        <Pagination meta={tablePaged.meta} onPage={setTablePage} />
       </section>
 
       {showScoring && (

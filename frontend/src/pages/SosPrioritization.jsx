@@ -5,6 +5,7 @@ import {
 import { Info, Loader2, Sparkles, TriangleAlert } from 'lucide-react'
 import api, { errorMessage } from '../api/client'
 import Modal from '../components/Modal'
+import Pagination, { usePaged } from '../components/Pagination'
 import AiStatusCard from '../components/AiStatusCard'
 import PageHeader from '../components/PageHeader'
 import useLiveTick, { useLiveUpdatedAt } from '../components/useLiveTick'
@@ -18,6 +19,7 @@ const ago = (iso, now) => {
   return sec < 60 ? `${sec} s ago` : `${Math.floor(sec / 60)} min ago`
 }
 const waiting = (min) => (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`)
+const maxOf = (rows, f) => Math.max(0, ...rows.map((r) => Number(f(r)) || 0)) || undefined
 const pretty = (t) => { const s = String(t).replace(/_/g, ' '); return s.charAt(0).toUpperCase() + s.slice(1) }
 
 // Hover tooltip for the priority graph: shows how the score was made and the reason
@@ -33,8 +35,10 @@ function ScoreTip({ active, payload, msgLabel }) {
   )
 }
 
-// One horizontal bar graph card. Bars (and optional Cells) are passed as children.
-function BarCard({ title, action, data, tooltip, legend, decimals = false, empty = 'No active SOS.', children }) {
+// One horizontal bar graph card, 10 bars per page. Bars are passed as children, or as a function
+// of the page's rows when they need per-row Cells. `max` keeps the same scale on every page.
+function BarCard({ title, action, data, tooltip, legend, decimals = false, empty = 'No active SOS.', max, children }) {
+  const { rows, meta, setPage } = usePaged(data, 10)
   return (
     <section className="col-lg-6">
       <div className="rc-card h-100">
@@ -43,19 +47,20 @@ function BarCard({ title, action, data, tooltip, legend, decimals = false, empty
           {action}
         </div>
         {data.length === 0 ? <p className="text-secondary small">{empty}</p> : (
-          <div style={{ height: Math.max(240, data.length * 34 + 60) }}>
+          <div style={{ height: Math.max(240, rows.length * 34 + 60) }}>
             <ResponsiveContainer>
-              <BarChart data={data} layout="vertical" margin={{ left: 10, right: 24 }} barCategoryGap="25%">
+              <BarChart data={rows} layout="vertical" margin={{ left: 10, right: 24 }} barCategoryGap="25%">
                 <CartesianGrid horizontal={false} stroke={C.grid} />
-                <XAxis type="number" tick={{ fontSize: 12 }} allowDecimals={decimals} />
+                <XAxis type="number" tick={{ fontSize: 12 }} allowDecimals={decimals} domain={max ? [0, max] : undefined} />
                 <YAxis type="category" dataKey="name" width={96} tick={{ fontSize: 12 }} interval={0} />
                 <Tooltip cursor={{ fill: 'rgba(0,0,0,0.04)' }} {...(tooltip ? { content: tooltip } : {})} />
                 {legend && <Legend wrapperStyle={{ fontSize: 12 }} />}
-                {children}
+                {typeof children === 'function' ? children(rows) : children}
               </BarChart>
             </ResponsiveContainer>
           </div>
         )}
+        <Pagination meta={meta} onPage={setPage} />
       </div>
     </section>
   )
@@ -186,6 +191,7 @@ export default function SosPrioritization() {
           data={ranking}
           tooltip={<ScoreTip msgLabel={msgLabel} />}
           decimals
+          max={maxOf(ranking, (r) => r.score)}
           action={(
             <button type="button" className="btn btn-link p-0 text-secondary d-inline-flex"
                     onClick={() => setShowRules(true)} aria-label="How the ranking works" title="How the ranking works">
@@ -193,27 +199,31 @@ export default function SosPrioritization() {
             </button>
           )}
         >
-          <Bar dataKey="score" radius={[0, 4, 4, 0]}>
-            {ranking.map((r) => <Cell key={r.id} fill={SOS_LEVEL[r.level]} />)}
-          </Bar>
+          {(rows) => (
+            <Bar dataKey="score" radius={[0, 4, 4, 0]}>
+              {rows.map((r) => <Cell key={r.id} fill={SOS_LEVEL[r.level]} />)}
+            </Bar>
+          )}
         </BarCard>
 
-        <BarCard title="Where the score comes from" data={ranking} legend decimals>
+        <BarCard title="Where the score comes from" data={ranking} legend decimals
+                 max={maxOf(ranking, (r) => (r.base_score ?? 0) + (r.ai_points ?? 0) + (r.vulnerability_points ?? 0))}>
           <Bar dataKey="base_score" name="Base score (people, waiting)" stackId="score" fill={C.blue} />
           <Bar dataKey="ai_points" name={`${aiOn ? 'AI points' : 'Message points'} (from SOS messages)`} stackId="score" fill={MSG_COLOR} />
           <Bar dataKey="vulnerability_points" name="Aid priority (vulnerable households)" stackId="score" fill={AID_COLOR} radius={[0, 4, 4, 0]} />
         </BarCard>
 
-        <BarCard title="Households and people asking, per barangay" data={ranking} legend>
+        <BarCard title="Households and people asking, per barangay" data={ranking} legend
+                 max={maxOf(ranking, (r) => Math.max(r.sos_count, r.people))}>
           <Bar dataKey="sos_count" name="Households (SOS)" fill={C.high} radius={[0, 4, 4, 0]} />
           <Bar dataKey="people" name="People" fill={C.blue} radius={[0, 4, 4, 0]} />
         </BarCard>
 
-        <BarCard title="Longest wait (hours)" data={waitData} decimals>
+        <BarCard title="Longest wait (hours)" data={waitData} decimals max={maxOf(waitData, (r) => r.hours)}>
           <Bar dataKey="hours" name="Hours" fill={C.high} radius={[0, 4, 4, 0]} />
         </BarCard>
 
-        <BarCard title="What residents reported" data={typeData} empty="No SOS messages read yet.">
+        <BarCard title="What residents reported" data={typeData} empty="No SOS messages read yet." max={maxOf(typeData, (r) => r.total)}>
           <Bar dataKey="total" name="SOS" fill={MSG_COLOR} radius={[0, 4, 4, 0]} />
         </BarCard>
       </div>

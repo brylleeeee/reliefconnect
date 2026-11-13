@@ -6,6 +6,8 @@ import { router, useFocusEffect } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { Bell, QrCode, Keyboard, ChevronRight, ClipboardList, Headset, CloudUpload, TriangleAlert } from 'lucide-react-native';
 import { useStaff } from '../../context/StaffContext';
+import Pager from '../../components/Pager';
+import { usePaged } from '../../lib/usePaged';
 import { logout } from '../../lib/auth';
 import { errorText, qtyUnit } from '../../lib/api';
 import { downloadPack, getPack, getQueue, getProblems, clearProblems, syncQueue, SyncProblem } from '../../lib/offline';
@@ -129,6 +131,9 @@ export default function Dashboard() {
       { text: 'Cancel', style: 'cancel' },
     ]);
 
+  // Distributions running right now, 3 per page
+  const eventPages = usePaged(events, 3);
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* header */}
@@ -174,7 +179,7 @@ export default function Dashboard() {
               No distribution is running right now. A barangay admin has to start its distribution day first. Pull down to refresh.
             </Text>
           )}
-          {events?.map((e) => {
+          {eventPages.rows.map((e) => {
             const active = selected?.event_id === e.event_id && selected?.barangay_id === e.barangay_id;
             return (
               <Pressable
@@ -191,6 +196,7 @@ export default function Dashboard() {
               </Pressable>
             );
           })}
+          <Pager meta={eventPages.meta} onPage={eventPages.goTo} />
         </View>
 
         {/* stats */}

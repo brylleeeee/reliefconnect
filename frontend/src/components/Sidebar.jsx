@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutGrid, QrCode, Archive, FileText, Users, UserPlus, MapPin, ShieldPlus, LogOut, Scale,
-  CalendarCheck, ClipboardCheck, Megaphone, History as HistoryIcon, TriangleAlert, UserCog, FilePen,
+  CalendarCheck, ClipboardCheck, MapPinned, Megaphone, History as HistoryIcon, TriangleAlert, UserCog, FilePen,
 } from 'lucide-react'
 import api from '../api/client'
 import useLiveTick from './useLiveTick'
@@ -15,6 +15,7 @@ const LINKS = {
     { to: '/sos', label: 'SOS Prioritization', icon: TriangleAlert },
     { to: '/inventory', label: 'Inventory', icon: Archive },
     { to: '/events', label: 'Distribution Events', icon: CalendarCheck },
+    { to: '/barangays', label: 'Barangay Summary', icon: MapPinned }, // also opened from the Dashboard's Needs attention cards
     { to: '/prioritization', label: 'Aid Prioritization', icon: Scale },
     { to: '/reports', label: 'Reports', icon: FileText },
   ],

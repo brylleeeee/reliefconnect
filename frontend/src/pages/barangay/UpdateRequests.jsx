@@ -114,8 +114,12 @@ export default function UpdateRequests() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
-  const load = () => api.get('/barangay/update-requests', { params: { status, page, search: search || undefined } })
-    .then((r) => setList(r.data))
+  const load = () => api.get('/barangay/update-requests', { params: { status, page, search: search || undefined, per_page: 5 } })
+    .then((r) => {
+      // Approving or rejecting the last one on a page leaves it empty: go back one page
+      if (r.data.data.length === 0 && page > 1) setPage(page - 1)
+      else setList(r.data)
+    })
   useEffect(() => { load() }, [status, page, search])
   const tick = useLiveTick()
   useEffect(() => { if (tick) load() }, [tick])

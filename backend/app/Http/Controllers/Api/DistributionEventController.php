@@ -88,13 +88,18 @@ class DistributionEventController extends Controller
 
     public function index(Request $request)
     {
-        $status = $request->validate(['status' => ['nullable', 'in:open,closed']])['status'] ?? null;
+        $f = $request->validate([
+            'status' => ['nullable', 'in:open,closed'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'], // list page: 5; event pickers: 100
+        ]);
+        $status = $f['status'] ?? null;
+        $perPage = (int) ($f['per_page'] ?? 15);
 
         $events = DistributionEvent::with(['item', 'barangayDistributions:id,distribution_event_id,status,quota'])
             ->withCount('distributions as claimed')
             ->when($status, fn ($q) => $q->where('status', $status))
             ->boardOrder()
-            ->paginate(15)->withQueryString();
+            ->paginate($perPage)->withQueryString();
 
         // Quota total and how many barangays are at each stage, for the list view
         $events->getCollection()->transform(function ($e) {

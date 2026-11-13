@@ -3,13 +3,15 @@ import { MapPin, Trash2, RefreshCw } from 'lucide-react'
 import api, { errorMessage } from '../api/client'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
-import Pagination from '../components/Pagination'
+import Pagination, { usePaged } from '../components/Pagination'
 import Progress from '../components/Progress'
 import EventAnalytics from '../components/EventAnalytics'
 import { StatusBadge } from '../components/Badges'
 import { fmtDate, fmtDateTime, fmtTime, peso, qtyUnit, recipients as countOf } from '../components/format'
 import ClaimDetailModal from '../components/ClaimDetailModal'
 import useConfirm from '../components/useConfirm'
+
+const EVENTS_PER_PAGE = 5
 import useLiveTick from '../components/useLiveTick'
 
 const STAGE_LABELS = { ongoing: 'distributing', scheduled: 'scheduled', unscheduled: 'not scheduled', closed: 'done' }
@@ -40,7 +42,7 @@ export default function Events() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
-  const load = () => api.get('/admin/events', { params: { status: status || undefined, page } })
+  const load = () => api.get('/admin/events', { params: { status: status || undefined, page, per_page: EVENTS_PER_PAGE } })
     .then((r) => { setData(r.data); setLoadError('') })
     .catch((err) => setLoadError(errorMessage(err)))
   useEffect(() => { load() }, [status, page])
@@ -398,6 +400,7 @@ function EventDetailModal({ id, tick, onClose, onAct }) {
   }, [live, id])
 
   const e = d?.event
+  const brgyPages = usePaged(d?.barangays, 7, id)
 
   return (
     <Modal title={e?.name ?? 'Event'} size="lg" onClose={onClose}>
@@ -431,7 +434,7 @@ function EventDetailModal({ id, tick, onClose, onAct }) {
             <table className="rc-table">
               <thead><tr><th>Barangay</th><th>Distribution day</th><th>Status</th><th>Claimed / quota</th></tr></thead>
               <tbody>
-                {d.barangays.map((b) => (
+                {brgyPages.rows.map((b) => (
                   <tr key={b.id}>
                     <td className="fw-semibold">{b.name}</td>
                     <td className="small">
@@ -448,6 +451,7 @@ function EventDetailModal({ id, tick, onClose, onAct }) {
                 ))}
               </tbody>
             </table>
+            <Pagination meta={brgyPages.meta} onPage={brgyPages.setPage} />
           </div>
 
           <ClaimsList eventId={id} barangays={d.barangays} refreshKey={d.refreshed_at} />

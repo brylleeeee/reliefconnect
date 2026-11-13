@@ -1,10 +1,12 @@
 // src/app/(staff)/scan-logs.tsx  —  adviser: scanned logs, households served, relief item breakdown
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { CircleCheck, CircleX, TriangleAlert, QrCode, Keyboard } from 'lucide-react-native';
 import ScreenHeader from '../../components/ScreenHeader';
+import Pager from '../../components/Pager';
+import { usePaged } from '../../lib/usePaged';
 import { useStaff } from '../../context/StaffContext';
 import { getScans, ScanEntry, ScanResult } from '../../lib/scanLog';
 import { colors, fonts } from '../../constants/theme';
@@ -51,6 +53,9 @@ export default function ScanLogs() {
   const shown = scans.filter((s) =>
     filter === 'all' ? true : filter === 'released' ? s.result === 'released' : s.result !== 'released');
 
+  const listRef = useRef<FlatList<ScanEntry>>(null);
+  const paged = usePaged(shown, 10, filter, listRef);
+
   const chip = (value: Filter, label: string) => (
     <Pressable
       key={value}
@@ -66,7 +71,9 @@ export default function ScanLogs() {
       <ScreenHeader title="My Scan Logs" subtitle="Saved on this phone" />
 
       <FlatList
-        data={shown}
+        ref={listRef}
+        data={paged.rows}
+        ListFooterComponent={<Pager meta={paged.meta} onPage={paged.goTo} />}
         keyExtractor={(s) => s.id}
         contentContainerStyle={styles.content}
         ListHeaderComponent={

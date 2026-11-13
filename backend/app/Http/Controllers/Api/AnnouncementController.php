@@ -14,14 +14,16 @@ use Illuminate\Support\Facades\DB;
  */
 class AnnouncementController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $totalBarangays = Barangay::count();
+        // The Dashboard asks for 5 per page; anything else gets the old default of 10
+        $perPage = min(50, max(1, (int) $request->query('per_page', 10)));
 
         $page = Announcement::fromLgu()
             ->with(['author:id,name', 'targetBarangays:id,name', 'relays:id,source_announcement_id,barangay_id'])
             ->latest('published_at')->latest('id')
-            ->paginate(10);
+            ->paginate($perPage);
 
         $page->getCollection()->transform(function ($a) use ($totalBarangays) {
             $a->target_count = $a->targetBarangays->count() ?: $totalBarangays;

@@ -247,6 +247,39 @@ body {
 .rc-attention svg { flex-shrink: 0; }
 .rc-attention a { color: var(--rc-green); font-weight: 600; text-decoration: none; }
 
+/* Dashboard "Needs attention": small barangay cards (name + coverage %) that open the Barangay summary */
+.rc-attn-notes { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: #52606d; }
+.rc-attn-notes > * { display: inline-flex; align-items: center; gap: 4px; }
+.rc-attn-notes a { color: #b42318; font-weight: 600; text-decoration: none; }
+.rc-attn-notes a:hover { text-decoration: underline; }
+.rc-attn-grid {
+  list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;
+  grid-template-columns: repeat(6, minmax(0, 1fr)); /* 6 per page, stretched across the full card */
+}
+@media (max-width: 1199.98px) { .rc-attn-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 575.98px) { .rc-attn-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Each card fills from the left up to the barangay's coverage %, like a progress bar behind the text */
+.rc-attn-card {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 14px 12px 14px 14px; border-radius: 10px; background: #f5f7fa;
+  border-left: 4px solid var(--attn-edge, #e0a526);
+  color: var(--rc-text); text-decoration: none; font-size: 14px;
+}
+.rc-attn-charge { /* the progress fill */
+  position: absolute; z-index: -1; left: 0; top: 0; bottom: 0;
+  width: calc(100% * var(--attn-level, 0)); /* --attn-level: 0 to 1, set from the % */
+  background: var(--attn-charge, #fde8b0);
+  animation: rc-charge .7s ease-out;
+  transition: width .5s ease;
+}
+@keyframes rc-charge { from { width: 0; } }
+@media (prefers-reduced-motion: reduce) { .rc-attn-charge { animation: none; transition: none; } }
+.rc-attn-card:hover { color: var(--rc-text); box-shadow: 0 0 0 3px rgba(46, 125, 103, .12); }
+.rc-attn-card:focus-visible { outline: 2px solid var(--rc-green); outline-offset: 2px; }
+.rc-attn-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-attn-pct { font-size: 17px; flex-shrink: 0; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--attn-text, #8a5a00); }
+
 .rc-cov-list { display: flex; flex-direction: column; gap: 10px; }
 .rc-cov-row { display: flex; align-items: center; gap: 12px; font-size: 13px; }
 .rc-cov-row + .rc-cov-row { margin-top: 0; }

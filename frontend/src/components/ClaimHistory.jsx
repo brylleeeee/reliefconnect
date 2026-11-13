@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Package, Wallet } from 'lucide-react'
 import api from '../api/client'
 import ClaimDetailModal from './ClaimDetailModal'
+import Pagination, { usePaged } from './Pagination'
 import { fmtDateTime, peso } from './format'
 
 /** Every aid one household received: when, which event, goods or cash, and how much. */
@@ -10,6 +11,7 @@ export default function ClaimHistory({ householdId }) {
   const [openId, setOpenId] = useState(null)
 
   useEffect(() => { api.get(`/barangay/households/${householdId}/claims`).then((r) => setD(r.data)) }, [householdId])
+  const claimPages = usePaged(d?.claims, 5, householdId)
   if (!d) return <p className="small text-secondary">Loading claim history…</p>
   const s = d.summary
 
@@ -35,7 +37,7 @@ export default function ClaimHistory({ householdId }) {
         <table className="rc-table">
           <thead><tr><th>Claimed on</th><th>Event</th><th>Type</th><th>Received</th><th>Verified by</th></tr></thead>
           <tbody>
-            {d.claims.map((c) => (
+            {claimPages.rows.map((c) => (
               <tr key={c.id} className="rc-row-click" tabIndex={0} onClick={() => setOpenId(c.id)}
                   onKeyDown={(e) => { if (e.key === 'Enter') setOpenId(c.id) }} title="See claim details">
                 <td className="text-nowrap">{fmtDateTime(c.distributed_at)}</td>
@@ -58,6 +60,7 @@ export default function ClaimHistory({ householdId }) {
           </tbody>
         </table>
       </div>
+      <Pagination meta={claimPages.meta} onPage={claimPages.setPage} />
       {openId && <ClaimDetailModal url={`/barangay/claims/${openId}`} onClose={() => setOpenId(null)} />}
     </>
   )

@@ -45,12 +45,12 @@ export default function Login() {
         {error && <div className="alert alert-danger py-2 small">{error}</div>}
 
         <label className="rc-label" htmlFor="email">Email</label>
-        <input id="email" type="number" className="form-control mb-3" required autoFocus
-               value={form.password} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        <input id="email" type="email" className="form-control mb-3" required autoFocus
+               value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
 
         <label className="rc-label" htmlFor="password">Password</label>
-        <input id="password" type="email" className="form-control mb-4" required
-               value={form.email} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+        <input id="password" type="password" className="form-control mb-4" required
+               value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
 
         <button className="btn btn-rc w-100" disabled={busy}>{busy ? 'Logging in…' : 'Log in'}</button>
       </form>

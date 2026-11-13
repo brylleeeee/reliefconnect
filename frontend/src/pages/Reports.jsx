@@ -35,7 +35,7 @@ export default function Reports() {
   const meta = REPORTS.find((r) => r.type === type)
   const params = { ...range, event_id: meta.byEvent && eventId ? eventId : undefined }
 
-  useEffect(() => { api.get('/admin/events').then((r) => setEvents(r.data.events.data)) }, [])
+  useEffect(() => { api.get('/admin/events', { params: { per_page: 100 } }).then((r) => setEvents(r.data.events.data)) }, [])
 
   const preview = async () => {
     setBusy('preview'); setError('')

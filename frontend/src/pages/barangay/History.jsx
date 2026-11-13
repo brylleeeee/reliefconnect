@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, CalendarDays, MapPin, Package, Wallet, Users
 import api, { errorMessage } from '../../api/client'
 import useLiveTick from '../../components/useLiveTick'
 import PageHeader from '../../components/PageHeader'
+import Pagination, { usePaged } from '../../components/Pagination'
 import ClaimDetailModal from '../../components/ClaimDetailModal'
 import { PriorityBadge, StatusBadge } from '../../components/Badges'
 import { fmtDate, fmtDateTime, fmtTime } from '../../components/format'
@@ -47,6 +48,9 @@ export default function History() {
     }
   }, [tick])
 
+  const eventPages = usePaged(events, 6)
+  const claimPages = usePaged(claims, 10, selected ? `${selected.event.event_id}-${selected.day?.date ?? 'all'}` : null)
+
   const toggle = (id) => setExpanded((x) => ({ ...x, [id]: !x[id] }))
   const isSelected = (e, day) => selected?.event.event_id === e.event_id && (selected.day?.date ?? null) === (day?.date ?? null)
 
@@ -59,7 +63,7 @@ export default function History() {
       <div className="row g-3">
         <div className="col-lg-5">
           {events?.length === 0 && <section className="rc-card text-secondary small">No distribution events have included your barangay yet.</section>}
-          {events?.map((e) => (
+          {eventPages.rows.map((e) => (
             <div className="rc-tree-event" key={e.event_id}>
               <button className="rc-tree-head" onClick={() => toggle(e.event_id)} aria-expanded={!!expanded[e.event_id]}>
                 {expanded[e.event_id] ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -110,6 +114,7 @@ export default function History() {
               )}
             </div>
           ))}
+          <Pagination meta={eventPages.meta} onPage={eventPages.setPage} />
         </div>
 
         <div className="col-lg-7">
@@ -127,7 +132,7 @@ export default function History() {
                   <table className="rc-table">
                     <thead><tr><th>{selected.day ? 'Time' : 'Claimed on'}</th><th>Household</th><th>Purok</th><th>Priority</th><th>Received</th><th>Released by</th></tr></thead>
                     <tbody>
-                      {claims?.map((c) => (
+                      {claimPages.rows.map((c) => (
                         <tr key={c.id} className="rc-row-click" tabIndex={0} onClick={() => setOpenClaim(c.id)}
                             onKeyDown={(ev) => { if (ev.key === 'Enter') setOpenClaim(c.id) }}>
                           <td className="text-nowrap">{selected.day ? fmtTime(c.distributed_at) : fmtDateTime(c.distributed_at)}</td>
@@ -142,6 +147,7 @@ export default function History() {
                     </tbody>
                   </table>
                 </div>
+                <Pagination meta={claimPages.meta} onPage={claimPages.setPage} />
               </>
             )}
           </section>

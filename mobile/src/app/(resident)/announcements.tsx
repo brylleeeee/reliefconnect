@@ -1,10 +1,12 @@
 // src/app/(resident)/announcements.tsx  —  adviser: announcements tab (opening it marks them read)
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Building } from 'lucide-react-native';
 import AppHeader from '../../components/AppHeader';
+import Pager from '../../components/Pager';
+import { usePaged } from '../../lib/usePaged';
 import { fetchAnnouncements, Announcement } from '../../data/announcements';
 import { getReadIds, markRead } from '../../lib/announcementReads';
 import { useResident } from '../../context/ResidentContext';
@@ -45,6 +47,8 @@ export default function Announcements() {
   const [newIds, setNewIds] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const listRef = useRef<FlatList<Announcement>>(null);
+  const paged = usePaged(items, 10, null, listRef);
 
   const load = useCallback(async () => {
     try {
@@ -77,7 +81,9 @@ export default function Announcements() {
       <AppHeader barangay={household?.barangay} />
 
       <FlatList
-        data={items ?? []}
+        ref={listRef}
+        data={paged.rows}
+        ListFooterComponent={<Pager meta={paged.meta} onPage={paged.goTo} />}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         ListEmptyComponent={
           <Text style={styles.empty}>

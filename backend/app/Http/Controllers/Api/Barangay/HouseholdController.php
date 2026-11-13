@@ -49,6 +49,7 @@ class HouseholdController extends Controller
             'purok' => ['nullable', 'string', 'max:50'],
             'search' => ['nullable', 'string', 'max:100'],
             'sort' => ['nullable', 'in:priority,latest'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'], // QR Issuance Review: 5; Household Records: 15
         ]);
 
         $query = $this->scoped($request)
@@ -66,7 +67,7 @@ class HouseholdController extends Controller
             ? $query->orderByDesc('priority_score')->oldest()
             : $query->latest();
 
-        return $query->paginate(15)->withQueryString();
+        return $query->paginate((int) ($f['per_page'] ?? 15))->withQueryString();
     }
 
     public function show(Request $request, Household $household)

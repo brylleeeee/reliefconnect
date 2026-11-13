@@ -10,6 +10,7 @@ import Prioritization from './pages/Prioritization'
 import SosPrioritization from './pages/SosPrioritization'
 import Reports from './pages/Reports'
 import Events from './pages/Events'
+import BarangaySummary from './pages/BarangaySummary'
 // Barangay Admin
 import QrReview from './pages/barangay/QrReview'
 import Households from './pages/barangay/Households'
@@ -49,6 +50,8 @@ export default function App() {
         <Route path="/events" element={lgu(<Events />)} />
         <Route path="/prioritization" element={lgu(<Prioritization />)} />
         <Route path="/reports" element={lgu(<Reports />)} />
+        <Route path="/barangays" element={lgu(<BarangaySummary />)} />
+        <Route path="/barangays/:id" element={lgu(<BarangaySummary />)} />
         <Route path="/analytics" element={<Navigate to="/" replace />} />
 
         <Route path="/distributions" element={brgy(<Distributions />)} />

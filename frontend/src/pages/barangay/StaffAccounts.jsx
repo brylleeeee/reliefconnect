@@ -3,6 +3,7 @@ import { KeyRound, UserPlus, UserX, UserCheck, RefreshCw } from 'lucide-react'
 import api, { errorMessage } from '../../api/client'
 import PageHeader from '../../components/PageHeader'
 import Modal from '../../components/Modal'
+import Pagination, { usePaged } from '../../components/Pagination'
 import useConfirm from '../../components/useConfirm'
 import { fmtDateTime } from '../../components/format'
 import useSummary from './useSummary'
@@ -20,6 +21,7 @@ export default function StaffAccounts() {
   const [adding, setAdding] = useState(false)
   const [resetting, setResetting] = useState(null) // the staff whose password is being reset
   const [loginInfo, setLoginInfo] = useState(null) // { name, username, password } to hand to the staff
+  const staffPages = usePaged(staff, 10)
   const [confirm, confirmDialog] = useConfirm()
 
   const load = () => api.get('/barangay/staff')
@@ -71,7 +73,7 @@ export default function StaffAccounts() {
                 <tr><th>Name</th><th>Username</th><th>Mobile</th><th>Status</th><th>Last active</th><th /></tr>
               </thead>
               <tbody>
-                {staff.map((s) => (
+                {staffPages.rows.map((s) => (
                   <tr key={s.id} className={s.is_active ? '' : 'text-secondary'}>
                     <td className="fw-semibold">{s.name}</td>
                     <td><code>{s.username}</code></td>
@@ -100,6 +102,7 @@ export default function StaffAccounts() {
             </table>
           </div>
         )}
+        <Pagination meta={staffPages.meta} onPage={staffPages.setPage} />
       </section>
 
       {confirmDialog}

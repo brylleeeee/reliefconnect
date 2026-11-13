@@ -6,8 +6,10 @@ import api, { errorMessage } from '../api/client'
 import { C } from '../chartColors'
 import { StatusBadge } from './Badges'
 import { fmtDate, qtyUnit } from './format'
+import Pagination, { pageOf } from './Pagination'
 
 const COLORS = { Claimed: C.green, Pending: C.blue, Unclaimed: C.high }
+const BARANGAYS_PER_PAGE = 7 // bars per page in the "Households per barangay" chart
 const pct = (n, total) => (total ? Math.round((n / total) * 100) : 0)
 
 function ChartBox({ title, note, height = 240, children }) {
@@ -33,19 +35,21 @@ function Kpi({ label, value, total, tone }) {
 /**
  * Claimed / pending / unclaimed analytics for a distribution event, for all barangays or one.
  * Without `eventId` it shows an event picker (Analytics page); with it, it's fixed to that
- * event (event View window). Change `refreshKey` to reload, e.g. on a live timer.
+ * event (event View window). With `barangayId` it's fixed to that barangay (Barangay summary page).
+ * Change `refreshKey` to reload, e.g. on a live timer.
  */
-export default function EventAnalytics({ eventId: fixedEventId, refreshKey }) {
+export default function EventAnalytics({ eventId: fixedEventId, barangayId: fixedBarangayId, refreshKey }) {
   const [events, setEvents] = useState(null)
   const [eventId, setEventId] = useState(fixedEventId ? String(fixedEventId) : '')
-  const [barangayId, setBarangayId] = useState('')
+  const [barangayId, setBarangayId] = useState(fixedBarangayId ? String(fixedBarangayId) : '')
   const [d, setD] = useState(null)
+  const [brgyPage, setBrgyPage] = useState(1)
   const [error, setError] = useState('')
 
   // Event picker: open events first (same order as the Distribution Events page)
   useEffect(() => {
     if (fixedEventId) return
-    api.get('/admin/events').then((r) => {
+    api.get('/admin/events', { params: { per_page: 100 } }).then((r) => {
       const list = r.data.events.data
       setEvents(list)
       // Default to the first event that already has claims, else the newest one
@@ -59,10 +63,13 @@ export default function EventAnalytics({ eventId: fixedEventId, refreshKey }) {
       .then((r) => { setD(r.data); setError('') })
       .catch((err) => setError(errorMessage(err)))
   }, [eventId, barangayId, refreshKey])
+  useEffect(() => { setBrgyPage(1) }, [eventId])
 
   if (events?.length === 0) return <p className="small text-secondary mb-0">No distribution events yet.</p>
 
   const t = d?.totals
+  const brgyMax = Math.max(1, ...(d?.per_barangay ?? []).map((b) => b.claimed + b.pending + b.unclaimed))
+  const { rows: brgyRows, meta: brgyMeta } = pageOf(d?.per_barangay ?? [], brgyPage, BARANGAYS_PER_PAGE)
   const done = d && (d.event.status === 'closed' || d.scope?.status === 'closed')
   const notYet = done ? 'Unclaimed' : 'Pending'
   // Unclaimed only exists once a barangay has closed; hide an always-zero card while it runs
@@ -77,18 +84,20 @@ export default function EventAnalytics({ eventId: fixedEventId, refreshKey }) {
           <div className="col-md-6">
             <label className="rc-label" htmlFor="ea-event">Distribution event</label>
             <select id="ea-event" className="form-select" value={eventId}
-                    onChange={(e) => { setBarangayId(''); setD(null); setEventId(e.target.value) }}>
+                    onChange={(e) => { if (!fixedBarangayId) setBarangayId(''); setD(null); setEventId(e.target.value) }}>
               {events?.map((e) => <option key={e.id} value={e.id}>{e.name} ({e.status})</option>)}
             </select>
           </div>
         )}
-        <div className="col-md-4">
-          <label className="rc-label" htmlFor="ea-brgy">Barangay</label>
-          <select id="ea-brgy" className="form-select" value={barangayId} onChange={(e) => setBarangayId(e.target.value)}>
-            <option value="">All barangays</option>
-            {d?.barangays.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-        </div>
+        {!fixedBarangayId && (
+          <div className="col-md-4">
+            <label className="rc-label" htmlFor="ea-brgy">Barangay</label>
+            <select id="ea-brgy" className="form-select" value={barangayId} onChange={(e) => setBarangayId(e.target.value)}>
+              <option value="">All barangays</option>
+              {d?.barangays.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
+        )}
       </div>
       {d && (!fixedEventId || d.scope) && (
         <div className="small text-secondary mb-3">
@@ -127,12 +136,14 @@ export default function EventAnalytics({ eventId: fixedEventId, refreshKey }) {
               </BarChart>
             </ChartBox>
           ) : (
+            <>
             <ChartBox title="Households per barangay" note="Click a barangay to see it by purok."
-                      height={Math.max(160, d.per_barangay.length * 34)}>
-              <BarChart data={d.per_barangay.map((b) => ({ id: b.id, name: b.name, Claimed: b.claimed, Pending: b.pending, Unclaimed: b.unclaimed }))}
+                      height={Math.max(160, brgyRows.length * 34)}>
+              <BarChart data={brgyRows.map((b) => ({ id: b.id, name: b.name, Claimed: b.claimed, Pending: b.pending, Unclaimed: b.unclaimed }))}
                         layout="vertical" margin={{ left: 10, right: 16 }}>
                 <CartesianGrid stroke={C.grid} horizontal={false} />
-                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
+                {/* Same scale on every page, so bars can be compared across pages */}
+                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} domain={[0, brgyMax]} />
                 <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 11 }} />
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -142,6 +153,8 @@ export default function EventAnalytics({ eventId: fixedEventId, refreshKey }) {
                 ))}
               </BarChart>
             </ChartBox>
+            <Pagination meta={brgyMeta} onPage={setBrgyPage} />
+            </>
           )}
 
           <div className="rc-chart-box mt-3">

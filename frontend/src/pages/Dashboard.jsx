@@ -7,7 +7,7 @@ import PageHeader from '../components/PageHeader'
 import EventAnalytics from '../components/EventAnalytics'
 import AnalyticsFilters, { defaultFilters, periodLabel } from '../components/AnalyticsFilters'
 import LguAnnouncementModal from '../components/LguAnnouncementModal'
-import Pagination from '../components/Pagination'
+import Pagination, { pageOf } from '../components/Pagination'
 import useConfirm from '../components/useConfirm'
 import useLiveTick from '../components/useLiveTick'
 import { peso } from '../components/format'
@@ -27,32 +27,31 @@ function formatWhen(iso) {
   return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-/** What the LGU should act on, built from the same numbers as the charts. */
-function attentionItems(d) {
-  const items = []
+const ATTENTION_PER_PAGE = 6
+const COVERAGE_PER_PAGE = 7
+const ANNOUNCEMENTS_PER_PAGE = 5
 
-  d.stock.filter((s) => s.in_stock <= s.reorder_level).forEach((s) => items.push({
-    icon: Package, tone: 'danger', to: '/inventory',
-    text: <><b>{s.name}</b> is low: {s.in_stock.toLocaleString()} {s.unit} left (reorder at {s.reorder_level}).</>,
-  }))
-
-  d.by_barangay
-    .filter((b) => b.registered > 0 && pct(b.reached, b.registered) < LOW_COVERAGE)
-    .sort((a, b) => pct(a.reached, a.registered) - pct(b.reached, b.registered))
-    .forEach((b) => items.push({
-      icon: MapPin, tone: 'warning', to: '/events',
-      text: <><b>{b.name}</b>: only {b.reached} of {b.registered} households reached ({pct(b.reached, b.registered)}%).</>,
-    }))
-
-  const pending = d.by_barangay.filter((b) => b.pending > 0).sort((a, b) => b.pending - a.pending)
-  if (pending.length) {
-    items.push({
-      icon: ClipboardList, tone: 'info',
-      text: <><b>{d.kpis.pending_registrations} registrations</b> waiting for barangay review
-        ({pending.slice(0, 3).map((b) => `${b.pending} in ${b.name}`).join(', ')}{pending.length > 3 ? ', …' : ''}).</>,
-    })
+/**
+ * "Battery" look for a Needs attention card: the fill grows with the coverage % (0% = empty,
+ * 49% = about half full), and its color slides from red at 0% to amber just under LOW_COVERAGE.
+ */
+function batteryStyle(p) {
+  const t = Math.min(1, Math.max(0, p / LOW_COVERAGE))
+  const hue = Math.round(t * 40)
+  return {
+    '--attn-level': Math.min(1, Math.max(0, p / 100)),
+    '--attn-edge': `hsl(${hue} 70% 50%)`,
+    '--attn-charge': `hsl(${hue} 85% 84%)`,
+    '--attn-text': `hsl(${hue} 80% 30%)`,
   }
-  return items
+}
+
+/** Barangays whose coverage is below LOW_COVERAGE, lowest first. Each one is a card on the Dashboard. */
+function lowCoverage(d) {
+  return d.by_barangay
+    .filter((b) => b.registered > 0 && pct(b.reached, b.registered) < LOW_COVERAGE)
+    .map((b) => ({ ...b, pct: pct(b.reached, b.registered) }))
+    .sort((a, b) => a.pct - b.pct)
 }
 
 function Kpi({ label, value, sub, tone = '', icon: Icon }) {
@@ -72,6 +71,8 @@ export default function Dashboard() {
   const latest = useRef(0) // ignore slow responses for filters that were already changed
   const [announcements, setAnnouncements] = useState(null)
   const [annPage, setAnnPage] = useState(1)
+  const [attnPage, setAttnPage] = useState(1)
+  const [covPage, setCovPage] = useState(1)
   const [composing, setComposing] = useState(null) // { editing: announcement | null }
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
@@ -85,9 +86,9 @@ export default function Dashboard() {
       .catch((err) => { if (id === latest.current) setError(errorMessage(err)) })
       .finally(() => { if (id === latest.current) setLoadingFilters(false) })
   }
-  const loadAnnouncements = () => api.get('/admin/announcements', { params: { page: annPage } })
+  const loadAnnouncements = () => api.get('/admin/announcements', { params: { page: annPage, per_page: ANNOUNCEMENTS_PER_PAGE } })
     .then((r) => setAnnouncements(r.data))
-  useEffect(() => { setLoadingFilters(true); loadAnalytics() }, [filters])
+  useEffect(() => { setLoadingFilters(true); setAttnPage(1); setCovPage(1); loadAnalytics() }, [filters])
   useEffect(() => { loadAnnouncements() }, [annPage])
   // Live: refresh the numbers, charts and announcements in place
   useEffect(() => { if (tick) { loadAnalytics(); loadAnnouncements() } }, [tick])
@@ -114,9 +115,13 @@ export default function Dashboard() {
     f?.relief_item_id && d.options.items.find((i) => i.id === Number(f.relief_item_id))?.name,
   ].filter(Boolean).join(' · ')
   const perLabel = PER[f?.granularity] ?? 'day'
-  const attention = d ? attentionItems(d) : []
+  const attention = d ? lowCoverage(d) : []
+  const { rows: attnShown, meta: attnMeta } = pageOf(attention, attnPage, ATTENTION_PER_PAGE)
+  const lowStock = d ? d.stock.filter((s) => s.in_stock <= s.reorder_level) : []
+  const summaryLink = (b) => `/barangays/${b.id}?from=${f.from}&to=${f.to}`
   const coverage = d ? [...d.by_barangay].filter((b) => b.registered > 0)
     .sort((a, b) => pct(a.reached, a.registered) - pct(b.reached, b.registered)) : []
+  const { rows: coverageShown, meta: coverageMeta } = pageOf(coverage, covPage, COVERAGE_PER_PAGE)
 
   return (
     <>
@@ -152,21 +157,38 @@ export default function Dashboard() {
           </div>
 
           <section className="rc-card mb-3">
-            <h2 className="rc-card-title">Needs attention</h2>
+            <div className="d-flex flex-wrap justify-content-between align-items-baseline gap-2 mb-2">
+              <h2 className="rc-card-title mb-0">Needs attention</h2>
+              <div className="rc-attn-notes">
+                {lowStock.length > 0 && (
+                  <Link to="/inventory" className="danger"><Package size={13} /> {lowStock.length} item{lowStock.length === 1 ? '' : 's'} low on stock</Link>
+                )}
+                {k.pending_registrations > 0 && (
+                  <span><ClipboardList size={13} /> {k.pending_registrations} registration{k.pending_registrations === 1 ? '' : 's'} awaiting barangay review</span>
+                )}
+              </div>
+            </div>
             {attention.length === 0 ? (
               <p className="small text-secondary mb-0 d-flex align-items-center gap-2">
-                <CheckCircle2 size={16} className="text-success" /> Nothing needs attention right now.
+                <CheckCircle2 size={16} className="text-success" /> Every barangay has reached at least {LOW_COVERAGE}% of its households.
               </p>
             ) : (
-              <ul className="rc-attention">
-                {attention.map(({ icon: Icon, tone, text, to }, i) => (
-                  <li key={i} className={tone}>
-                    <Icon size={16} />
-                    <span className="flex-grow-1">{text}</span>
-                    {to && <Link to={to} className="small">View</Link>}
-                  </li>
-                ))}
-              </ul>
+              <>
+                <p className="small text-secondary mb-2">Barangays below {LOW_COVERAGE}% coverage, lowest first. Open one to see its summary.</p>
+                <ul className="rc-attn-grid">
+                  {attnShown.map((b) => (
+                    <li key={b.id}>
+                      <Link to={summaryLink(b)} className="rc-attn-card" style={batteryStyle(b.pct)}
+                            title={`${b.reached} of ${b.registered} households reached`}>
+                        <span className="rc-attn-charge" aria-hidden="true" />
+                        <span className="rc-attn-name">{b.name}</span>
+                        <span className="rc-attn-pct">{b.pct}%</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                <Pagination meta={attnMeta} onPage={(p) => setAttnPage(p)} />
+              </>
             )}
           </section>
 
@@ -176,7 +198,7 @@ export default function Dashboard() {
                 <h2 className="rc-card-title mb-1">Coverage by barangay</h2>
                 <p className="small text-secondary">Share of registered households that received aid in this period. Lowest first.</p>
                 <div className="rc-cov-list">
-                  {coverage.map((b) => {
+                  {coverageShown.map((b) => {
                     const p = pct(b.reached, b.registered)
                     return (
                       <div key={b.id} className="rc-cov-row">
@@ -190,6 +212,7 @@ export default function Dashboard() {
                   })}
                   {coverage.length === 0 && <p className="small text-secondary mb-0">No registered households here yet.</p>}
                 </div>
+                <Pagination meta={coverageMeta} onPage={setCovPage} />
               </section>
             </div>
             <div className="col-lg-5">

@@ -18,9 +18,12 @@ class AnnouncementController extends Controller
         $barangayId = Household::where('user_id', $request->user()->id)->value('barangay_id');
         abort_unless($barangayId, 404, 'Register your household first to receive announcements.');
 
+        // The app asks for up to 100 and pages them on the phone; older app builds still get 20
+        $perPage = min(100, max(1, (int) $request->query('per_page', 20)));
+
         return Announcement::where('barangay_id', $barangayId)
             ->with('barangay:id,name')
             ->latest('published_at')->latest('id')
-            ->paginate(20);
+            ->paginate($perPage);
     }
 }

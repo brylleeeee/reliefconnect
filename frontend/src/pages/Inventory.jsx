@@ -3,7 +3,7 @@ import { Package, Wallet, HandHeart, Plus } from 'lucide-react'
 import api, { errorMessage } from '../api/client'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
-import Pagination from '../components/Pagination'
+import Pagination, { usePaged } from '../components/Pagination'
 import SourceSelect from '../components/SourceSelect'
 import useLiveTick from '../components/useLiveTick'
 import { fmtDate, fmtDateTime, peso, qtyUnit } from '../components/format'
@@ -29,6 +29,7 @@ export default function Inventory() {
   const [notice, setNotice] = useState('')
 
   const isCash = tab === 'cash'
+  const items = usePaged(data?.items, 10, tab)
   const load = () => {
     if (tab !== 'sources') api.get('/admin/inventory', { params: { type: tab } }).then((r) => setData(r.data))
     api.get('/admin/sources').then((r) => setSources(r.data))
@@ -141,7 +142,7 @@ export default function Inventory() {
                 </tr>
               </thead>
               <tbody>
-                {data?.items.map((item) => (
+                {items.rows.map((item) => (
                   <tr key={item.id} className="rc-row-click" tabIndex={0} onClick={() => setHistory(item)}
                       onKeyDown={(e) => { if (e.key === 'Enter') setHistory(item) }}>
                     <td className="fw-semibold">
@@ -171,6 +172,7 @@ export default function Inventory() {
               </tbody>
             </table>
           </div>
+          <Pagination meta={items.meta} onPage={items.setPage} />
         </section>
       )}
 
@@ -304,6 +306,9 @@ function SourcesTab({ data, onChanged }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const { types, sources } = data
+  // Same order as before (grouped by type), then 10 per page
+  const ordered = types.flatMap((t) => sources.filter((s) => s.type === t.key))
+  const paged = usePaged(ordered, 10)
 
   const add = async (e) => {
     e.preventDefault()
@@ -359,7 +364,7 @@ function SourcesTab({ data, onChanged }) {
           <table className="rc-table">
             <thead><tr><th>Source</th><th>Type</th><th>Times received</th><th>Relief goods given</th><th>Cash given</th><th>Last received</th><th /></tr></thead>
             <tbody>
-              {types.map((t) => sources.filter((s) => s.type === t.key).map((src) => (
+              {paged.rows.map((src) => (
                 <tr key={src.id}>
                   <td className="fw-semibold">{src.name}</td>
                   <td><span className={`rc-move ${TYPE_TONE[src.type]}`}>{src.type_label}</span></td>
@@ -371,11 +376,12 @@ function SourcesTab({ data, onChanged }) {
                     <button className="btn btn-sm btn-rc-outline" onClick={() => setEditing({ id: src.id, name: src.name, type: src.type })}>Edit</button>
                   </td>
                 </tr>
-              )))}
+              ))}
               {sources.length === 0 && <tr><td colSpan={7} className="text-center muted py-4">No sources yet.</td></tr>}
             </tbody>
           </table>
         </div>
+        <Pagination meta={paged.meta} onPage={paged.setPage} />
       </section>
 
       {editing && (

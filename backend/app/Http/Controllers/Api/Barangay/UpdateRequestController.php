@@ -20,6 +20,7 @@ class UpdateRequestController extends Controller
         $f = $request->validate([
             'status' => ['nullable', 'in:pending,approved,rejected,cancelled,all'],
             'search' => ['nullable', 'string', 'max:100'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'], // the Update Requests page asks for 5
         ]);
         $status = $f['status'] ?? 'pending';
 
@@ -30,7 +31,7 @@ class UpdateRequestController extends Controller
                 ->where('household_head', 'like', "%$s%")->orWhere('reference_number', 'like', "%$s%"))))
             // Waiting requests: oldest first (first come, first served); reviewed ones: newest first
             ->when($status === 'pending', fn ($q) => $q->oldest(), fn ($q) => $q->latest())
-            ->paginate(15)->withQueryString();
+            ->paginate((int) ($f['per_page'] ?? 15))->withQueryString();
 
         $page->getCollection()->transform(fn ($r) => [
             'id' => $r->id,

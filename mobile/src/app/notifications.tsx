@@ -1,5 +1,5 @@
 // src/app/notifications.tsx  —  resident bell: announcements, schedules, approval, aid received
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View, Text, FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, type Href } from 'expo-router';
@@ -8,6 +8,8 @@ import {
   AlarmClock, Gift, Siren, Truck, ShieldAlert, FilePen, FileX, Flag,
 } from 'lucide-react-native';
 import ScreenHeader from '../components/ScreenHeader';
+import Pager from '../components/Pager';
+import { usePaged } from '../lib/usePaged';
 import { fetchNotifications, markNotificationsRead, AppNotification } from '../data/notifications';
 import { useBadges } from '../context/BadgeContext';
 import { errorText } from '../lib/api';
@@ -40,6 +42,8 @@ export default function Notifications() {
   const [unread, setUnread] = useState(0);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const listRef = useRef<FlatList<AppNotification>>(null);
+  const paged = usePaged(items, 10, null, listRef);
 
   const load = useCallback(async () => {
     try {
@@ -88,7 +92,9 @@ export default function Notifications() {
       <ScreenHeader title="Notifications" subtitle={unread ? `${unread} unread` : undefined} />
 
       <FlatList
-        data={items ?? []}
+        ref={listRef}
+        data={paged.rows}
+        ListFooterComponent={<Pager meta={paged.meta} onPage={paged.goTo} />}
         keyExtractor={(n) => n.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
