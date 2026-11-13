@@ -1,0 +1,80 @@
+/* ---------- Buttons: one consistent look across the LGU and barangay admin web ----------
+   Before this, buttons mixed our green with Bootstrap's grey/red defaults, had different heights,
+   corner radius and font sizes side by side, and some had no hover, focus or disabled look.
+   Sizes match the input fields (inputs.css): 40px tall, or 34px with .btn-sm, so a button next
+   to a field lines up. Loaded after inputs.css (see main.jsx), so these rules win. */
+
+:root {
+  --rc-btn-h: var(--rc-field-h, 40px);
+  --rc-btn-h-sm: var(--rc-field-h-sm, 34px);
+  --rc-btn-radius: var(--rc-field-radius, 10px);
+  --rc-btn-focus: 0 0 0 4px rgba(46, 125, 103, .18);
+  --rc-btn-focus-danger: 0 0 0 4px rgba(214, 69, 69, .18);
+}
+
+/* Shared: height, icon + text alignment, transitions */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
+  min-height: var(--rc-btn-h); padding: 0 16px;
+  font-size: 13.5px; font-weight: 600; line-height: 1.2;
+  border-radius: var(--rc-btn-radius); border-width: 1px;
+  transition: background-color .15s, border-color .15s, color .15s, box-shadow .15s, transform .05s;
+}
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:focus-visible { outline: none; box-shadow: var(--rc-btn-focus); }
+.btn:disabled, .btn.disabled { opacity: .5; cursor: not-allowed; pointer-events: auto; }
+.btn svg { flex-shrink: 0; }
+
+.btn-sm { min-height: var(--rc-btn-h-sm); padding: 0 12px; font-size: 12.5px; border-radius: 8px; gap: .35rem; }
+
+/* Primary: green */
+.btn-rc { background: var(--rc-green); border-color: var(--rc-green); color: #fff; padding: 0 16px; }
+.btn-rc.btn-sm { padding: 0 12px; }
+.btn-rc:hover:not(:disabled), .btn-rc:focus-visible { background: var(--rc-green-dark); border-color: var(--rc-green-dark); color: #fff; }
+.btn-rc:disabled { background: var(--rc-green); border-color: var(--rc-green); color: #fff; }
+
+/* Secondary: green outline */
+.btn-rc-outline { background: #fff; border-color: var(--rc-field-border, #d5dde3); color: var(--rc-green); font-size: 13.5px; }
+.btn-rc-outline.btn-sm { font-size: 12.5px; }
+.btn-rc-outline:hover:not(:disabled), .btn-rc-outline:focus-visible { background: var(--rc-green-pale); border-color: var(--rc-green); color: var(--rc-green); }
+
+/* Neutral (Cancel, Back): was Bootstrap's grey, now a quiet white button that matches the others */
+.btn-light, .btn-outline-secondary { background: #fff; border-color: var(--rc-field-border, #d5dde3); color: #3e4c59; }
+.btn-light:hover:not(:disabled), .btn-outline-secondary:hover:not(:disabled),
+.btn-light:focus-visible, .btn-outline-secondary:focus-visible { background: #f1f4f6; border-color: #aebdc8; color: var(--rc-text); }
+
+/* Danger: the app's red instead of Bootstrap's */
+.btn-danger { background: var(--rc-danger); border-color: var(--rc-danger); color: #fff; }
+.btn-danger:hover:not(:disabled), .btn-danger:focus-visible { background: #b93838; border-color: #b93838; color: #fff; }
+.btn-outline-danger { background: #fff; border-color: #efc4c4; color: var(--rc-danger); }
+.btn-outline-danger:hover:not(:disabled), .btn-outline-danger:focus-visible { background: #fdf0f0; border-color: var(--rc-danger); color: var(--rc-danger); }
+.btn-danger:focus-visible, .btn-outline-danger:focus-visible { box-shadow: var(--rc-btn-focus-danger); }
+
+/* Text links styled as buttons ("View", "Edit"): no box, green, underline on hover */
+.btn-link { min-height: 0; padding: 0; border: 0; border-radius: 4px; font-weight: 600; color: var(--rc-green); text-decoration: none; }
+.btn-link.text-secondary { color: var(--rc-muted) !important; }
+.btn-link:hover:not(:disabled) { color: var(--rc-green-dark); text-decoration: underline; }
+.btn-link:active:not(:disabled) { transform: none; }
+
+/* Toggle groups (e.g. allocation mode): joined buttons keep square inner corners */
+.btn-group > .btn { border-radius: 0; }
+.btn-group > .btn:first-child { border-top-left-radius: var(--rc-btn-radius); border-bottom-left-radius: var(--rc-btn-radius); }
+.btn-group > .btn:last-child { border-top-right-radius: var(--rc-btn-radius); border-bottom-right-radius: var(--rc-btn-radius); }
+.btn-group > .btn-sm:first-child { border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+.btn-group > .btn-sm:last-child { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
+
+/* Small square icon buttons (edit / delete in table rows): bigger target, clear hover */
+.btn-icon {
+  width: 32px; height: 32px; display: inline-grid; place-items: center; padding: 0;
+  border: 1px solid var(--rc-field-border, #d5dde3); background: #fff; color: #52606d; border-radius: 8px;
+  cursor: pointer; transition: background-color .15s, border-color .15s, color .15s, box-shadow .15s;
+}
+.btn-icon:hover:not(:disabled) { background: var(--rc-green-pale); border-color: var(--rc-green); color: var(--rc-green); }
+.btn-icon.danger { color: var(--rc-danger); }
+.btn-icon.danger:hover:not(:disabled) { background: #fdf0f0; border-color: var(--rc-danger); color: var(--rc-danger); }
+.btn-icon:focus-visible { outline: none; box-shadow: var(--rc-btn-focus); }
+.btn-icon:disabled { opacity: .35; cursor: not-allowed; }
+
+/* app.css darkens .btn-rc on any focus, so it stayed dark after a mouse click; only keyboard focus does now */
+.btn-rc:focus:not(:focus-visible) { background: var(--rc-green); border-color: var(--rc-green); }
+.btn-rc:hover:focus:not(:focus-visible) { background: var(--rc-green-dark); border-color: var(--rc-green-dark); }
