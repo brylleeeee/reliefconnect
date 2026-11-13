@@ -3,9 +3,10 @@ import { useCallback, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, TextInput, StyleSheet } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { TriangleAlert } from 'lucide-react-native';
+import { TriangleAlert, CircleX } from 'lucide-react-native';
 import AppHeader from '../../components/AppHeader';
 import PrimaryButton from '../../components/PrimaryButton';
+import ConfirmDialog, { confirmText } from '../../components/ConfirmDialog';
 import { useResident } from '../../context/ResidentContext';
 import { Sos, cancelSos, fetchActiveSos, sendSos } from '../../data/sos';
 import { errorText } from '../../lib/api';
@@ -21,6 +22,7 @@ export default function SosScreen() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [addingDetails, setAddingDetails] = useState(false);
+  const [asking, setAsking] = useState<'send' | 'cancel' | null>(null); // which confirmation is open
 
   // Tap a reason to add it, tap it again to remove it
   const toggleQuick = (q: string) =>
@@ -46,22 +48,18 @@ export default function SosScreen() {
     }
   };
 
-  // A confirmation first, so a pocket tap can't send an alert
-  const confirmSend = () =>
-    Alert.alert('Send SOS?', message.trim()
-      ? `The LGU will see that your household needs relief goods, and your message:\n"${message.trim()}"`
-      : 'Your barangay and the LGU will see that your household needs relief goods.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Send SOS', style: 'destructive', onPress: send },
-    ]);
+  // A confirmation first, so a pocket tap can't send an alert (app-styled dialog, not Android's plain Alert)
+  const confirmSend = () => setAsking('send');
+  const cancel = () => setAsking('cancel');
 
-  const cancel = () =>
-    Alert.alert('Do you still need relief goods?', 'Cancelling withdraws your SOS.', [
-      { text: 'Keep SOS', style: 'cancel' },
-      { text: 'Cancel SOS', style: 'destructive', onPress: async () => {
-        try { await cancelSos(); setActive(null); } catch (e) { Alert.alert('Could not cancel', errorText(e)); }
-      } },
-    ]);
+  const doCancel = async () => {
+    try {
+      await cancelSos();
+      setActive(null);
+    } catch (e) {
+      Alert.alert('Could not cancel', errorText(e));
+    }
+  };
 
   const messageBox = (
     <View style={styles.msgBox}>
@@ -157,6 +155,37 @@ export default function SosScreen() {
           </View>
         )}
       </ScrollView>
+
+      <ConfirmDialog
+        visible={asking === 'send'}
+        danger
+        icon={TriangleAlert}
+        title="Send SOS?"
+        message={
+          message.trim() ? (
+            <Text style={confirmText.message}>
+              Your barangay and the LGU will see that your household needs relief goods, with your message:{'\n'}
+              <Text style={confirmText.bold}>"{message.trim()}"</Text>
+            </Text>
+          ) : 'Your barangay and the LGU will see that your household needs relief goods.'
+        }
+        note="Send it once. Pressing again won't make it more urgent."
+        confirmLabel="Send SOS"
+        onCancel={() => setAsking(null)}
+        onConfirm={async () => { await send(); setAsking(null); }}
+      />
+
+      <ConfirmDialog
+        visible={asking === 'cancel'}
+        danger
+        icon={CircleX}
+        title="Do you still need relief goods?"
+        message="Cancelling withdraws your SOS. Your barangay and the LGU will no longer see it."
+        cancelLabel="Keep SOS"
+        confirmLabel="Cancel SOS"
+        onCancel={() => setAsking(null)}
+        onConfirm={async () => { await doCancel(); setAsking(null); }}
+      />
     </SafeAreaView>
   );
 }
