@@ -56,7 +56,7 @@ export default function UnreadAnnouncementsModal() {
               <View key={a.id} style={styles.item}>
                 <View style={styles.author}>
                   <Building size={12} color={colors.primary} strokeWidth={2} />
-                  <Text style={styles.authorText}>{a.author}</Text>
+                  <Text style={styles.authorText} numberOfLines={1}>{a.author}</Text>
                   <Text style={styles.time}>· {a.time}</Text>
                 </View>
                 <Text style={styles.itemTitle}>{a.title}</Text>
@@ -114,8 +114,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   author: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  authorText: { fontFamily: fonts.semibold, fontSize: 11, color: colors.primary },
-  time: { fontFamily: fonts.regular, fontSize: 11, color: colors.muted },
+  authorText: { flexShrink: 1, fontFamily: fonts.semibold, fontSize: 11, color: colors.primary },
+  time: { flexShrink: 0, fontFamily: fonts.regular, fontSize: 11, color: colors.muted },
   itemTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.text },
   itemBody: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.textSecondary },
   more: { fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, textAlign: 'center' },

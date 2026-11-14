@@ -18,8 +18,8 @@ export default function ScreenHeader({ title, subtitle, onBack }: Props) {
       </Pressable>
 
       <View style={styles.textBlock}>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit>{title}</Text>
+        {subtitle ? <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text> : null}
       </View>
 
       {/* empty box on the right keeps the title perfectly centered */}
@@ -38,6 +38,6 @@ const styles = StyleSheet.create({
   },
   side: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   textBlock: { flex: 1, alignItems: 'center', gap: 2 },
-  title: { fontFamily: fonts.bold, fontSize: 16, color: colors.text },
+  title: { fontFamily: fonts.bold, fontSize: 16, color: colors.text, textAlign: 'center' },
   subtitle: { fontFamily: fonts.medium, fontSize: 11, letterSpacing: 0.5, color: colors.textSecondary },
 });

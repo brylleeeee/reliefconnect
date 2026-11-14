@@ -20,7 +20,7 @@ function AnnouncementCard({ item, isNew }: { item: Announcement; isNew: boolean 
       <View style={styles.meta}>
         <View style={styles.author}>
           <Building size={14} color={colors.primary} strokeWidth={2} />
-          <Text style={styles.authorText}>{item.author}</Text>
+          <Text style={styles.authorText} numberOfLines={1}>{item.author}</Text>
           {isNew ? (
             <View style={styles.newPill}>
               <Text style={styles.newText}>NEW</Text>
@@ -128,11 +128,11 @@ const styles = StyleSheet.create({
   },
   cardNew: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
   meta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  author: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  authorText: { fontFamily: fonts.semibold, fontSize: 11, color: colors.primary },
+  author: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1, minWidth: 0, marginRight: 8 },
+  authorText: { flexShrink: 1, fontFamily: fonts.semibold, fontSize: 11, color: colors.primary },
   newPill: { backgroundColor: colors.primary, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 1, marginLeft: 4 },
   newText: { fontFamily: fonts.bold, fontSize: 9, color: colors.white },
-  time: { fontFamily: fonts.regular, fontSize: 11, color: colors.muted },
+  time: { flexShrink: 0, fontFamily: fonts.regular, fontSize: 11, color: colors.muted },
   cardBody: { gap: 4 },
   cardTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.text },
   cardText: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.textSecondary },

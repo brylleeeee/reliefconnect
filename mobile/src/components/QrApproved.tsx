@@ -42,7 +42,7 @@ export default function QrApproved({ household }: { household: Household }) {
         <View style={styles.refField}>
           <Text style={styles.refLabel}>Household Reference Number</Text>
           <View style={styles.refInput}>
-            <Text style={styles.refValue}>{referenceNumber}</Text>
+            <Text style={styles.refValue} numberOfLines={1} adjustsFontSizeToFit>{referenceNumber}</Text>
             <Pressable style={styles.copyBtn} onPress={copyReference} hitSlop={8}>
               {copied ? (
                 <Check size={14} color={colors.primary} strokeWidth={2} />
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  pill: { backgroundColor: colors.primaryTint, borderRadius: 4, paddingHorizontal: 8, height: 20, justifyContent: 'center' },
+  pill: { backgroundColor: colors.primaryTint, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 2, minHeight: 20, justifyContent: 'center' },
   pillText: { fontFamily: fonts.bold, fontSize: 10, color: colors.primary },
   name: { fontFamily: fonts.extrabold, fontSize: 20, color: colors.text, textAlign: 'center', marginTop: 4 },
   address: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: 'center', marginTop: 4 },
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  refValue: { fontFamily: fonts.bold, fontSize: 14, color: colors.text },
+  refValue: { flex: 1, marginRight: 8, fontFamily: fonts.bold, fontSize: 14, color: colors.text },
   copyBtn: {
     width: 28,
     height: 28,

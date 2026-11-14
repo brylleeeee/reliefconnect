@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
   },
   label: { fontFamily: fonts.semibold, fontSize: 10, letterSpacing: 0.5, color: colors.textSecondary },
   name: { fontFamily: fonts.bold, fontSize: 20, color: colors.text },
-  row: { flexDirection: 'row' },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
   badgeText: { fontFamily: fonts.bold, fontSize: 11 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12, marginTop: 4 },

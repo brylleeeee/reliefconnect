@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   message: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.textSecondary, textAlign: 'center' },
   note: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.muted, textAlign: 'center', marginTop: 2 },
   actions: { flexDirection: 'row', gap: 10, alignSelf: 'stretch', marginTop: 14 },
-  btn: { flex: 1, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  btn: { flex: 1, minHeight: 48, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   cancel: { borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.white },
   dim: { opacity: 0.5 },
   btnText: { fontFamily: fonts.semibold, fontSize: 15 },

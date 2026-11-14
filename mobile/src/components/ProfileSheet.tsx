@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   avatarText: { fontFamily: fonts.bold, fontSize: 22, color: colors.primary },
   name: { fontFamily: fonts.bold, fontSize: 18, color: colors.text, maxWidth: '80%' },
   role: { fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary },
-  btn: { height: 48, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  btn: { minHeight: 48, paddingVertical: 6, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   outline: { borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.white },
   danger: { backgroundColor: colors.danger },
   btnText: { fontFamily: fonts.semibold, fontSize: 15 },

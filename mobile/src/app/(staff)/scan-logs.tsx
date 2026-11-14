@@ -81,11 +81,11 @@ export default function ScanLogs() {
             <View style={styles.stats}>
               <View style={styles.statCard}>
                 <Text style={styles.statLabel}>SERVED TODAY</Text>
-                <Text style={[styles.statValue, { color: colors.primary }]}>{releasedToday.length}</Text>
+                <Text style={[styles.statValue, { color: colors.primary }]} numberOfLines={1} adjustsFontSizeToFit>{releasedToday.length}</Text>
               </View>
               <View style={styles.statCard}>
                 <Text style={styles.statLabel}>SCANS TODAY</Text>
-                <Text style={[styles.statValue, { color: colors.blue }]}>{today.length}</Text>
+                <Text style={[styles.statValue, { color: colors.blue }]} numberOfLines={1} adjustsFontSizeToFit>{today.length}</Text>
               </View>
             </View>
 
@@ -177,9 +177,9 @@ const styles = StyleSheet.create({
   },
   breakRow: { flexDirection: 'row', alignItems: 'center' },
   breakItem: { fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
-  breakQty: { fontFamily: fonts.extrabold, fontSize: 16, color: colors.primary },
+  breakQty: { flexShrink: 0, marginLeft: 12, fontFamily: fonts.extrabold, fontSize: 16, color: colors.primary },
 
-  chips: { flexDirection: 'row', gap: 8 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     borderWidth: 1,
     borderColor: colors.border,

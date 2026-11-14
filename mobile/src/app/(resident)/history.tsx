@@ -35,11 +35,11 @@ function ClaimCard({ claim, open, onToggle }: { claim: ClaimRecord; open: boolea
           )}
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.date}>{dateLabel(claim.claimedAt)}</Text>
+          <Text style={styles.date} numberOfLines={1}>{dateLabel(claim.claimedAt)}</Text>
           <Text style={styles.event} numberOfLines={1}>{claim.eventName}</Text>
         </View>
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>{claim.category}</Text>
+          <Text style={styles.badgeText} numberOfLines={1}>{claim.category}</Text>
         </View>
         <Chevron size={20} color={colors.textSecondary} strokeWidth={2} />
       </Pressable>
@@ -124,11 +124,11 @@ export default function History() {
             <View style={styles.stats}>
               <View style={styles.statCard}>
                 <Text style={styles.statLabel}>AID RECEIVED</Text>
-                <Text style={[styles.statValue, { color: colors.primary }]}>{list.length}</Text>
+                <Text style={[styles.statValue, { color: colors.primary }]} numberOfLines={1} adjustsFontSizeToFit>{list.length}</Text>
               </View>
               <View style={styles.statCard}>
                 <Text style={styles.statLabel}>CASH RECEIVED</Text>
-                <Text style={[styles.statValue, { color: colors.success }]}>{peso(totalCash)}</Text>
+                <Text style={[styles.statValue, { color: colors.success }]} numberOfLines={1} adjustsFontSizeToFit>{peso(totalCash)}</Text>
               </View>
             </View>
             <Text style={styles.sectionTitle}>Claim History</Text>
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   iconBg: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   date: { fontFamily: fonts.bold, fontSize: 14, color: colors.text },
   event: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-  badge: { backgroundColor: colors.background, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  badge: { backgroundColor: colors.background, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, flexShrink: 1, maxWidth: '35%' },
   badgeText: { fontFamily: fonts.semibold, fontSize: 10, color: colors.textSecondary },
 
   details: {
@@ -193,9 +193,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   detailsTitle: { fontFamily: fonts.semibold, fontSize: 11, letterSpacing: 0.5, color: colors.textSecondary },
-  itemRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  itemName: { fontFamily: fonts.medium, fontSize: 14, color: colors.text },
-  itemQty: { fontFamily: fonts.bold, fontSize: 14, color: colors.primary },
+  // long item names wrap; the quantity keeps its own space on the right (it was pushed off-screen)
+  itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  itemName: { flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.text },
+  itemQty: { flexShrink: 0, maxWidth: '40%', textAlign: 'right', fontFamily: fonts.bold, fontSize: 14, color: colors.primary },
   cash: { fontFamily: fonts.extrabold, fontSize: 24, color: colors.success },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: 4 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
