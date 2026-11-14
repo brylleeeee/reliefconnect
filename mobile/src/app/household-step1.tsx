@@ -1,7 +1,7 @@
 // src/app/household-step1.tsx  —  Figma frame: resident-household-step1
 import { useEffect, useState } from 'react';
 import {
-  View, Text, Pressable, ScrollView, KeyboardAvoidingView, Platform, Alert, Switch,
+  View, Text, Pressable, KeyboardAvoidingView, Platform, Alert, Switch,
   ActivityIndicator, StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +18,7 @@ import {
 } from '../data/household';
 import { errorText } from '../lib/api';
 import { colors, fonts } from '../constants/theme';
+import KeyboardScroll from '../components/KeyboardScroll';
 
 export default function HouseholdStep1() {
   const { fullName, contact } = useLocalSearchParams<{ fullName?: string; contact?: string }>();
@@ -77,7 +78,7 @@ export default function HouseholdStep1() {
         <ScreenHeader title="Household Profile" subtitle="Step 1 of 3" />
         <ProgressBar step={1} total={3} />
 
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <KeyboardScroll contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {household?.status === 'rejected' && household.rejectionReason && (
             <View style={styles.rejected}>
               <Text style={styles.rejectedTitle}>Your application needs changes</Text>
@@ -152,7 +153,7 @@ export default function HouseholdStep1() {
             <Plus size={18} color={colors.primary} strokeWidth={2} />
             <Text style={styles.addText}>Add Family Member</Text>
           </Pressable>
-        </ScrollView>
+        </KeyboardScroll>
 
         <View style={styles.footer}>
           <PrimaryButton title="Next" onPress={handleNext} />

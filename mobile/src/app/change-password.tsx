@@ -1,6 +1,6 @@
 // src/app/change-password.tsx  —  residents (Account tab) and staff (tap your name on the dashboard)
 import { useState } from 'react';
-import { View, Text, ScrollView, Pressable, KeyboardAvoidingView, Platform, Alert, StyleSheet } from 'react-native';
+import { View, Text, Pressable, KeyboardAvoidingView, Platform, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import ScreenHeader from '../components/ScreenHeader';
@@ -9,6 +9,7 @@ import PrimaryButton from '../components/PrimaryButton';
 import { changePassword } from '../lib/auth';
 import { ApiError, errorText } from '../lib/api';
 import { colors, fonts } from '../constants/theme';
+import KeyboardScroll from '../components/KeyboardScroll';
 
 export default function ChangePassword() {
   const [current, setCurrent] = useState('');
@@ -56,7 +57,7 @@ export default function ChangePassword() {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScreenHeader title="Change Password" />
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <KeyboardScroll contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={styles.intro}>
             Use at least 8 characters. If someone else set your password (for example at the barangay hall), change it now.
           </Text>
@@ -80,7 +81,7 @@ export default function ChangePassword() {
           <Pressable onPress={() => setShow((s) => !s)} hitSlop={8}>
             <Text style={styles.toggle}>{show ? 'Hide passwords' : 'Show passwords'}</Text>
           </Pressable>
-        </ScrollView>
+        </KeyboardScroll>
 
         <View style={styles.footer}>
           <PrimaryButton title={saving ? 'Saving…' : 'Change Password'} onPress={save} disabled={saving} />

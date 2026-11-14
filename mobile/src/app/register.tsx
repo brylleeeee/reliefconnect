@@ -1,6 +1,6 @@
 // src/app/register.tsx  —  Figma frame: resident-register
 import { useState } from 'react';
-import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Alert, StyleSheet } from 'react-native';
+import { View, Text, KeyboardAvoidingView, Platform, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Info } from 'lucide-react-native';
@@ -11,6 +11,7 @@ import { useResident } from '../context/ResidentContext';
 import { register } from '../lib/auth';
 import { errorText } from '../lib/api';
 import { colors, fonts } from '../constants/theme';
+import KeyboardScroll from '../components/KeyboardScroll';
 
 export default function Register() {
   const [fullName, setFullName] = useState('');
@@ -51,7 +52,7 @@ export default function Register() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScreenHeader title="Resident Registration" subtitle="Create Account" />
 
-        <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+        <KeyboardScroll contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
           <FormInput
             label="Full Name (Head of Household)"
             placeholder="e.g. Juan dela Cruz"
@@ -92,7 +93,7 @@ export default function Register() {
               By registering, you agree that all provided data is true and subject to LGU validation.
             </Text>
           </View>
-        </ScrollView>
+        </KeyboardScroll>
 
         <View style={styles.footer}>
           <PrimaryButton title={busy ? 'Creating account…' : 'Create Account'} onPress={handleSubmit} disabled={busy} />

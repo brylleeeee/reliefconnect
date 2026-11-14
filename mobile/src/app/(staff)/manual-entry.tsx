@@ -4,7 +4,7 @@
 // instant and also work without internet.
 import { useCallback, useMemo, useRef, useState, type ComponentRef } from 'react';
 import {
-  View, Text, KeyboardAvoidingView, Platform, Alert, TextInput, Pressable, ScrollView, StyleSheet,
+  View, Text, KeyboardAvoidingView, Platform, Alert, TextInput, Pressable, StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -15,6 +15,7 @@ import PrimaryButton from '../../components/PrimaryButton';
 import { useStaff } from '../../context/StaffContext';
 import { downloadPack, getPack, OfflinePack, PackHousehold } from '../../lib/offline';
 import { colors, fonts } from '../../constants/theme';
+import KeyboardScroll from '../../components/KeyboardScroll';
 
 const MAX_SUGGESTIONS = 6;
 const MIN_CHARS = 2;
@@ -75,7 +76,7 @@ export default function ManualEntry() {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScreenHeader title="Reference Number" subtitle={selected ? `Brgy. ${selected.barangay}` : undefined} />
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <KeyboardScroll contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={styles.intro}>
             Use this when the resident has no phone or the QR code can't be scanned. The reference number is on the
             resident's Our QR tab or their printed walk-in slip.
@@ -150,7 +151,7 @@ export default function ManualEntry() {
               The server checks again when you open a household.
             </Text>
           )}
-        </ScrollView>
+        </KeyboardScroll>
         <View style={styles.footer}>
           <PrimaryButton title="Check Household" onPress={handleCheck} />
         </View>

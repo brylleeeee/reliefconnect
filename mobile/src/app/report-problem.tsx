@@ -2,7 +2,7 @@
 // Sent to the barangay admin's website; if there is no internet, it can be sent by SMS instead.
 import { useCallback, useState } from 'react';
 import {
-  View, Text, TextInput, Pressable, ScrollView, Alert, Linking, Platform,
+  View, Text, TextInput, Pressable, Alert, Linking, Platform,
   KeyboardAvoidingView, StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +18,7 @@ import { useResident } from '../context/ResidentContext';
 import { fetchReports, sendReport, RESIDENT_CATEGORIES, SupportReport } from '../data/supportReports';
 import { SUPPORT_PHONE, SUPPORT_NAME } from '../constants/support';
 import { colors, fonts } from '../constants/theme';
+import KeyboardScroll from '../components/KeyboardScroll';
 
 type Category = (typeof RESIDENT_CATEGORIES)[number];
 
@@ -113,7 +114,7 @@ export default function ReportProblem() {
       <ScreenHeader title="Report a Problem" subtitle="Tell your barangay what went wrong" />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <KeyboardScroll contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {/* urgent: call */}
           <Pressable style={({ pressed }) => [styles.callCard, pressed && { opacity: 0.85 }]} onPress={call}>
             <View style={styles.callIcon}>
@@ -164,7 +165,7 @@ export default function ReportProblem() {
           {reports?.length === 0 && <Text style={styles.hint}>You haven't sent any reports yet.</Text>}
           {reportPages.rows.map((r) => <ReportCard key={r.id} report={r} />)}
           <Pager meta={reportPages.meta} onPage={reportPages.goTo} />
-        </ScrollView>
+        </KeyboardScroll>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -3,7 +3,7 @@
 // strip of rice terraces, then a white sign-in card.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  View, Text, Image, Pressable, ScrollView, KeyboardAvoidingView, Platform, Animated, AccessibilityInfo,
+  View, Text, Image, Pressable, KeyboardAvoidingView, Platform, Animated, AccessibilityInfo,
   ActivityIndicator, StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import { router } from 'expo-router';
 import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Path, G } from 'react-native-svg';
 import { ChevronLeft, ShieldPlus } from 'lucide-react-native';
 import { colors, fonts } from '../constants/theme';
+import KeyboardScroll from './KeyboardScroll';
 
 const SEAL = require('../../assets/images/urbiztondo-seal.png');
 
@@ -99,7 +100,7 @@ export default function AuthLayout({ portal, title, subtitle, error, children, f
     <View style={styles.screen}>
       <StatusBar style="light" />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
+        <KeyboardScroll
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
           bounces={false}
@@ -179,7 +180,7 @@ export default function AuthLayout({ portal, title, subtitle, error, children, f
 
             {footer ? <View style={styles.footer}>{footer}</View> : null}
           </View>
-        </ScrollView>
+        </KeyboardScroll>
       </KeyboardAvoidingView>
     </View>
   );

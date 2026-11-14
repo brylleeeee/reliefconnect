@@ -1,7 +1,7 @@
 // src/app/(resident)/sos.tsx  —  "my household needs relief goods", with an optional message about the situation
-import { useCallback, useEffect, useRef, useState, type ComponentRef } from 'react';
+import { useCallback, useState } from 'react';
 import {
-  View, Text, ScrollView, Pressable, Alert, ActivityIndicator, TextInput, Keyboard, KeyboardAvoidingView, Platform, StyleSheet,
+  View, Text, Pressable, Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, StyleSheet,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import AppHeader from '../../components/AppHeader';
+import KeyboardScroll from '../../components/KeyboardScroll';
 import PrimaryButton from '../../components/PrimaryButton';
 import ConfirmDialog, { confirmText } from '../../components/ConfirmDialog';
 import { useResident } from '../../context/ResidentContext';
@@ -38,23 +39,6 @@ export default function SosScreen() {
   const [noteOpen, setNoteOpen] = useState(false);
   const [addingDetails, setAddingDetails] = useState(false);
   const message = [...picked, note.trim()].filter(Boolean).join(', ');
-  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
-  const noteRef = useRef<ComponentRef<typeof TextInput>>(null);
-
-  // The note box is at the bottom. On Android (edge-to-edge) the keyboard covers the screen instead of
-  // shrinking it, so we add the keyboard's height as space at the bottom and scroll the box above it.
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const showNote = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
-  useEffect(() => {
-    const shown = Keyboard.addListener('keyboardDidShow', (e) => {
-      if (Platform.OS === 'android') setKeyboardHeight(e.endCoordinates.height);
-      if (noteRef.current?.isFocused()) showNote();
-    });
-    const hidden = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
-    return () => { shown.remove(); hidden.remove(); };
-  }, []);
-  // after the extra space is added, scroll again so the box ends up right above the keyboard
-  useEffect(() => { if (keyboardHeight && noteRef.current?.isFocused()) showNote(); }, [keyboardHeight]);
   const resetMessage = () => { setPicked([]); setNote(''); setNoteOpen(false); };
   const [asking, setAsking] = useState<'send' | 'cancel' | null>(null); // which confirmation is open
 
@@ -118,10 +102,7 @@ export default function SosScreen() {
 
       {noteOpen ? (
         <TextInput
-          ref={noteRef}
           style={styles.input}
-          onFocus={showNote}
-          onContentSizeChange={() => { if (noteRef.current?.isFocused()) showNote(); }}
           value={note}
           onChangeText={setNote}
           placeholder="Hal. Baha na hanggang tuhod, may lola kaming hindi makalakad"
@@ -143,12 +124,7 @@ export default function SosScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <AppHeader barangay={household?.barangay ?? ''} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={[styles.content, keyboardHeight ? { paddingBottom: keyboardHeight } : null]}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
-      >
+      <KeyboardScroll contentContainerStyle={styles.content}>
         {loading ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
         ) : active ? (
@@ -215,7 +191,7 @@ export default function SosScreen() {
             </View>
           </View>
         )}
-      </ScrollView>
+      </KeyboardScroll>
       </KeyboardAvoidingView>
 
       <ConfirmDialog
