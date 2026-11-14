@@ -31,7 +31,7 @@ const TERRACE_FILL = [
   { fill: colors.pine, opacity: 1 },
 ];
 
-function Terraces() {
+export function Terraces() {
   return (
     <Svg width="100%" height="100%" viewBox="0 80 800 340" preserveAspectRatio="none">
       {TERRACES.map((d, i) => (
@@ -46,7 +46,7 @@ function Terraces() {
 }
 
 /** Deep forest green with a soft light in the top-right corner, like the website panel. */
-function HeroBackground() {
+export function HeroBackground() {
   return (
     <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
       <Defs>
