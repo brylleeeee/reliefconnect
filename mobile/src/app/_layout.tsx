@@ -11,6 +11,7 @@ import {
   Inter_700Bold,
   Inter_800ExtraBold,
 } from '@expo-google-fonts/inter';
+import { SourceSerif4_600SemiBold, SourceSerif4_700Bold } from '@expo-google-fonts/source-serif-4';
 import { ResidentProvider } from '../context/ResidentContext';
 import { BadgeProvider } from '../context/BadgeContext';
 import '../lib/push'; // sets how notifications show while the app is open
@@ -22,6 +23,8 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
     Inter_800ExtraBold,
+    SourceSerif4_600SemiBold,
+    SourceSerif4_700Bold,
   });
 
   // Tapping a phone notification opens the same screen as tapping it in the bell
