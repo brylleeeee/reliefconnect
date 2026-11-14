@@ -72,14 +72,18 @@ export default function Register() {
             placeholder="Minimum 8 characters"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
+            password
+            autoCapitalize="none"
+            autoComplete="new-password"
           />
           <FormInput
             label="Confirm Password"
             placeholder="Repeat password to verify"
             value={confirm}
             onChangeText={setConfirm}
-            secureTextEntry
+            password
+            autoCapitalize="none"
+            autoComplete="new-password"
           />
 
           <View style={styles.disclaimer}>
