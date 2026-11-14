@@ -101,7 +101,7 @@ export default function Account() {
             <Text style={styles.avatarText}>{getInitials(household.headName)}</Text>
           </View>
           <View style={styles.profileText}>
-            <Text style={styles.profileName}>{household.headName}</Text>
+            <Text style={styles.profileName} numberOfLines={2}>{household.headName}</Text>
             <Text style={styles.profileRole}>Head of Household</Text>
           </View>
         </View>
@@ -182,9 +182,9 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   infoTitle: { fontFamily: fonts.bold, fontSize: 12, letterSpacing: 0.5, color: colors.text },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  infoLabel: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
-  infoValue: { fontFamily: fonts.semibold, fontSize: 13, color: colors.text },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  infoLabel: { flexShrink: 0, maxWidth: '45%', fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
+  infoValue: { flex: 1, textAlign: 'right', fontFamily: fonts.semibold, fontSize: 13, color: colors.text },
   refIssued: { fontFamily: fonts.bold, color: colors.blue },
   refPending: { fontFamily: fonts.medium, color: colors.muted },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: 12 },
@@ -201,10 +201,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  actionLabel: { fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
+  actionLabel: { flex: 1, fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
   actionArrow: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted },
-  actionRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  actionHint: { fontFamily: fonts.semibold, fontSize: 12, color: colors.muted },
+  actionRight: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1, maxWidth: '50%', marginLeft: 8 },
+  actionHint: { flexShrink: 1, fontFamily: fonts.semibold, fontSize: 12, color: colors.muted },
 
   logout: {
     height: 48,

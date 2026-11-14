@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   stepText: { flex: 1, gap: 2 },
   stepTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   stepTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.text },
-  badge: { borderRadius: 4, paddingHorizontal: 6, height: 15, justifyContent: 'center' },
+  badge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1, minHeight: 15, justifyContent: 'center' },
   badgeText: { fontFamily: fonts.bold, fontSize: 9 },
   stepDesc: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary },
 

@@ -199,7 +199,8 @@ const styles = StyleSheet.create({
   rejectedText: { fontFamily: fonts.regular, fontSize: 13, color: colors.text, lineHeight: 18 },
 
   addButton: {
-    height: 44,
+    minHeight: 44,
+    paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.primary,

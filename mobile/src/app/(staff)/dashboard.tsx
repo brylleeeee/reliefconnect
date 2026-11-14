@@ -157,8 +157,8 @@ export default function Dashboard() {
             <Text style={styles.avatarText}>{getInitials(name)}</Text>
           </View>
           <View style={styles.welcome}>
-            <Text style={styles.welcomeTitle}>Kumusta, {name.split(' ')[0]}!</Text>
-            <Text style={styles.welcomeSub}>
+            <Text style={styles.welcomeTitle} numberOfLines={1}>Kumusta, {name.split(' ')[0]}!</Text>
+            <Text style={styles.welcomeSub} numberOfLines={1}>
               {selected ? `Brgy. ${selected.barangay} • Distribution Staff` : 'Distribution Staff'}
             </Text>
           </View>
@@ -217,11 +217,11 @@ export default function Dashboard() {
         <View style={styles.stats}>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>CLAIMED SO FAR</Text>
-            <Text style={[styles.statValue, { color: colors.primary }]}>{selected ? `${selected.claimed} homes` : '—'}</Text>
+            <Text style={[styles.statValue, { color: colors.primary }]} numberOfLines={1} adjustsFontSizeToFit>{selected ? `${selected.claimed} homes` : '—'}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>REMAINING QUOTA</Text>
-            <Text style={[styles.statValue, { color: colors.blue }]}>{remaining !== null ? `${remaining} homes` : '—'}</Text>
+            <Text style={[styles.statValue, { color: colors.blue }]} numberOfLines={1} adjustsFontSizeToFit>{remaining !== null ? `${remaining} homes` : '—'}</Text>
           </View>
         </View>
 
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  profile: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  profile: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, marginRight: 10 },
   avatar: {
     width: 40,
     height: 40,
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: { fontFamily: fonts.bold, fontSize: 14, color: colors.primary },
-  welcome: { gap: 2 },
+  welcome: { gap: 2, flexShrink: 1 },
   welcomeTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.text },
   welcomeSub: { fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary },
   bell: {

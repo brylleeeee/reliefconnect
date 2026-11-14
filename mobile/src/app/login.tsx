@@ -146,7 +146,8 @@ const styles = StyleSheet.create({
   field: { gap: 6 },
   label: { fontFamily: fonts.semibold, fontSize: 12, letterSpacing: 0.5, color: colors.textSecondary },
   input: {
-    height: 44,
+    minHeight: 44,
+    paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
@@ -157,7 +158,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   passwordBox: {
-    height: 44,
+    minHeight: 44,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
@@ -167,7 +168,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  passwordInput: { flex: 1, height: '100%', fontFamily: fonts.regular, fontSize: 14, color: colors.text },
+  passwordInput: { flex: 1, minHeight: 42, paddingVertical: 10, fontFamily: fonts.regular, fontSize: 14, color: colors.text },
   note: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: 'center' },
   noteLink: { fontFamily: fonts.semibold, color: colors.primary },
 });

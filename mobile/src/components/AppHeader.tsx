@@ -21,13 +21,13 @@ export default function AppHeader({ barangay }: Props) {
         <View style={styles.miniLogo}>
           <Handshake size={16} color={colors.white} strokeWidth={2} />
         </View>
-        <Text style={styles.brandText}>ReliefConnect</Text>
+        <Text style={styles.brandText} numberOfLines={1} adjustsFontSizeToFit>ReliefConnect</Text>
       </View>
 
       <View style={styles.right}>
         {barangay ? (
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>Brgy. {barangay}</Text>
+            <Text style={styles.badgeText} numberOfLines={1}>Brgy. {barangay}</Text>
           </View>
         ) : null}
         {unread !== null && (
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1, minWidth: 0, marginRight: 10 },
   miniLogo: {
     width: 32,
     height: 32,
@@ -70,10 +70,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brandText: { fontFamily: fonts.extrabold, fontSize: 18, color: colors.text },
-  badge: { backgroundColor: colors.primaryTint, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  brandText: { flexShrink: 1, fontFamily: fonts.extrabold, fontSize: 18, color: colors.text },
+  badge: { backgroundColor: colors.primaryTint, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 1 },
   badgeText: { fontFamily: fonts.bold, fontSize: 11, color: colors.primary },
-  right: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1, maxWidth: '55%' },
   bell: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   dot: {
     position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 3,

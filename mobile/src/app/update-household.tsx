@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   reasonText: { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 4 },
 
   toggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 40 },
-  toggleLabel: { fontFamily: fonts.medium, fontSize: 13, color: colors.text },
+  toggleLabel: { flex: 1, paddingRight: 12, fontFamily: fonts.medium, fontSize: 13, color: colors.text },
 
   textArea: {
     minHeight: 90, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white,
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   },
 
   addButton: {
-    height: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.primary,
+    minHeight: 44, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.primary,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
   addText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.primary },

@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  category: { flexShrink: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.text },
+  category: { flex: 1, flexShrink: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.text },
   badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
   badgeText: { fontFamily: fonts.bold, fontSize: 11 },
   message: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.text },

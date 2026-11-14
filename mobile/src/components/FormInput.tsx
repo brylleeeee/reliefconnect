@@ -24,7 +24,8 @@ const styles = StyleSheet.create({
   field: { gap: 6 },
   label: { fontFamily: fonts.semibold, fontSize: 13, color: colors.text },
   input: {
-    height: 48,
+    minHeight: 48,
+    paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
