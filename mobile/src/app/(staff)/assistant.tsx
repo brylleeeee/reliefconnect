@@ -1,7 +1,7 @@
 // src/app/(staff)/assistant.tsx  —  report field problems to the barangay, or call support
 import { useCallback, useState } from 'react';
 import {
-  View, Text, TextInput, Pressable, ScrollView, Alert, Linking, Platform,
+  View, Text, TextInput, Pressable, Alert, Linking, Platform,
   KeyboardAvoidingView, StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,6 +17,7 @@ import { ApiError, errorText } from '../../lib/api';
 import { fetchReports, sendReport, STAFF_CATEGORIES, SupportReport } from '../../data/supportReports';
 import { SUPPORT_PHONE, SUPPORT_NAME } from '../../constants/support';
 import { colors, fonts } from '../../constants/theme';
+import KeyboardScroll from '../../components/KeyboardScroll';
 
 type Category = (typeof STAFF_CATEGORIES)[number];
 
@@ -115,7 +116,7 @@ export default function Assistant() {
       <ScreenHeader title="Assistant" subtitle="Report a problem or ask for help" />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <KeyboardScroll contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {/* urgent: call */}
           <Pressable style={({ pressed }) => [styles.callCard, pressed && { opacity: 0.85 }]} onPress={call}>
             <View style={styles.callIcon}>
@@ -171,7 +172,7 @@ export default function Assistant() {
           {reports?.length === 0 && <Text style={styles.hint}>You haven't sent any reports yet.</Text>}
           {reportPages.rows.map((r) => <ReportCard key={r.id} report={r} />)}
           <Pager meta={reportPages.meta} onPage={reportPages.goTo} />
-        </ScrollView>
+        </KeyboardScroll>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

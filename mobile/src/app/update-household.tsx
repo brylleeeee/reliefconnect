@@ -20,6 +20,7 @@ import {
 } from '../data/updateRequest';
 import { errorText } from '../lib/api';
 import { colors, fonts } from '../constants/theme';
+import KeyboardScroll from '../components/KeyboardScroll';
 
 const when = (iso: string) => new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -153,7 +154,7 @@ export default function UpdateHousehold() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScreenHeader title="Update Household Info" subtitle={`Barangay ${household.barangay}`} />
 
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <KeyboardScroll contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {latest?.status === 'rejected' && (
             <View style={[styles.banner, { backgroundColor: colors.dangerTint }]}>
               <View style={styles.bannerHead}>
@@ -218,7 +219,7 @@ export default function UpdateHousehold() {
               accessibilityLabel="Reason for the update"
             />
           </View>
-        </ScrollView>
+        </KeyboardScroll>
 
         <View style={styles.footer}>
           <PrimaryButton title={busy ? 'Sending…' : 'Send Request to Barangay'} onPress={send} disabled={busy} />

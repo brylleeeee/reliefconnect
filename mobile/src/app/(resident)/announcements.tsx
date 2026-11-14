@@ -1,42 +1,61 @@
 // src/app/(resident)/announcements.tsx  —  adviser: announcements tab (opening it marks them read)
 import { useCallback, useRef, useState } from 'react';
-import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { View, Text, FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Building } from 'lucide-react-native';
+import { Building2, Landmark, ChevronRight } from 'lucide-react-native';
 import AppHeader from '../../components/AppHeader';
 import Pager from '../../components/Pager';
 import { usePaged } from '../../lib/usePaged';
-import { fetchAnnouncements, Announcement } from '../../data/announcements';
+import { fetchAnnouncements, distributionStatus, Announcement, Tone } from '../../data/announcements';
 import { getReadIds, markRead } from '../../lib/announcementReads';
 import { useResident } from '../../context/ResidentContext';
 import { useBadges } from '../../context/BadgeContext';
 import { errorText } from '../../lib/api';
 import { colors, fonts } from '../../constants/theme';
 
+const CHIP: Record<Tone, { fg: string; bg: string }> = {
+  green: { fg: colors.primary, bg: colors.primaryTint },
+  blue: { fg: colors.blue, bg: colors.blueTint },
+  amber: { fg: '#9A6B00', bg: '#FDF6E3' },
+  gray: { fg: colors.textSecondary, bg: '#F1F4F5' },
+};
+
+// Short card like a news feed: who, when, the title and one line of the message. Tap to read it all.
 function AnnouncementCard({ item, isNew }: { item: Announcement; isNew: boolean }) {
+  const fromLgu = item.author.startsWith('LGU');
+  const Icon = fromLgu ? Landmark : Building2;
+  const status = item.distribution ? distributionStatus(item.distribution) : null;
   return (
-    <View style={[styles.card, isNew && styles.cardNew]}>
-      <View style={styles.meta}>
-        <View style={styles.author}>
-          <Building size={14} color={colors.primary} strokeWidth={2} />
-          <Text style={styles.authorText} numberOfLines={1}>{item.author}</Text>
-          {isNew ? (
-            <View style={styles.newPill}>
-              <Text style={styles.newText}>NEW</Text>
-            </View>
-          ) : null}
-        </View>
-        <Text style={styles.time}>{item.time}</Text>
+    <Pressable
+      onPress={() => router.push({ pathname: '/announcement/[id]', params: { id: item.id } })}
+      style={({ pressed }) => [styles.card, isNew && styles.cardNew, pressed && styles.cardPressed]}
+      accessibilityRole="button"
+      accessibilityLabel={`${isNew ? 'New. ' : ''}${item.title}, from ${item.author}, ${item.time}. Opens the full announcement.`}
+    >
+      <View style={[styles.avatar, fromLgu && styles.avatarLgu]}>
+        <Icon size={18} color={fromLgu ? colors.blue : colors.primary} strokeWidth={2} />
       </View>
 
       <View style={styles.cardBody}>
-        <Text style={styles.cardTitle}>{item.title}</Text>
-        <Text style={styles.cardText}>{item.body}</Text>
+        <View style={styles.meta}>
+          <Text style={styles.authorText} numberOfLines={1}>{item.author}</Text>
+          <Text style={styles.time}>· {item.time}</Text>
+          {isNew ? <View style={styles.newDot} /> : null}
+        </View>
+        <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+        <Text style={styles.cardText} numberOfLines={1}>{item.body}</Text>
+        {status ? (
+          <View style={[styles.statusChip, { backgroundColor: CHIP[status.tone].bg }]}>
+            <Text style={[styles.statusText, { color: CHIP[status.tone].fg }]} numberOfLines={1}>
+              {status.label} · {status.detail}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
-      <Text style={styles.postedBy}>{item.postedBy}</Text>
-    </View>
+      <ChevronRight size={18} color={colors.muted} strokeWidth={2} />
+    </Pressable>
   );
 }
 
@@ -96,7 +115,7 @@ export default function Announcements() {
         ListHeaderComponent={
           <View style={styles.titleRow}>
             <Text style={styles.sectionTitle}>Announcements</Text>
-            <Text style={styles.viewAll}>Pull down to refresh</Text>
+            <Text style={styles.viewAll}>Tap one to read it</Text>
           </View>
         }
       />
@@ -106,7 +125,7 @@ export default function Announcements() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  feed: { padding: 16, gap: 16 },
+  feed: { padding: 16, gap: 10 },
 
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sectionTitle: { fontFamily: fonts.bold, fontSize: 14, letterSpacing: 0.5, color: colors.text },
@@ -114,27 +133,27 @@ const styles = StyleSheet.create({
   empty: { fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: 'center', paddingVertical: 32 },
 
   card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
-    padding: 16,
-    gap: 10,
-    shadowColor: colors.text,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
   cardNew: { borderColor: colors.primary, backgroundColor: colors.primaryTint },
-  meta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  author: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1, minWidth: 0, marginRight: 8 },
-  authorText: { flexShrink: 1, fontFamily: fonts.semibold, fontSize: 11, color: colors.primary },
-  newPill: { backgroundColor: colors.primary, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 1, marginLeft: 4 },
-  newText: { fontFamily: fonts.bold, fontSize: 9, color: colors.white },
+  cardPressed: { opacity: 0.85 },
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primaryTint, alignItems: 'center', justifyContent: 'center' },
+  avatarLgu: { backgroundColor: colors.blueTint },
+  cardBody: { flex: 1, minWidth: 0, gap: 2 },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  authorText: { flexShrink: 1, fontFamily: fonts.semibold, fontSize: 11, color: colors.textSecondary },
   time: { flexShrink: 0, fontFamily: fonts.regular, fontSize: 11, color: colors.muted },
-  cardBody: { gap: 4 },
-  cardTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.text },
-  cardText: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.textSecondary },
-  postedBy: { fontFamily: fonts.regular, fontSize: 10, color: colors.muted },
+  newDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, marginLeft: 2 },
+  cardTitle: { fontFamily: fonts.bold, fontSize: 15, lineHeight: 20, color: colors.text },
+  cardText: { fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary },
+  statusChip: { alignSelf: 'flex-start', maxWidth: '100%', marginTop: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  statusText: { fontFamily: fonts.bold, fontSize: 11 },
 });

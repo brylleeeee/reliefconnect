@@ -180,8 +180,6 @@ export default function NotificationPreferences() {
               Everything still appears in the bell list inside the app. These settings only change what pops up on your phone.
             </Text>
 
-            <PrimaryButton title={testSent ? 'Test Sent: Check Your Phone' : 'Send a Test Notification'} variant="outline"
-                           onPress={sendTest} disabled={phone === 'blocked'} />
           </>
         )}
       </ScrollView>
