@@ -30,7 +30,6 @@ export default function NotificationPreferences() {
   const [phone, setPhone] = useState<PhoneStatus>('unknown');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [testSent, setTestSent] = useState(false);
   const saved = useRef<NotificationPrefs | null>(null); // last version the server accepted
 
   const checkPhone = useCallback(() => {
@@ -76,18 +75,6 @@ export default function NotificationPreferences() {
     const res = await Notifications.requestPermissionsAsync().catch(() => null);
     if (res?.granted) setPhone('allowed');
     else Linking.openSettings(); // Android/iOS only ask once; after that it's in Settings
-  };
-
-  const sendTest = async () => {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'ReliefConnect notifications are on',
-        body: 'This is how updates about distributions, your household and your SOS will appear.',
-        sound: 'default',
-      },
-      trigger: null, // show now
-    });
-    setTestSent(true);
   };
 
   const on = prefs?.enabled ?? true;
@@ -180,8 +167,6 @@ export default function NotificationPreferences() {
               Everything still appears in the bell list inside the app. These settings only change what pops up on your phone.
             </Text>
 
-            <PrimaryButton title={testSent ? 'Test Sent: Check Your Phone' : 'Send a Test Notification'} variant="outline"
-                           onPress={sendTest} disabled={phone === 'blocked'} />
           </>
         )}
       </ScrollView>
