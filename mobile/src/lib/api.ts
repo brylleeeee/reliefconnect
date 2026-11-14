@@ -44,7 +44,7 @@ type Options = {
 
 export async function api<T = any>(path: string, opts: Options = {}): Promise<T> {
   const token = await tokenStore.get();
-  const headers: Record<string, string> = { Accept: 'application/json' };
+    const headers: Record<string, string> = { Accept: 'application/json', 'ngrok-skip-browser-warning': '1' };
   if (token) headers.Authorization = `Bearer ${token}`;
 
   let body: any;
