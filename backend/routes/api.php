@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\DistributionEventController;
 use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\PrioritizationController;
 use App\Http\Controllers\Api\PushTokenController;
+use App\Http\Controllers\Api\NotificationPreferenceController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\Resident\SosController as ResidentSosController;
 use App\Http\Controllers\Api\SosAnalyticsController;
@@ -45,6 +46,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Push notifications: the phone's Expo push token (saved on login, removed on logout)
     Route::post('/me/push-token', [PushTokenController::class, 'store'])->middleware('throttle:10,1');
     Route::delete('/me/push-token', [PushTokenController::class, 'destroy']);
+    // Account → Notification Preferences: which notifications pop up on the phone
+    Route::get('/me/notification-preferences', [NotificationPreferenceController::class, 'show']);
+    Route::put('/me/notification-preferences', [NotificationPreferenceController::class, 'update'])->middleware('throttle:30,1');
 });
 
 // ---------------- LGU Admin (Municipal Personnel) ----------------

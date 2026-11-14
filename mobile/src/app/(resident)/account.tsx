@@ -1,6 +1,6 @@
 // src/app/(resident)/account.tsx  —  Figma frame: resident-account
 import { useCallback, useState } from 'react';
-import { View, Text, Pressable, ScrollView, Alert, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Redirect, useFocusEffect } from 'expo-router';
 import AppHeader from '../../components/AppHeader';
@@ -68,8 +68,6 @@ export default function Account() {
 
   const memberCount = household.members.length + 1; // family members + head of household
   const approved = household.status === 'approved';
-
-  const comingSoon = (feature: string) => Alert.alert(feature, 'This feature is coming soon.');
 
   const handleLogout = () => setConfirmLogout(true);
 
@@ -143,7 +141,7 @@ export default function Account() {
           )}
           <ActionRow label="Change Password" onPress={() => router.push('/change-password')} />
           <ActionRow label="Report a Problem" onPress={() => router.push('/report-problem')} />
-          <ActionRow label="Notification Preferences" onPress={() => comingSoon('Notification Preferences')} />
+          <ActionRow label="Notification Preferences" onPress={() => router.push('/notification-preferences')} />
         </View>
 
         {/* log out */}
