@@ -15,6 +15,14 @@ export const colors = {
   background: '#F7F9FA',
   white: '#FFFFFF',
   border: '#E2E8F0',
+
+  // Sign-in screens: Urbiztondo's rice-field greens (same as the website login)
+  forest: '#0D3A2F',
+  pine: '#15503F',
+  paddy: '#5AA37E',
+  sprout: '#CFE9DA',
+  mist: '#F1F7F3',
+  gold: '#E2B84C',
 };
 
 export const fonts = {
@@ -23,4 +31,7 @@ export const fonts = {
   semibold: 'Inter_600SemiBold',
   bold: 'Inter_700Bold',
   extrabold: 'Inter_800ExtraBold',
+  // Headings on the sign-in screens, matching the website login
+  serifSemibold: 'SourceSerif4_600SemiBold',
+  serifBold: 'SourceSerif4_700Bold',
 };
