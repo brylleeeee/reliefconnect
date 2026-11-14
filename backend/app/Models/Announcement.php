@@ -38,6 +38,12 @@ class Announcement extends Model
         return $this->belongsTo(Barangay::class);
     }
 
+    /** The relief distribution this announcement is about, if any. */
+    public function distributionEvent()
+    {
+        return $this->belongsTo(DistributionEvent::class);
+    }
+
     /** Barangay announcements that relayed this LGU announcement to residents. */
     public function relays()
     {
