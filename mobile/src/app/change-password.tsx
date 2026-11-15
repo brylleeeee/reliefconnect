@@ -1,6 +1,6 @@
 // src/app/change-password.tsx  —  residents (Account tab) and staff (tap your name on the dashboard)
 import { useState } from 'react';
-import { View, Text, Pressable, KeyboardAvoidingView, Platform, Alert, StyleSheet } from 'react-native';
+import { View, Text, Pressable, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import ScreenHeader from '../components/ScreenHeader';
@@ -10,6 +10,7 @@ import { changePassword } from '../lib/auth';
 import { ApiError, errorText } from '../lib/api';
 import { colors, fonts } from '../constants/theme';
 import KeyboardScroll from '../components/KeyboardScroll';
+import { showAlert } from '../lib/appAlert';
 
 export default function ChangePassword() {
   const [current, setCurrent] = useState('');
@@ -37,14 +38,14 @@ export default function ChangePassword() {
     setSaving(true);
     try {
       await changePassword(current, password, confirm);
-      Alert.alert('Password changed', 'Use your new password next time you log in. Other phones logged in to this account were logged out.');
+      showAlert('Password changed', 'Use your new password next time you log in. Other phones logged in to this account were logged out.');
       router.back();
     } catch (err) {
       if (err instanceof ApiError && err.errors) {
         // e.g. "Your current password is incorrect." under the right field
         setErrors(Object.fromEntries(Object.entries(err.errors).map(([k, v]) => [k, v[0]])));
       } else {
-        Alert.alert('Could not change password', errorText(err));
+        showAlert('Could not change password', errorText(err));
       }
     } finally {
       setSaving(false);

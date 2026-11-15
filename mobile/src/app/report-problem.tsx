@@ -1,10 +1,7 @@
 // src/app/report-problem.tsx  —  resident: report a problem to the barangay (e.g. incomplete aid).
 // Sent to the barangay admin's website; if there is no internet, it can be sent by SMS instead.
 import { useCallback, useState } from 'react';
-import {
-  View, Text, TextInput, Pressable, Alert, Linking, Platform,
-  KeyboardAvoidingView, StyleSheet,
-} from 'react-native';
+import { View, Text, TextInput, Pressable, Linking, Platform, KeyboardAvoidingView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Phone } from 'lucide-react-native';
@@ -19,6 +16,7 @@ import { fetchReports, sendReport, RESIDENT_CATEGORIES, SupportReport } from '..
 import { SUPPORT_PHONE, SUPPORT_NAME } from '../constants/support';
 import { colors, fonts } from '../constants/theme';
 import KeyboardScroll from '../components/KeyboardScroll';
+import { showAlert } from '../lib/appAlert';
 
 type Category = (typeof RESIDENT_CATEGORIES)[number];
 
@@ -58,36 +56,36 @@ export default function ReportProblem() {
     try {
       await Linking.openURL(url);
     } catch {
-      Alert.alert('Could not open SMS', `Please text ${SUPPORT_PHONE} directly.`);
+      showAlert('Could not open SMS', `Please text ${SUPPORT_PHONE} directly.`);
     }
   };
 
   const smsInstead = () => {
     if (!message.trim()) {
-      return Alert.alert('Describe the problem', 'Tell your barangay what happened before sending.');
+      return showAlert('Describe the problem', 'Tell your barangay what happened before sending.');
     }
     sendSms();
   };
 
   const submit = async () => {
     if (!message.trim()) {
-      return Alert.alert('Describe the problem', 'Tell your barangay what happened so they can help.');
+      return showAlert('Describe the problem', 'Tell your barangay what happened so they can help.');
     }
     setSending(true);
     try {
       await sendReport('resident', { category, message: message.trim() });
       setMessage('');
-      Alert.alert('Report sent', 'Your barangay will review it. You will be notified when it is resolved.');
+      showAlert('Report sent', 'Your barangay will review it. You will be notified when it is resolved.');
       loadReports();
     } catch (e) {
       if (e instanceof ApiError && e.status === 0) {
         // No connection: offer SMS instead
-        Alert.alert('No connection', 'The report could not reach the server. Send it by SMS instead?', [
+        showAlert('No connection', 'The report could not reach the server. Send it by SMS instead?', [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Send via SMS', onPress: sendSms },
         ]);
       } else {
-        Alert.alert('Report not sent', errorText(e));
+        showAlert('Report not sent', errorText(e));
       }
     } finally {
       setSending(false);
@@ -95,13 +93,13 @@ export default function ReportProblem() {
   };
 
   const call = () => {
-    Alert.alert('Call the barangay?', `${SUPPORT_NAME}\n${SUPPORT_PHONE}`, [
+    showAlert('Call the barangay?', `${SUPPORT_NAME}\n${SUPPORT_PHONE}`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Call',
         onPress: () =>
           Linking.openURL(`tel:${SUPPORT_PHONE}`).catch(() =>
-            Alert.alert('Could not start the call', `Please call ${SUPPORT_PHONE} from another phone.`)),
+            showAlert('Could not start the call', `Please call ${SUPPORT_PHONE} from another phone.`)),
       },
     ]);
   };

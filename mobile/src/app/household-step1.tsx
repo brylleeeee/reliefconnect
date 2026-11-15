@@ -1,9 +1,6 @@
 // src/app/household-step1.tsx  —  Figma frame: resident-household-step1
 import { useEffect, useState } from 'react';
-import {
-  View, Text, Pressable, KeyboardAvoidingView, Platform, Alert, Switch,
-  ActivityIndicator, StyleSheet,
-} from 'react-native';
+import { View, Text, Pressable, KeyboardAvoidingView, Platform, Switch, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Plus } from 'lucide-react-native';
@@ -19,6 +16,7 @@ import {
 import { errorText } from '../lib/api';
 import { colors, fonts } from '../constants/theme';
 import KeyboardScroll from '../components/KeyboardScroll';
+import { showAlert } from '../lib/appAlert';
 
 export default function HouseholdStep1() {
   const { fullName, contact } = useLocalSearchParams<{ fullName?: string; contact?: string }>();
@@ -52,13 +50,13 @@ export default function HouseholdStep1() {
   const addMember = () => setMembers((prev) => [...prev, newMember()]);
 
   const handleNext = () => {
-    if (!barangay) return Alert.alert('Barangay needed', 'Select the barangay where your household lives.');
-    if (!purok.trim()) return Alert.alert('Purok needed', 'Enter your purok, e.g. Purok 3.');
+    if (!barangay) return showAlert('Barangay needed', 'Select the barangay where your household lives.');
+    if (!purok.trim()) return showAlert('Purok needed', 'Enter your purok, e.g. Purok 3.');
 
     const problem =
       memberProblem(head, 'the household head') ??
       members.map((m, i) => memberProblem(m, `family member #${i + 1}`)).find(Boolean);
-    if (problem) return Alert.alert('Check the member details', problem);
+    if (problem) return showAlert('Check the member details', problem);
 
     const draft: HouseholdDraft = {
       barangayId: barangay.id,

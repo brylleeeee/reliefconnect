@@ -2,10 +2,7 @@
 // Panel recommendation after the alpha test. Nothing changes until the barangay approves;
 // the reference number and QR code stay the same.
 import { useCallback, useState } from 'react';
-import {
-  View, Text, Pressable, ScrollView, KeyboardAvoidingView, Platform, Alert, Switch,
-  ActivityIndicator, TextInput, StyleSheet,
-} from 'react-native';
+import { View, Text, Pressable, ScrollView, KeyboardAvoidingView, Platform, Switch, ActivityIndicator, TextInput, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, Redirect } from 'expo-router';
 import { Plus, Clock3, CircleX, BadgeCheck } from 'lucide-react-native';
@@ -21,6 +18,7 @@ import {
 import { errorText } from '../lib/api';
 import { colors, fonts } from '../constants/theme';
 import KeyboardScroll from '../components/KeyboardScroll';
+import { showAlert } from '../lib/appAlert';
 
 const when = (iso: string) => new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -65,13 +63,13 @@ export default function UpdateHousehold() {
   const addMember = () => setMembers((prev) => [...prev, newMember()]);
 
   const send = async () => {
-    if (!purok.trim()) return Alert.alert('Purok needed', 'Enter your purok, e.g. Purok 3.');
+    if (!purok.trim()) return showAlert('Purok needed', 'Enter your purok, e.g. Purok 3.');
     const problem =
       memberProblem(head, 'the household head') ??
       members.map((m, i) => memberProblem(m, `family member #${i + 1}`)).find(Boolean);
-    if (problem) return Alert.alert('Check the member details', problem);
+    if (problem) return showAlert('Check the member details', problem);
     if (!reason.trim()) {
-      return Alert.alert('Reason needed', 'Tell your barangay what changed, e.g. "New baby born in October".');
+      return showAlert('Reason needed', 'Tell your barangay what changed, e.g. "New baby born in October".');
     }
 
     setBusy(true);
@@ -82,22 +80,22 @@ export default function UpdateHousehold() {
         reason,
       );
       setLatest(r);
-      Alert.alert('Request sent', 'Your barangay will review it. You will get a notification once it is approved.');
+      showAlert('Request sent', 'Your barangay will review it. You will get a notification once it is approved.');
     } catch (e) {
-      Alert.alert('Could not send the request', errorText(e));
+      showAlert('Could not send the request', errorText(e));
     } finally {
       setBusy(false);
     }
   };
 
   const cancel = () =>
-    Alert.alert('Cancel this request?', 'Your barangay will no longer see it. You can send a new one after.', [
+    showAlert('Cancel this request?', 'Your barangay will no longer see it. You can send a new one after.', [
       { text: 'Keep it', style: 'cancel' },
       {
         text: 'Cancel request', style: 'destructive', onPress: async () => {
           setBusy(true);
           try { await cancelUpdateRequest(); await load(); }
-          catch (e) { Alert.alert('Could not cancel', errorText(e)); }
+          catch (e) { showAlert('Could not cancel', errorText(e)); }
           finally { setBusy(false); }
         },
       },

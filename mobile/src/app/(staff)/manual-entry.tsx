@@ -3,9 +3,7 @@
 // or household head's name). The list is the one already on the phone for offline mode, so suggestions are
 // instant and also work without internet.
 import { useCallback, useMemo, useRef, useState, type ComponentRef } from 'react';
-import {
-  View, Text, KeyboardAvoidingView, Platform, Alert, TextInput, Pressable, StyleSheet,
-} from 'react-native';
+import { View, Text, KeyboardAvoidingView, Platform, TextInput, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { ChevronRight, Search } from 'lucide-react-native';
@@ -16,6 +14,7 @@ import { useStaff } from '../../context/StaffContext';
 import { downloadPack, getPack, OfflinePack, PackHousehold } from '../../lib/offline';
 import { colors, fonts } from '../../constants/theme';
 import KeyboardScroll from '../../components/KeyboardScroll';
+import { showAlert } from '../../lib/appAlert';
 
 const MAX_SUGGESTIONS = 6;
 const MIN_CHARS = 2;
@@ -63,7 +62,7 @@ export default function ManualEntry() {
     router.push({ pathname: '/verification', params: { reference: value, method: 'reference_number' } });
 
   const handleCheck = () => {
-    if (!query) return Alert.alert('Reference number needed', 'Type the reference number shown on the resident\'s app or slip.');
+    if (!query) return showAlert('Reference number needed', 'Type the reference number shown on the resident\'s app or slip.');
     // Typed a name and exactly one household matches: use its reference number
     const exact = pack?.households.find((h) => h.reference_number === query);
     if (!exact && suggestions.length === 1) return verify(suggestions[0].reference_number);
