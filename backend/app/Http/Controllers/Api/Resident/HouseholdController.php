@@ -88,23 +88,25 @@ class HouseholdController extends Controller
             'members.*.is_pregnant' => ['boolean'],
             // Photos come either as file uploads or as base64 text in a JSON request (the mobile app)
             'valid_id' => ['required_without:valid_id_base64', 'nullable', 'file', 'mimes:jpg,jpeg,png,webp,heic', 'max:10240'],
-            'birth_certificate' => ['required_without:birth_certificate_base64', 'nullable', 'file', 'mimes:jpg,jpeg,png,webp,heic', 'max:10240'],
+            // Birth certificate is optional now: a valid ID is enough to register
+            'birth_certificate' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,heic', 'max:10240'],
             'valid_id_base64' => ['required_without:valid_id', 'nullable', 'string'],
-            'birth_certificate_base64' => ['required_without:birth_certificate', 'nullable', 'string'],
+            'birth_certificate_base64' => ['nullable', 'string'],
         ], [
             'members.0.relationship.in' => 'The first member listed must be the household head.',
             'members.*.birthdate.required' => 'Every member needs a birthdate.',
             'members.*.sex.required' => 'Select the sex of every member.',
             'valid_id.required_without' => 'Upload a photo of a valid ID.',
-            'birth_certificate.required_without' => 'Upload a photo of the birth certificate.',
             'valid_id_base64.required_without' => 'Upload a photo of a valid ID.',
-            'birth_certificate_base64.required_without' => 'Upload a photo of the birth certificate.',
             'valid_id.max' => 'The valid ID photo must be under 10 MB.',
             'birth_certificate.max' => 'The birth certificate photo must be under 10 MB.',
         ]);
 
         $photos = [];
         foreach (['valid_id', 'birth_certificate'] as $type) {
+            if (! $request->hasFile($type) && ! $request->filled("{$type}_base64")) {
+                continue; // only the optional birth certificate can be missing here
+            }
             $photos[$type] = $request->hasFile($type)
                 ? $this->fromUpload($request->file($type))
                 : $this->fromBase64($request->input("{$type}_base64"), $type);

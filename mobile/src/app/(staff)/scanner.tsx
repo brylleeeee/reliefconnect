@@ -1,6 +1,6 @@
 // src/app/(staff)/scanner.tsx  —  Figma frame: staff-qr-scanner
 import { useCallback, useRef, useState } from 'react';
-import { View, Text, Pressable, Alert, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router, useFocusEffect } from 'expo-router';
@@ -9,6 +9,7 @@ import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-ca
 import { ArrowLeft, Scan, Flashlight, FlashlightOff, TriangleAlert } from 'lucide-react-native';
 import PrimaryButton from '../../components/PrimaryButton';
 import { colors, fonts } from '../../constants/theme';
+import { showAlert } from '../../lib/appAlert';
 
 const GLASS = 'rgba(255,255,255,0.13)';
 
@@ -33,7 +34,7 @@ export default function Scanner() {
     // internet. Offline, staff use manual reference number entry instead (team decision).
     const net = await Network.getNetworkStateAsync().catch(() => null);
     if (net && (net.isConnected === false || net.isInternetReachable === false)) {
-      Alert.alert(
+      showAlert(
         'No internet connection',
         "QR codes can only be checked online. Use Manual Entry with the resident's reference number and check their valid ID.",
         [

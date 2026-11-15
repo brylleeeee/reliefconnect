@@ -1,6 +1,6 @@
 // src/app/(staff)/dashboard.tsx  —  Figma frame: staff-dashboard
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, Alert, RefreshControl, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
@@ -15,6 +15,7 @@ import { errorText, qtyUnit } from '../../lib/api';
 import { downloadPack, getPack, getQueue, getProblems, clearProblems, syncQueue, SyncProblem } from '../../lib/offline';
 import { fetchStaffUnreadCount } from '../../data/staffNotifications';
 import { colors, fonts } from '../../constants/theme';
+import { showAlert } from '../../lib/appAlert';
 
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/);
@@ -60,7 +61,7 @@ export default function Dashboard() {
       if (selected) await downloadPack(selected.event_id, selected.barangay_id).catch(() => {});
       if (sent || failed) await reload().catch(() => {});
       if (failed) {
-        Alert.alert('Some offline releases were not accepted',
+        showAlert('Some offline releases were not accepted',
           `${failed} release${failed === 1 ? '' : 's'} could not be recorded. See "Sync problems" on the dashboard and report them to your barangay admin.`);
       }
     } finally {
@@ -83,12 +84,12 @@ export default function Dashboard() {
   };
 
   const go = async (path: '/scanner' | '/manual-entry') => {
-    if (!selected) return Alert.alert('Choose a distribution', 'Select which barangay distribution you are serving first.');
+    if (!selected) return showAlert('Choose a distribution', 'Select which barangay distribution you are serving first.');
     if (!online && path === '/scanner') {
-      return Alert.alert('QR scanning needs internet', 'While offline, use Reference Number entry instead.');
+      return showAlert('QR scanning needs internet', 'While offline, use Reference Number entry instead.');
     }
     if (!online && !(await getPack(selected.event_id, selected.barangay_id))) {
-      return Alert.alert('No offline list on this phone',
+      return showAlert('No offline list on this phone',
         'Connect to the internet once with this distribution selected, so the household list is downloaded for offline use.');
     }
     router.push(path);
@@ -110,7 +111,7 @@ export default function Dashboard() {
     // Logging out deletes offline data, so unsent releases must be synced first
     const unsent = (await getQueue()).length;
     if (unsent) {
-      return Alert.alert('Sync first',
+      return showAlert('Sync first',
         `${unsent} offline release${unsent === 1 ? ' is' : 's are'} not sent yet. Connect to the internet and wait for them to sync before logging out.`);
     }
     setConfirmLogout(true);

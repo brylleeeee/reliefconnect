@@ -1,6 +1,6 @@
 // src/app/(staff)/verification.tsx  —  after a scan or typed reference: check the household, then release aid
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Image, Pressable, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, Image, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -15,6 +15,7 @@ import { api, errorText, qtyUnit } from '../../lib/api';
 import { addScan, ScanEntry, ScanResult } from '../../lib/scanLog';
 import { checkOffline, getPack, getQueue, isOfflineError, queueClaim } from '../../lib/offline';
 import { colors, fonts } from '../../constants/theme';
+import { showAlert } from '../../lib/appAlert';
 
 type CheckResult = {
   household: {
@@ -199,7 +200,7 @@ export default function Verification() {
   const takePhoto = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Camera needed', 'Allow camera access to take a photo of the beneficiary receiving the aid.');
+      showAlert('Camera needed', 'Allow camera access to take a photo of the beneficiary receiving the aid.');
       return;
     }
     const shot = await ImagePicker.launchCameraAsync({ quality: 0.5 });
@@ -258,7 +259,7 @@ export default function Verification() {
   const confirmRelease = () => {
     if (!result) return;
     if (needsPhoto && !photo) {
-      Alert.alert('Photo required', byRep
+      showAlert('Photo required', byRep
         ? 'Take a photo of the representative receiving the aid before releasing.'
         : 'Take a photo of the beneficiary receiving the aid before releasing.');
       return;

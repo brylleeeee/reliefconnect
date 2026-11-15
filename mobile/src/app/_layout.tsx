@@ -14,6 +14,7 @@ import {
 import { SourceSerif4_600SemiBold, SourceSerif4_700Bold } from '@expo-google-fonts/source-serif-4';
 import { ResidentProvider } from '../context/ResidentContext';
 import { BadgeProvider } from '../context/BadgeContext';
+import AlertHost from '../components/AlertHost';
 import '../lib/push'; // sets how notifications show while the app is open
 
 export default function RootLayout() {
@@ -43,6 +44,7 @@ export default function RootLayout() {
       <BadgeProvider>
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false }} />
+        <AlertHost />
       </BadgeProvider>
     </ResidentProvider>
   );

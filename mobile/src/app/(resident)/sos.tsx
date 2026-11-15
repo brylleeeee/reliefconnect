@@ -1,8 +1,6 @@
 // src/app/(resident)/sos.tsx  —  "my household needs relief goods", with an optional message about the situation
 import { useCallback, useState } from 'react';
-import {
-  View, Text, Pressable, Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, StyleSheet,
-} from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -17,6 +15,7 @@ import { useResident } from '../../context/ResidentContext';
 import { Sos, cancelSos, fetchActiveSos, sendSos } from '../../data/sos';
 import { errorText } from '../../lib/api';
 import { colors, fonts } from '../../constants/theme';
+import { showAlert } from '../../lib/appAlert';
 
 // Quick reasons residents can tap instead of typing (Filipino first, as most residents write).
 // The text is sent as-is, so the SOS scoring keeps recognising it.
@@ -57,7 +56,7 @@ export default function SosScreen() {
       resetMessage();
       setAddingDetails(false);
     } catch (e) {
-      Alert.alert('SOS not sent', errorText(e));
+      showAlert('SOS not sent', errorText(e));
     } finally {
       setBusy(false);
     }
@@ -72,7 +71,7 @@ export default function SosScreen() {
       await cancelSos();
       setActive(null);
     } catch (e) {
-      Alert.alert('Could not cancel', errorText(e));
+      showAlert('Could not cancel', errorText(e));
     }
   };
 

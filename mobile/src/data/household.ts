@@ -188,13 +188,13 @@ function photoData(asset: ImagePickerAsset, label: string): string {
 }
 
 /**
- * Sends the household and both document photos. Goes to the barangay's QR Issuance Review.
+ * Sends the household and the valid ID photo (a birth certificate is no longer asked for). Goes to the barangay's QR Issuance Review.
  * Photos travel as base64 inside a normal JSON request: multipart file uploads from
  * React Native are unreliable on some Android phones, while JSON requests always work.
  */
 export async function submitHousehold(
   draft: HouseholdDraft,
-  docs: { validId: ImagePickerAsset; birthCert: ImagePickerAsset },
+  docs: { validId: ImagePickerAsset },
 ): Promise<Household> {
   const body = {
     barangay_id: draft.barangayId,
@@ -203,10 +203,9 @@ export async function submitHousehold(
     is_solo_parent: draft.isSoloParent,
     members: [toApiMember({ ...draft.head, relationship: 'Head' }), ...draft.members.map(toApiMember)],
     valid_id_base64: photoData(docs.validId, 'valid ID'),
-    birth_certificate_base64: photoData(docs.birthCert, 'birth certificate'),
   };
 
-  // Two photos can be a few MB, so allow up to 2 minutes instead of the usual 20 seconds
+  // A photo can be a few MB, so allow up to 2 minutes instead of the usual 20 seconds
   return toHousehold(await api<ApiHousehold>('/resident/household', { method: 'POST', body, timeoutMs: 120000 }));
 }
 

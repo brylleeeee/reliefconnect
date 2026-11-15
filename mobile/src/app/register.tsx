@@ -1,6 +1,6 @@
 // src/app/register.tsx  —  Figma frame: resident-register
 import { useState } from 'react';
-import { View, Text, KeyboardAvoidingView, Platform, Alert, StyleSheet } from 'react-native';
+import { View, Text, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Info } from 'lucide-react-native';
@@ -12,6 +12,7 @@ import { register } from '../lib/auth';
 import { errorText } from '../lib/api';
 import { colors, fonts } from '../constants/theme';
 import KeyboardScroll from '../components/KeyboardScroll';
+import { showAlert } from '../lib/appAlert';
 
 export default function Register() {
   const [fullName, setFullName] = useState('');
@@ -23,16 +24,16 @@ export default function Register() {
 
   const handleSubmit = async () => {
     if (!fullName.trim() || !contact.trim() || !password || !confirm) {
-      return Alert.alert('Missing information', 'Please fill in all fields.');
+      return showAlert('Missing information', 'Please fill in all fields.');
     }
     if (!/^09\d{9}$/.test(contact)) {
-      return Alert.alert('Invalid number', 'Enter an 11-digit mobile number starting with 09.');
+      return showAlert('Invalid number', 'Enter an 11-digit mobile number starting with 09.');
     }
     if (password.length < 8) {
-      return Alert.alert('Password too short', 'Password must be at least 8 characters.');
+      return showAlert('Password too short', 'Password must be at least 8 characters.');
     }
     if (password !== confirm) {
-      return Alert.alert('Passwords do not match', 'Please re-enter your password.');
+      return showAlert('Passwords do not match', 'Please re-enter your password.');
     }
 
     setBusy(true);
@@ -41,7 +42,7 @@ export default function Register() {
       setUser(user);
       router.replace({ pathname: '/household-step1', params: { fullName: user.name, contact } });
     } catch (e) {
-      Alert.alert('Could not create account', errorText(e));
+      showAlert('Could not create account', errorText(e));
     } finally {
       setBusy(false);
     }
