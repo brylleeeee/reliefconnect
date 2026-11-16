@@ -31,6 +31,10 @@ class HouseholdController extends Controller
             'pending' => $q()->where('status', 'pending')->count(),
             'approved' => $q()->where('status', 'approved')->count(),
             'high_priority' => $q()->where('status', 'approved')->where('priority_level', 'high')->count(),
+            // Sidebar badge on Distributions: open events this barangay still has to schedule
+            'distributions_to_schedule' => \App\Models\BarangayDistribution::where('barangay_id', $request->user()->barangay_id)
+                ->where('status', 'unscheduled')
+                ->whereHas('event', fn ($e) => $e->where('status', 'open'))->count(),
             'update_requests_pending' => \App\Models\HouseholdUpdateRequest::where('status', 'pending')
                 ->whereHas('household', fn ($h) => $h->where('barangay_id', $request->user()->barangay_id))->count(),
             'walk_ins_this_month' => $q()->where('registration_type', 'walk_in')

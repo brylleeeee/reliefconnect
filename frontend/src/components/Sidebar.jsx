@@ -9,6 +9,14 @@ import useLiveTick from './useLiveTick'
 import { useAuth } from '../context/AuthContext'
 import Modal from './Modal'
 
+// What each sidebar count means, read aloud by screen readers and shown on hover
+const BADGE_TEXT = {
+  distributions_to_schedule: 'to schedule',
+  pending: 'waiting for review',
+  update_requests_pending: 'waiting for review',
+  announcements_unread: 'new',
+}
+
 const LINKS = {
   municipal_admin: [
     { to: '/', label: 'Dashboard', icon: LayoutGrid, end: true },
@@ -20,8 +28,8 @@ const LINKS = {
     { to: '/reports', label: 'Reports', icon: FileText },
   ],
   barangay_admin: [
-    { to: '/distributions', label: 'Distributions', icon: ClipboardCheck },
-    { to: '/qr-review', label: 'QR Issuance Review', icon: QrCode },
+    { to: '/distributions', label: 'Distributions', icon: ClipboardCheck, badge: 'distributions_to_schedule' },
+    { to: '/qr-review', label: 'QR Issuance Review', icon: QrCode, badge: 'pending' },
     { to: '/households', label: 'Household Records', icon: Users },
     { to: '/update-requests', label: 'Update Requests', icon: FilePen, badge: 'update_requests_pending' },
     { to: '/walk-in', label: 'Walk-in Registration', icon: UserPlus },
@@ -37,7 +45,8 @@ export default function Sidebar() {
   const initials = user?.name?.split(' ').map((w) => w[0]).slice(-2).join('') ?? '?'
   const isBarangay = user?.role === 'barangay_admin'
 
-  // Barangay: counts next to the menu items (waiting update requests, new LGU announcements), refreshed live.
+  // Barangay: counts next to the menu items (distributions to schedule, registrations and update requests
+  // waiting for review, new LGU announcements), refreshed live.
   // While the Announcements page is open the announcements count is cleared on the server.
   const [counts, setCounts] = useState({})
   const tick = useLiveTick()
@@ -81,10 +90,8 @@ export default function Sidebar() {
           <NavLink key={to} to={to} end={end} className="rc-nav-link">
             <Icon size={16} /> {label}
             {badge && counts[badge] > 0 && (
-              <span
-                className="rc-nav-badge"
-                aria-label={`${counts[badge]} ${badge === 'announcements_unread' ? 'new' : 'waiting'}`}
-              >
+              <span className="rc-nav-badge" title={`${counts[badge]} ${BADGE_TEXT[badge]}`}
+                    aria-label={`${counts[badge]} ${BADGE_TEXT[badge]}`}>
                 {counts[badge]}
               </span>
             )}
